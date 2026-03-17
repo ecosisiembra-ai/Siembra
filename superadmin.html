@@ -1031,7 +1031,7 @@ function mostrarError(msg) {
 
 async function doLogout() {
   if (sb) await sb.auth.signOut();
-  location.reload();
+  window.location.href = 'https://siembra-nine.vercel.app';
 }
 
 function abrirApp() {
@@ -1313,11 +1313,11 @@ async function crearEscuela() {
       // 1. Crear escuela
       const escPayload = {
         nombre, cct, municipio,
-        nivel_default: nivel || 'primaria',
-        estado:        estado || 'Nuevo León',
-        limite_alumnos: limite || 500,
-        activo:        true,
-        created_at:    new Date().toISOString()
+        nivel:       nivel || 'primaria',
+        estado:      estado || 'Nuevo León',
+        ciclo_actual:'2025-2026',
+        activa:      true,
+        creado_en:   new Date().toISOString()
       };
       const { data: esc, error: escErr } = await sb.from('escuelas').insert(escPayload).select('id').single();
       if (escErr) throw escErr;
@@ -1347,7 +1347,7 @@ async function crearEscuela() {
     window._escuelaCreada = { nombre, cct, dirEmail, dirNombre, token };
 
     // QR real con qrcode.js
-    const invLink = `${location.origin}/siembra-hub-v23.html?invite=${token}`;
+    const invLink = `https://siembra-nine.vercel.app?invite=${token}`;
     const qrBox = document.getElementById('ne-qr-box');
     if (qrBox) {
       qrBox.innerHTML = '<canvas id="ne-qr-canvas"></canvas>';
@@ -1388,7 +1388,7 @@ function copiarToken() {
 function copiarLinkInvitacion() {
   const t = window._tokenActual;
   if (!t) return;
-  const link = `${location.origin}/siembra-hub-v23.html?invite=${t}`;
+  const link = `https://siembra-nine.vercel.app?invite=${t}`;
   copiarTexto(link);
 }
 
@@ -1524,7 +1524,7 @@ async function generarInvitacion() {
     // Mostrar resultado visual
     document.getElementById('inv-token-display').textContent = token;
     document.getElementById('inv-result').style.display = 'block';
-    const invLink = SA_URL + '/siembra-hub-v23.html?invite=' + token;
+    const invLink = 'https://siembra-nine.vercel.app?invite=' + token;
     window._invLinkActual = invLink;
     const invCopyEl = document.getElementById('inv-link-display');
     if (invCopyEl) invCopyEl.textContent = invLink;
