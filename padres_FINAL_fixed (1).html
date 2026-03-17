@@ -1,0 +1,2245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1a6b4a">
+<title>SIEMBRA Familias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Baloo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════
+   SIEMBRA FAMILIAS — Design System
+═══════════════════════════════════════════ */
+:root {
+  --verde:       #1a6b4a;
+  --verde-mid:   #1D9E75;
+  --verde-light: #e1f5ee;
+  --verde-glow:  #4ecf97;
+  --amarillo:    #f5c842;
+  --amarillo-dk: #d4a017;
+  --coral:       #e05c3a;
+  --coral-light: #fdeee9;
+  --azul:        #2d6fb5;
+  --azul-light:  #e8f0fb;
+  --gris-100:    #f7f6f3;
+  --gris-200:    #eeede8;
+  --gris-400:    #b0afa8;
+  --gris-700:    #4a4a46;
+  --gris-900:    #1c1c1a;
+  --white:       #ffffff;
+  --radius-sm:   8px;
+  --radius-md:   14px;
+  --radius-lg:   22px;
+  --radius-xl:   32px;
+  --shadow-sm:   0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md:   0 4px 20px rgba(0,0,0,0.10);
+  --shadow-lg:   0 8px 40px rgba(0,0,0,0.14);
+  --font-display:'Baloo 2', sans-serif;
+  --font-body:   'Nunito', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%; width: 100%;
+  font-family: var(--font-body);
+  background: var(--gris-100);
+  color: var(--gris-900);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── PANTALLA DE LOGIN ─── */
+#login-screen {
+  position: fixed; inset: 0;
+  background: linear-gradient(160deg, #0d4a32 0%, #1a6b4a 50%, #1D9E75 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px; z-index: 100;
+  transition: opacity 0.4s;
+}
+.login-logo {
+  font-family: var(--font-display);
+  font-size: 42px; font-weight: 800;
+  color: var(--white); letter-spacing: -1px;
+  margin-bottom: 4px;
+}
+.login-logo span { color: var(--amarillo); }
+.login-sub {
+  font-size: 14px; color: rgba(255,255,255,0.75);
+  margin-bottom: 40px; letter-spacing: 0.5px;
+}
+.login-card {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  padding: 32px 28px;
+  width: 100%; max-width: 380px;
+  box-shadow: var(--shadow-lg);
+}
+.login-title {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 700;
+  color: var(--gris-900); margin-bottom: 6px;
+}
+.login-hint {
+  font-size: 13px; color: var(--gris-400);
+  margin-bottom: 24px;
+}
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block; font-size: 12px; font-weight: 700;
+  color: var(--gris-700); margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.form-input {
+  width: 100%; padding: 13px 16px;
+  border: 2px solid var(--gris-200);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body); font-size: 15px;
+  color: var(--gris-900); background: var(--gris-100);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+.form-input:focus {
+  border-color: var(--verde-mid);
+  box-shadow: 0 0 0 3px rgba(29,158,117,0.12);
+  background: var(--white);
+}
+.btn-primary {
+  width: 100%; padding: 14px;
+  background: var(--verde);
+  color: var(--white);
+  border: none; border-radius: var(--radius-md);
+  font-family: var(--font-display); font-size: 16px; font-weight: 700;
+  cursor: pointer; transition: background 0.2s, transform 0.1s;
+  margin-top: 8px;
+}
+.btn-primary:hover { background: #145838; }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { background: var(--gris-400); cursor: not-allowed; }
+.login-error {
+  background: var(--coral-light); color: var(--coral);
+  border-radius: var(--radius-sm); padding: 10px 14px;
+  font-size: 13px; margin-top: 12px; display: none;
+}
+.login-switch {
+  text-align: center; margin-top: 16px;
+  font-size: 13px; color: var(--gris-400);
+}
+.login-switch a {
+  color: var(--verde); font-weight: 700; cursor: pointer;
+  text-decoration: none;
+}
+
+/* ─── APP PRINCIPAL ─── */
+#app {
+  position: fixed; inset: 0;
+  display: none; flex-direction: column;
+  background: var(--gris-100);
+}
+
+/* ─── HEADER ─── */
+.app-header {
+  background: var(--verde);
+  padding: 14px 16px 18px;
+  flex-shrink: 0;
+  position: relative;
+}
+.header-top {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.header-brand {
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 800;
+  color: var(--white); letter-spacing: -0.5px;
+}
+.header-brand span { color: var(--amarillo); }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.header-btn {
+  width: 36px; height: 36px;
+  background: rgba(255,255,255,0.15);
+  border: none; border-radius: 50%;
+  cursor: pointer; color: var(--white);
+  font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+  position: relative;
+}
+.header-btn:hover { background: rgba(255,255,255,0.25); }
+.notif-badge {
+  position: absolute; top: -2px; right: -2px;
+  width: 16px; height: 16px;
+  background: var(--coral);
+  border-radius: 50%;
+  font-size: 9px; font-weight: 800;
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--verde);
+}
+.header-child-card {
+  background: rgba(255,255,255,0.15);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.child-avatar {
+  width: 44px; height: 44px;
+  background: var(--amarillo);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.child-info { flex: 1; }
+.child-greeting {
+  font-size: 12px; color: rgba(255,255,255,0.75);
+  font-weight: 600;
+}
+.child-name {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 700;
+  color: var(--white); line-height: 1.2;
+}
+.child-group {
+  font-size: 11px; color: rgba(255,255,255,0.65);
+}
+.xp-pill {
+  background: rgba(255,255,255,0.2);
+  border-radius: 20px; padding: 4px 10px;
+  text-align: center;
+}
+.xp-num {
+  font-family: var(--font-display);
+  font-size: 16px; font-weight: 800;
+  color: var(--amarillo); line-height: 1;
+}
+.xp-lbl { font-size: 9px; color: rgba(255,255,255,0.7); font-weight: 700; }
+
+/* ─── RACHA BAR ─── */
+.streak-bar {
+  display: flex; gap: 4px; padding: 12px 16px;
+  background: var(--white);
+  border-bottom: 1px solid var(--gris-200);
+  flex-shrink: 0;
+}
+.streak-day-pill {
+  flex: 1; padding: 6px 2px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-size: 9px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.streak-day-pill.done { background: var(--verde); color: white; }
+.streak-day-pill.today { background: var(--amarillo); color: var(--gris-900); }
+.streak-day-pill.miss { background: var(--gris-200); color: var(--gris-400); }
+.streak-label { font-size: 8px; display: block; margin-top: 1px; }
+
+/* ─── SCROLL CONTENT ─── */
+.app-content {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─── SECCIÓN TABS ─── */
+.section-tabs {
+  display: flex; gap: 6px;
+  padding: 12px 16px 0;
+  flex-shrink: 0;
+}
+.tab-pill {
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer; border: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.tab-pill.active {
+  background: var(--verde);
+  color: var(--white);
+}
+.tab-pill:not(.active) {
+  background: var(--gris-200);
+  color: var(--gris-700);
+}
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  margin: 0 16px 12px;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 14px; font-weight: 700;
+  color: var(--gris-700); margin-bottom: 12px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+/* ─── MATERIA ROW ─── */
+.materia-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gris-100);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.materia-row:last-child { border-bottom: none; }
+.materia-row:active { background: var(--gris-100); border-radius: var(--radius-sm); }
+.materia-icon {
+  width: 38px; height: 38px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.materia-data { flex: 1; }
+.materia-nombre {
+  font-size: 14px; font-weight: 700;
+  color: var(--gris-900); line-height: 1.2;
+}
+.materia-desc { font-size: 11px; color: var(--gris-400); }
+.materia-bar-wrap {
+  height: 4px; background: var(--gris-200);
+  border-radius: 4px; margin-top: 4px;
+}
+.materia-bar-fill {
+  height: 4px; border-radius: 4px;
+  transition: width 0.8s ease;
+}
+.materia-cal {
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 800;
+  min-width: 40px; text-align: right;
+}
+.trend-arrow {
+  font-size: 14px; font-weight: 900;
+  min-width: 20px; text-align: center;
+}
+
+/* ─── AVISO CARD ─── */
+.aviso-card {
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex; gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.aviso-card:active { transform: scale(0.98); }
+.aviso-card:last-child { margin-bottom: 0; }
+.aviso-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+.aviso-titulo {
+  font-size: 13px; font-weight: 700;
+  color: var(--gris-900); line-height: 1.3;
+}
+.aviso-body {
+  font-size: 12px; color: var(--gris-700);
+  margin-top: 2px; line-height: 1.4;
+}
+.aviso-fecha { font-size: 10px; color: var(--gris-400); margin-top: 4px; }
+.aviso-new {
+  width: 8px; height: 8px;
+  background: var(--coral);
+  border-radius: 50%; flex-shrink: 0;
+  margin-top: 5px;
+}
+
+/* ─── PREGUNTA DEL DÍA ─── */
+.pregunta-card {
+  background: linear-gradient(135deg, #0d4a32, #1D9E75);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin: 0 16px 12px;
+  color: var(--white);
+}
+.pregunta-label {
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 1px;
+  color: var(--amarillo); margin-bottom: 8px;
+}
+.pregunta-texto {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 700;
+  line-height: 1.4; margin-bottom: 16px;
+}
+.pregunta-options {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.pregunta-opt {
+  background: rgba(255,255,255,0.15);
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 8px;
+  font-family: var(--font-body); font-size: 13px; font-weight: 700;
+  color: var(--white); cursor: pointer;
+  transition: all 0.2s; text-align: center;
+}
+.pregunta-opt:hover { background: rgba(255,255,255,0.25); }
+.pregunta-opt.selected {
+  background: var(--amarillo);
+  border-color: var(--amarillo);
+  color: var(--gris-900);
+}
+.pregunta-opt.correct {
+  background: rgba(78,207,151,0.3);
+  border-color: var(--verde-glow);
+}
+.pregunta-opt.wrong {
+  background: rgba(224,92,58,0.3);
+  border-color: var(--coral);
+}
+.pregunta-feedback {
+  margin-top: 12px; padding: 10px 14px;
+  background: rgba(255,255,255,0.15);
+  border-radius: var(--radius-md);
+  font-size: 13px; line-height: 1.5;
+  display: none;
+}
+.xp-earned {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--amarillo); color: var(--gris-900);
+  border-radius: 20px; padding: 4px 10px;
+  font-size: 12px; font-weight: 800;
+  margin-top: 8px;
+}
+
+/* ─── PROGRESO GLOBAL ─── */
+.progreso-circle {
+  display: flex; flex-direction: column;
+  align-items: center; padding: 8px 0 4px;
+}
+.progreso-num {
+  font-family: var(--font-display);
+  font-size: 52px; font-weight: 900;
+  color: var(--verde); line-height: 1;
+}
+.progreso-lbl {
+  font-size: 12px; color: var(--gris-400);
+  font-weight: 700; margin-top: 2px;
+}
+.progreso-desc {
+  font-size: 13px; color: var(--gris-700);
+  text-align: center; margin-top: 8px;
+  padding: 0 16px; line-height: 1.5;
+}
+
+/* ─── LOGROS ─── */
+.logros-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.logro-item {
+  text-align: center;
+}
+.logro-icon {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  margin: 0 auto 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+}
+.logro-icon.earned { background: var(--amarillo); }
+.logro-icon.locked { background: var(--gris-200); filter: grayscale(1); opacity: 0.5; }
+.logro-name {
+  font-size: 10px; font-weight: 700;
+  color: var(--gris-700); line-height: 1.2;
+}
+
+/* ─── GALERÍA ─── */
+.galeria-scroll {
+  display: flex; gap: 10px;
+  overflow-x: auto; padding: 0 16px 4px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.galeria-scroll::-webkit-scrollbar { display: none; }
+.galeria-item {
+  flex-shrink: 0; width: 140px;
+  scroll-snap-align: start;
+}
+.galeria-img {
+  width: 140px; height: 100px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  background: var(--gris-200);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+}
+.galeria-caption {
+  font-size: 11px; font-weight: 600;
+  color: var(--gris-700); margin-top: 4px;
+  line-height: 1.3;
+}
+
+/* ─── EMPTY STATE ─── */
+.empty-state {
+  text-align: center; padding: 32px 20px;
+  color: var(--gris-400);
+}
+.empty-icon { font-size: 40px; margin-bottom: 8px; }
+.empty-text { font-size: 13px; font-weight: 600; }
+
+/* ─── AI SUGERENCIA ─── */
+.ai-card {
+  background: var(--azul-light);
+  border: 1.5px solid var(--azul);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin: 0 16px 12px;
+}
+.ai-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 8px;
+}
+.ai-dot {
+  width: 8px; height: 8px;
+  background: var(--azul);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+.ai-label {
+  font-size: 11px; font-weight: 800;
+  color: var(--azul); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.ai-text {
+  font-size: 13px; color: var(--gris-900);
+  line-height: 1.6;
+}
+.ai-loading {
+  display: flex; gap: 4px; align-items: center;
+}
+.ai-dot-anim {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--azul); animation: bounce 1.2s infinite;
+}
+.ai-dot-anim:nth-child(2) { animation-delay: 0.2s; }
+.ai-dot-anim:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
+  40% { transform: scale(1.3); opacity: 1; }
+}
+
+/* ─── BOTTOM NAV ─── */
+.bottom-nav {
+  background: var(--white);
+  border-top: 1px solid var(--gris-200);
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  flex-shrink: 0;
+}
+.nav-item {
+  flex: 1; padding: 10px 4px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  cursor: pointer; border: none; background: none;
+  transition: color 0.2s;
+  color: var(--gris-400);
+  font-family: var(--font-body);
+}
+.nav-item.active { color: var(--verde); }
+.nav-icon { font-size: 20px; line-height: 1; }
+.nav-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* ─── VIEWS ─── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ─── MODAL ─── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200; display: none;
+  align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-sheet {
+  background: var(--white);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 20px 20px 40px;
+  width: 100%; max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.modal-handle {
+  width: 40px; height: 4px;
+  background: var(--gris-200);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 20px; font-weight: 800;
+  margin-bottom: 16px;
+}
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed; top: 20px; left: 50%;
+  transform: translateX(-50%) translateY(-80px);
+  background: var(--gris-900); color: white;
+  border-radius: var(--radius-md); padding: 12px 20px;
+  font-size: 13px; font-weight: 700;
+  z-index: 999; transition: transform 0.3s ease;
+  white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ─── LOADING ─── */
+.loading-screen {
+  position: fixed; inset: 0;
+  background: var(--verde);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 50;
+  transition: opacity 0.4s;
+}
+.loading-logo {
+  font-family: var(--font-display);
+  font-size: 48px; font-weight: 900;
+  color: white; margin-bottom: 4px;
+}
+.loading-logo span { color: var(--amarillo); }
+.loading-sub { font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 32px; }
+.loading-bar-wrap {
+  width: 160px; height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+}
+.loading-bar-fill {
+  height: 4px; background: var(--amarillo);
+  border-radius: 4px; width: 0%;
+  animation: loadBar 1.8s ease forwards;
+}
+@keyframes loadBar { to { width: 100%; } }
+
+/* ─── SELECTOR DE HIJO ─── */
+.hijo-selector {
+  display: flex; gap: 8px;
+  overflow-x: auto; padding: 10px 16px;
+  background: var(--white);
+  border-bottom: 1px solid var(--gris-200);
+  flex-shrink: 0;
+}
+.hijo-selector::-webkit-scrollbar { display: none; }
+.hijo-chip {
+  flex-shrink: 0; padding: 7px 14px;
+  border-radius: 20px; border: 2px solid var(--gris-200);
+  background: var(--gris-100); cursor: pointer;
+  font-size: 13px; font-weight: 700;
+  color: var(--gris-700); transition: all 0.2s;
+  white-space: nowrap;
+}
+.hijo-chip.active {
+  border-color: var(--verde);
+  background: var(--verde-light);
+  color: var(--verde);
+}
+
+/* ─── SCROLL TOP PADDING ─── */
+.scroll-pad { height: 16px; }
+.scroll-pad-bottom { height: 24px; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loading-screen">
+  <div class="loading-logo">SIEM<span>BRA</span></div>
+  <div class="loading-sub">Familias</div>
+  <div class="loading-bar-wrap"><div class="loading-bar-fill"></div></div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen" style="display:none">
+  <div class="login-logo">SIEM<span>BRA</span></div>
+  <div class="login-sub">Portal para familias</div>
+  <div class="login-card">
+    <div class="login-title">¡Hola! 👋</div>
+    <div class="login-hint">Entra con el correo que te dio la escuela</div>
+    <div class="form-group">
+      <label class="form-label">Correo electrónico</label>
+      <input class="form-input" type="email" id="login-email" placeholder="tu@correo.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contraseña</label>
+      <input class="form-input" type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn-primary" id="btn-login" onclick="doLogin()">Entrar →</button>
+    <div class="login-error" id="login-error"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin:16px 0 4px">
+      <div style="flex:1;height:1px;background:var(--gris-200)"></div>
+      <span style="font-size:11px;color:var(--gris-400);font-weight:700">O PRUEBA SIN CUENTA</span>
+      <div style="flex:1;height:1px;background:var(--gris-200)"></div>
+    </div>
+    <button onclick="entrarDemo()" style="width:100%;padding:13px;background:var(--amarillo);color:var(--gris-900);border:none;border-radius:var(--radius-md);font-family:var(--font-display);font-size:15px;font-weight:800;cursor:pointer;margin-top:4px;transition:opacity 0.2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+      🧪 Entrar en modo demo
+    </button>
+    <div style="text-align:center;font-size:11px;color:var(--gris-400);margin-top:6px">Datos de prueba, sin afectar la base de datos</div>
+    <div class="login-switch" style="margin-top:12px">¿Es tu primera vez? <a onclick="showRegister()">Regístrate aquí</a></div>
+  </div>
+</div>
+
+<!-- REGISTER MODAL -->
+<div class="modal-overlay" id="modal-register">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Crear cuenta familiar</div>
+    <div class="form-group">
+      <label class="form-label">Tu nombre</label>
+      <input class="form-input" type="text" id="reg-nombre" placeholder="Ej. María García">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Correo electrónico</label>
+      <input class="form-input" type="email" id="reg-email" placeholder="tu@correo.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Contraseña</label>
+      <input class="form-input" type="password" id="reg-pass" placeholder="Mínimo 6 caracteres">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Código de vinculación del alumno</label>
+      <input class="form-input" type="text" id="reg-codigo" placeholder="Ej. ALU-2024-001" style="text-transform:uppercase">
+      <div style="font-size:11px;color:var(--gris-400);margin-top:4px">La escuela te dio este código en la inscripción</div>
+    </div>
+    <button class="btn-primary" id="btn-register" onclick="doRegister()">Crear cuenta →</button>
+    <div class="login-error" id="reg-error"></div>
+    <div style="margin-top:12px;text-align:center">
+      <a style="font-size:13px;color:var(--verde);font-weight:700;cursor:pointer" onclick="closeModal('modal-register')">Ya tengo cuenta</a>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- HEADER -->
+  <div class="app-header">
+    <div class="header-top">
+      <div class="header-brand">SIEM<span>BRA</span></div>
+      <div class="header-actions">
+        <button class="header-btn" onclick="showNotifsModal()" title="Avisos">
+          🔔
+          <span class="notif-badge" id="notif-badge" style="display:none">0</span>
+        </button>
+        <button class="header-btn" onclick="doLogout()" title="Salir">⎋</button>
+      </div>
+    </div>
+    <div class="header-child-card">
+      <div class="child-avatar" id="child-avatar">👦</div>
+      <div class="child-info">
+        <div class="child-greeting" id="child-greeting">Hola,</div>
+        <div class="child-name" id="child-name">Cargando...</div>
+        <div class="child-group" id="child-group">—</div>
+      </div>
+      <div class="xp-pill">
+        <div class="xp-num" id="header-xp">—</div>
+        <div class="xp-lbl">PUNTOS</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SELECTOR HIJOS (si hay más de uno) -->
+  <div class="hijo-selector" id="hijo-selector" style="display:none"></div>
+
+  <!-- RACHA ASISTENCIA -->
+  <div class="streak-bar" id="streak-bar">
+    <!-- renderizado por JS -->
+  </div>
+
+  <!-- TABS -->
+  <div class="section-tabs" id="section-tabs">
+    <button class="tab-pill active" onclick="switchTab('inicio')">🏠 Inicio</button>
+    <button class="tab-pill" onclick="switchTab('materias')">📚 Materias</button>
+    <button class="tab-pill" onclick="switchTab('avisos')">📋 Avisos</button>
+    <button class="tab-pill" onclick="switchTab('recompensas')">🎁 Premios</button>
+    <button class="tab-pill" onclick="switchTab('escuela')">📸 Escuela</button>
+  </div>
+
+  <!-- CONTENIDO SCROLLEABLE -->
+  <div class="app-content" id="app-content">
+
+    <!-- ─── VISTA: INICIO ─── -->
+    <div class="view active" id="view-inicio">
+      <div class="scroll-pad"></div>
+
+      <!-- Resumen rápido materias -->
+      <div class="card" id="card-resumen-materias">
+        <div class="card-title">📊 Cómo va esta semana</div>
+        <div id="resumen-materias-list">
+          <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Cargando materias...</div></div>
+        </div>
+      </div>
+
+      <!-- AI Sugerencia -->
+      <div class="ai-card" id="ai-card">
+        <div class="ai-header">
+          <div class="ai-dot"></div>
+          <div class="ai-label">Sugerencia personalizada</div>
+        </div>
+        <div class="ai-text" id="ai-text">
+          <div class="ai-loading">
+            <div class="ai-dot-anim"></div>
+            <div class="ai-dot-anim"></div>
+            <div class="ai-dot-anim"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pregunta del día -->
+      <div class="pregunta-card" id="pregunta-card">
+        <div class="pregunta-label">✨ Pregunta del día</div>
+        <div class="pregunta-texto" id="pregunta-texto">Cargando...</div>
+        <div class="pregunta-options" id="pregunta-options"></div>
+        <div class="pregunta-feedback" id="pregunta-feedback"></div>
+      </div>
+
+      <!-- Logros -->
+      <div class="card">
+        <div class="card-title">🏆 Logros recientes</div>
+        <div class="logros-grid" id="logros-grid">
+          <!-- renderizado por JS -->
+        </div>
+      </div>
+
+      <div class="scroll-pad-bottom"></div>
+    </div>
+
+    <!-- ─── VISTA: MATERIAS ─── -->
+    <div class="view" id="view-materias">
+      <div class="scroll-pad"></div>
+
+      <!-- Promedio general -->
+      <div class="card">
+        <div class="card-title">📈 Promedio general</div>
+        <div class="progreso-circle">
+          <div class="progreso-num" id="promedio-general">—</div>
+          <div class="progreso-lbl">PROMEDIO ACTUAL</div>
+          <div class="progreso-desc" id="promedio-desc">Calculando el promedio de todas las materias...</div>
+        </div>
+        <div style="margin-top:12px;height:160px;position:relative">
+          <canvas id="chart-radar"></canvas>
+        </div>
+      </div>
+
+      <!-- Lista materias detalle -->
+      <div class="card">
+        <div class="card-title">📚 Por materia</div>
+        <div id="materias-detail-list">
+          <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Cargando...</div></div>
+        </div>
+      </div>
+
+      <div class="scroll-pad-bottom"></div>
+    </div>
+
+    <!-- ─── VISTA: AVISOS ─── -->
+    <div class="view" id="view-avisos">
+      <div class="scroll-pad"></div>
+
+      <!-- Citatorios -->
+      <div class="card" id="card-citatorios">
+        <div class="card-title">📋 Citatorios y reportes</div>
+        <div id="citatorios-list">
+          <div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">Sin citatorios pendientes</div></div>
+        </div>
+      </div>
+
+      <!-- Avisos generales -->
+      <div class="card">
+        <div class="card-title">📢 Avisos de la escuela</div>
+        <div id="avisos-list">
+          <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Cargando avisos...</div></div>
+        </div>
+      </div>
+
+      <div class="scroll-pad-bottom"></div>
+    </div>
+
+    <!-- ─── VISTA: RECOMPENSAS ─── -->
+    <div class="view" id="view-recompensas">
+      <div class="scroll-pad"></div>
+      <div style="background:linear-gradient(135deg,#1a6b4a,#1D9E75);border-radius:var(--radius-lg);margin:0 16px 12px;padding:20px;color:white">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.7);margin-bottom:4px">Tus puntos disponibles</div>
+        <div style="display:flex;align-items:flex-end;gap:8px;margin-bottom:12px">
+          <div style="font-family:var(--font-display);font-size:52px;font-weight:900;color:var(--amarillo);line-height:1" id="puntos-display">—</div>
+          <div style="font-size:14px;font-weight:700;padding-bottom:10px;opacity:0.85">pts</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;background:rgba(255,255,255,0.15);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--amarillo)" id="puntos-racha">—</div>
+            <div style="font-size:10px;opacity:0.75;font-weight:700">RACHA DÍAS</div>
+          </div>
+          <div style="flex:1;background:rgba(255,255,255,0.15);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--amarillo)" id="puntos-nivel">—</div>
+            <div style="font-size:10px;opacity:0.75;font-weight:700">NIVEL</div>
+          </div>
+          <div style="flex:1;background:rgba(255,255,255,0.15);border-radius:var(--radius-sm);padding:10px;text-align:center">
+            <div style="font-family:var(--font-display);font-size:20px;font-weight:800;color:var(--amarillo)" id="puntos-canjeados">—</div>
+            <div style="font-size:10px;opacity:0.75;font-weight:700">CANJEADOS</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📸 Sube evidencia de tarea o proyecto</div>
+        <div style="font-size:12px;color:var(--gris-400);margin-bottom:12px">Documenta el trabajo de tu hij@ y gana <strong style="color:var(--verde-mid)">+15 pts</strong> tú y <strong style="color:var(--amarillo-dk)">+20 XP</strong> tu hij@</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <select id="evidencia-tipo" style="padding:10px 12px;border:2px solid var(--gris-200);border-radius:var(--radius-sm);font-family:var(--font-body);font-size:14px;background:var(--gris-100);color:var(--gris-900)">
+            <option value="tarea">📝 Tarea</option>
+            <option value="proyecto">🔬 Proyecto</option>
+            <option value="examen">📋 Examen</option>
+            <option value="otra">⭐ Otra actividad</option>
+          </select>
+          <input id="evidencia-titulo" type="text" placeholder="¿Qué es? Ej: Tarea de Matemáticas pág. 45" style="padding:10px 12px;border:2px solid var(--gris-200);border-radius:var(--radius-sm);font-family:var(--font-body);font-size:14px;background:var(--gris-100);color:var(--gris-900)">
+          <div id="evidencia-preview" style="display:none;border-radius:var(--radius-md);overflow:hidden;max-height:200px;background:var(--gris-200)">
+            <img id="evidencia-img" style="width:100%;object-fit:cover" alt="preview">
+          </div>
+          <label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px dashed var(--gris-200);border-radius:var(--radius-md);cursor:pointer;background:var(--gris-100)" id="evidencia-label">
+            <span style="font-size:24px">📷</span>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--gris-700)">Toca para elegir foto</div>
+              <div style="font-size:11px;color:var(--gris-400)">JPG, PNG o PDF · máx 5MB</div>
+            </div>
+            <input type="file" id="evidencia-file" accept="image/*,application/pdf" style="display:none" onchange="previewEvidencia(this)">
+          </label>
+          <button onclick="subirEvidencia()" id="btn-subir-evidencia" style="padding:13px;background:var(--verde);color:white;border:none;border-radius:var(--radius-md);font-family:var(--font-display);font-size:15px;font-weight:800;cursor:pointer">Subir evidencia → +15 pts</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🏆 Mis logros</div>
+        <div class="logros-grid" id="logros-padre-grid">
+          <div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Cargando...</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🛍 Canjea tus puntos</div>
+        <div style="font-size:12px;color:var(--gris-400);margin-bottom:12px">Tus puntos tienen valor real en estos comercios</div>
+        <div id="tienda-list"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-text">Cargando tienda...</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🧾 Mis canjes</div>
+        <div id="canjes-list"><div class="empty-state"><div class="empty-icon">🎁</div><div class="empty-text">Sin canjes aún</div></div></div>
+      </div>
+      <div class="scroll-pad-bottom"></div>
+    </div>
+
+    <!-- ─── VISTA: ESCUELA ─── -->
+    <div class="view" id="view-escuela">
+      <div class="scroll-pad"></div>
+
+      <!-- Próximos eventos -->
+      <div class="card">
+        <div class="card-title">📅 Próximos eventos</div>
+        <div id="eventos-list">
+          <div class="empty-state"><div class="empty-icon">🗓</div><div class="empty-text">Sin eventos próximos</div></div>
+        </div>
+      </div>
+
+      <!-- Galería -->
+      <div style="margin-bottom:12px">
+        <div style="padding: 0 16px 8px; font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--gris-700); text-transform:uppercase; letter-spacing:0.5px">📸 Galería escolar</div>
+        <div class="galeria-scroll" id="galeria-list">
+          <div class="empty-state" style="padding:20px 32px"><div class="empty-icon">📷</div><div class="empty-text">Sin fotos aún</div></div>
+        </div>
+      </div>
+
+      <div class="scroll-pad-bottom"></div>
+    </div>
+
+  </div><!-- /app-content -->
+
+</div><!-- /app -->
+
+<!-- MODAL AVISOS -->
+<div class="modal-overlay" id="modal-notifs">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔔 Notificaciones</div>
+    <div id="modal-notifs-list">
+      <div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">Todo al día</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MATERIA DETALLE -->
+<div class="modal-overlay" id="modal-materia">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-materia-title">Materia</div>
+    <div id="modal-materia-body"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// SIEMBRA FAMILIAS v2 — Lógica principal
+// Conecta a: maoioxmnfzzwnuinesyt (hub único)
+// ═══════════════════════════════════════════
+
+// ── Credenciales ──────────────────────────
+const SB_URL_HUB    = 'https://maoioxmnfzzwnuinesyt.supabase.co';
+const SB_KEY_HUB    = 'sb_publishable_fNwG2bdRTbrV-JCF7of8hA_TDjSXplY';
+const AI_ROUTER_URL = `${SB_URL_HUB}/functions/v1/ai-router`;
+
+let sbHub = null;
+try { sbHub = supabase.createClient(SB_URL_HUB, SB_KEY_HUB); } catch(e){}
+
+// ── Estado global ─────────────────────────
+let currentUser    = null;
+let currentPerfil  = null;   // usuario padre
+let hijosData      = [];     // array de alumnos vinculados
+let hijoActivo     = null;   // alumno seleccionado
+let calificaciones = [];
+let asistencias    = [];
+let preguntaRespondida = false;
+let chartRadar     = null;
+
+// ─── PREGUNTAS DEL DÍA ───────────────────
+const PREGUNTAS_DIA = [
+  {
+    texto: "¿Cuántos minutos al día dedica a leer en casa?",
+    opciones: ["0 minutos", "15 minutos", "30 minutos", "Más de 1 hora"],
+    correcta: 3,
+    feedback: "¡Excelente hábito! Leer 30 minutos diarios mejora la comprensión lectora hasta un 40% según la SEP. Inténtalo esta semana."
+  },
+  {
+    texto: "¿A qué hora se duerme tu hij@ entre semana?",
+    opciones: ["Antes de las 9pm", "9 a 10pm", "10 a 11pm", "Después de las 11pm"],
+    correcta: 1,
+    feedback: "Los niños en edad escolar necesitan entre 9 y 11 horas de sueño para rendir mejor en la escuela."
+  },
+  {
+    texto: "¿Revisa contigo la tarea antes de entregarla?",
+    opciones: ["Casi nunca", "A veces", "Casi siempre", "Siempre"],
+    correcta: 3,
+    feedback: "Revisar la tarea juntos refuerza el aprendizaje y fortalece el vínculo. Dedica 10 minutos cada noche."
+  },
+  {
+    texto: "¿Con qué frecuencia hablan sobre lo que aprendió en la escuela?",
+    opciones: ["Nunca", "Una vez a la semana", "Algunos días", "Todos los días"],
+    correcta: 3,
+    feedback: "Platicar sobre la escuela activa la memoria activa de tu hij@ y le ayuda a conectar lo aprendido con la vida real."
+  },
+  {
+    texto: "¿Desayuna antes de ir a la escuela?",
+    opciones: ["Casi nunca", "A veces sí", "Casi siempre", "Siempre desayuna"],
+    correcta: 3,
+    feedback: "El desayuno es el combustible del cerebro. Los estudiantes que desayunan tienen mejor concentración y memoria."
+  }
+];
+
+// ─── LOGROS DEMO ──────────────────────────
+const LOGROS = [
+  { icon: "🌟", name: "Primera semana", earned: true },
+  { icon: "📚", name: "Lector activo", earned: true },
+  { icon: "🎯", name: "Sin faltas", earned: false },
+  { icon: "🏆", name: "Top 10", earned: false },
+  { icon: "💪", name: "Mejoró Mates", earned: true },
+  { icon: "🔥", name: "Racha 7 días", earned: false },
+  { icon: "✅", name: "Tareas al día", earned: false },
+  { icon: "👑", name: "Mejor bimestre", earned: false },
+];
+
+// ─── INIT ─────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  setTimeout(async () => {
+    try {
+      // Intentar sesión en hub primero
+      if (sbHub) {
+        const { data: { session } } = await sbHub.auth.getSession();
+        if (session) {
+          currentUser = session.user;
+          await cargarPerfil();
+          mostrarApp();
+          return;
+        }
+      }
+    } catch(e) { console.warn('Session check error:', e); }
+    ocultarLoading();
+    mostrarLogin();
+  }, 2000);
+});
+
+function ocultarLoading() {
+  const ls = document.getElementById('loading-screen');
+  ls.style.opacity = '0';
+  setTimeout(() => ls.style.display = 'none', 400);
+}
+
+function mostrarLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+async function cargarPerfil() {
+  try {
+    if (!sbHub || !currentUser) return;
+    const { data } = await sbHub.from('usuarios')
+      .select('*').eq('auth_id', currentUser.id).single();
+    if (data) currentPerfil = data;
+    await cargarHijos();
+  } catch(e) { console.warn('Error cargando perfil:', e); }
+}
+
+async function cargarHijos() {
+  // Buscar alumnos vinculados al padre en hub
+  hijosData = [];
+  try {
+    if (currentPerfil && sbHub) {
+      // Tabla padres_alumnos: padre_id → alumno_id
+      const { data: vinculos } = await sbHub
+        .from('padres_alumnos')
+        .select('alumnos:alumno_id(id,nombre,apellido,grado,grupo,escuela_id)')
+        .eq('padre_id', currentPerfil.id);
+      if (vinculos?.length) {
+        hijosData = vinculos.map(v => v.alumnos).filter(Boolean);
+      }
+    }
+  } catch(e) {}
+
+  // Fallback: buscar en tabla usuarios por relación
+  if (!hijosData.length && currentPerfil && sbHub) {
+    try {
+      const { data: hijos } = await sbHub.from('usuarios')
+        .select('*')
+        .eq('padre_id', currentPerfil.id)
+        .eq('rol', 'alumno');
+      if (hijos?.length) hijosData = hijos;
+    } catch(e) {}
+  }
+
+  // Si hay hijos, usar el primero; si no, usar datos del propio usuario como demo
+  if (hijosData.length > 0) {
+    hijoActivo = hijosData[0];
+    if (hijosData.length > 1) renderHijoSelector();
+  } else {
+    // Modo demo con datos del usuario actual
+    hijoActivo = {
+      id: currentPerfil?.id,
+      nombre: currentPerfil?.nombre || 'Mi hijo',
+      apellido: currentPerfil?.apellido || '',
+      grupo: currentPerfil?.grupo || '2°B',
+    };
+  }
+}
+
+function mostrarApp() {
+  ocultarLoading();
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  renderHeader();
+  renderStreak();
+  cargarVista('inicio');
+}
+
+// ─── HEADER ───────────────────────────────
+function renderHeader() {
+  if (!hijoActivo) return;
+  const nombre = (hijoActivo.nombre || '') + ' ' + (hijoActivo.apellido || '');
+  const padreNombre = currentPerfil?.nombre || 'Familia';
+  document.getElementById('child-greeting').textContent = `Hola, ${padreNombre} 👋`;
+  document.getElementById('child-name').textContent = nombre.trim() || 'Tu hij@';
+  document.getElementById('child-group').textContent = hijoActivo.grupo || hijoActivo.grado_asignado || '—';
+  document.getElementById('child-avatar').textContent = nombre.trim().charAt(0) === '' ? '👦' : '👦';
+  // XP: buscar en db o demo
+  cargarXP();
+}
+
+async function cargarXP() {
+  try {
+    if (sbHub && hijoActivo?.id) {
+      const { data } = await sbHub.from('perfil_alumno')
+        .select('xp_total, racha_dias')
+        .eq('alumno_id', hijoActivo.id)
+        .single();
+      if (data) {
+        document.getElementById('header-xp').textContent = data.xp_total ?? '—';
+        return;
+      }
+    }
+  } catch(e) {}
+  document.getElementById('header-xp').textContent = '—';
+}
+
+// ─── SELECTOR DE HIJOS ────────────────────
+function renderHijoSelector() {
+  const sel = document.getElementById('hijo-selector');
+  sel.style.display = 'flex';
+  sel.innerHTML = hijosData.map((h, i) =>
+    `<div class="hijo-chip ${i===0?'active':''}" onclick="selectHijo(${i})">${h.nombre}</div>`
+  ).join('');
+}
+
+function selectHijo(idx) {
+  hijoActivo = hijosData[idx];
+  document.querySelectorAll('.hijo-chip').forEach((c, i) =>
+    c.classList.toggle('active', i === idx));
+  renderHeader();
+  cargarVista(activeTab);
+}
+
+// ─── RACHA / ASISTENCIA ───────────────────
+async function renderStreak() {
+  const dias = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  let registros = new Array(7).fill('miss');
+  try {
+    if (sbHub && hijoActivo?.id) {
+      const hoy = new Date();
+      const lunes = new Date(hoy);
+      lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+      const fechas = Array.from({length:7}, (_,i) => {
+        const d = new Date(lunes); d.setDate(lunes.getDate() + i);
+        return d.toISOString().split('T')[0];
+      });
+      const { data: asist } = await sbHub.from('asistencia')
+        .select('fecha,estado')
+        .eq('alumno_id', hijoActivo.id)
+        .in('fecha', fechas);
+      const todayStr = hoy.toISOString().split('T')[0];
+      if (asist) {
+        fechas.forEach((f, i) => {
+          const reg = asist.find(a => a.fecha === f);
+          if (f === todayStr) registros[i] = 'today';
+          else if (reg?.estado === 'presente') registros[i] = 'done';
+          else if (f < todayStr && !reg) registros[i] = 'miss';
+          else registros[i] = 'miss';
+        });
+      }
+    }
+  } catch(e) {}
+
+  const bar = document.getElementById('streak-bar');
+  bar.innerHTML = dias.map((d,i) => `
+    <div class="streak-day-pill ${registros[i]}">
+      ${d}
+      <span class="streak-label">${registros[i]==='done'?'✓':registros[i]==='today'?'⬤':'·'}</span>
+    </div>
+  `).join('');
+}
+
+// ─── TABS ─────────────────────────────────
+let activeTab = 'inicio';
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  const tabs = ['inicio','materias','avisos','recompensas','escuela'];
+  const idx = tabs.indexOf(tab);
+  document.querySelectorAll('.tab-pill')[idx]?.classList.add('active');
+  document.getElementById('view-'+tab)?.classList.add('active');
+  cargarVista(tab);
+  document.getElementById('app-content').scrollTop = 0;
+}
+
+async function cargarVista(tab) {
+  if (tab === 'inicio')      await cargarInicio();
+  if (tab === 'materias')    await cargarMaterias();
+  if (tab === 'avisos')      await cargarAvisos();
+  if (tab === 'recompensas') await cargarRecompensas();
+  if (tab === 'escuela')     await cargarEscuela();
+}
+
+// ─── VISTA INICIO ─────────────────────────
+async function cargarInicio() {
+  await cargarCalificaciones();
+  renderResumenMaterias();
+  cargarAISugerencia();
+  renderPreguntaDia();
+  renderLogros();
+}
+
+async function cargarCalificaciones() {
+  calificaciones = [];
+  try {
+    if (sbHub && hijoActivo?.id) {
+      const { data } = await sbHub.from('calificaciones')
+        .select('*, materias(nombre,color)')
+        .eq('alumno_id', hijoActivo.id)
+        .order('created_at', { ascending: false });
+      if (data?.length) { calificaciones = data; return; }
+    }
+    // Fallback: buscar en alumno db
+    if (sbHub && hijoActivo?.id) {
+      const { data } = await sbHub.from('calificaciones')
+        .select('*, materias(nombre,color)')
+        .eq('alumno_id', hijoActivo.id);
+      if (data?.length) { calificaciones = data; return; }
+    }
+  } catch(e) {}
+  // Demo data si no hay conexión real
+  calificaciones = getDemoCalificaciones();
+}
+
+function getDemoCalificaciones() {
+  return [
+    { materia: 'Matemáticas',     cal: 8.4, cal_ant: 7.8, icono: '📐', color: '#1D9E75' },
+    { materia: 'Español',         cal: 7.1, cal_ant: 7.4, icono: '📖', color: '#2d6fb5' },
+    { materia: 'Ciencias Nat.',   cal: 5.8, cal_ant: 6.2, icono: '🔬', color: '#e05c3a' },
+    { materia: 'Historia',        cal: 8.0, cal_ant: 7.5, icono: '🗺', color: '#9b59b6' },
+    { materia: 'Educación Física',cal: 9.5, cal_ant: 9.5, icono: '⚽', color: '#f5c842' },
+    { materia: 'Artes',           cal: 8.8, cal_ant: 8.5, icono: '🎨', color: '#e74c3c' },
+  ];
+}
+
+function getMateriaData(c) {
+  // Normaliza entre formato DB y demo
+  return {
+    nombre: c.materia || c.materias?.nombre || 'Materia',
+    cal:    parseFloat(c.cal || c.calificacion || c.promedio || 0),
+    calAnt: parseFloat(c.cal_ant || c.calificacion_anterior || 0),
+    icono:  c.icono || '📚',
+    color:  c.color || c.materias?.color || '#1D9E75',
+  };
+}
+
+function renderResumenMaterias() {
+  const el = document.getElementById('resumen-materias-list');
+  if (!calificaciones.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-text">Sin calificaciones registradas</div></div>';
+    return;
+  }
+  // Mostrar solo las 3 más relevantes (las más bajas primero para llamar atención)
+  const sorted = [...calificaciones]
+    .map(getMateriaData)
+    .sort((a,b) => a.cal - b.cal)
+    .slice(0, 4);
+
+  el.innerHTML = sorted.map(m => {
+    const pct = Math.min(100, Math.max(0, (m.cal / 10) * 100));
+    const trend = m.cal > m.calAnt ? '↑' : m.cal < m.calAnt ? '↓' : '→';
+    const trendColor = trend === '↑' ? 'var(--verde-mid)' : trend === '↓' ? 'var(--coral)' : 'var(--gris-400)';
+    const calColor = m.cal >= 8 ? 'var(--verde-mid)' : m.cal >= 6 ? 'var(--azul)' : 'var(--coral)';
+    return `
+    <div class="materia-row" onclick="showMateriaDetail('${m.nombre}', ${m.cal})">
+      <div class="materia-icon" style="background:${m.color}22">${m.icono}</div>
+      <div class="materia-data">
+        <div class="materia-nombre">${m.nombre}</div>
+        <div class="materia-bar-wrap">
+          <div class="materia-bar-fill" style="width:${pct}%;background:${m.color}"></div>
+        </div>
+        <div class="materia-desc">${calDesc(m.cal)}</div>
+      </div>
+      <div class="materia-cal" style="color:${calColor}">${m.cal.toFixed(1)}</div>
+      <div class="trend-arrow" style="color:${trendColor}">${trend}</div>
+    </div>`;
+  }).join('');
+}
+
+function calDesc(cal) {
+  if (cal >= 9) return '¡Excelente!';
+  if (cal >= 8) return 'Muy bien 👍';
+  if (cal >= 7) return 'Regular';
+  if (cal >= 6) return 'Necesita apoyo';
+  return '⚠️ Atención urgente';
+}
+
+// ─── AI SUGERENCIA ────────────────────────
+async function cargarAISugerencia() {
+  const el = document.getElementById('ai-text');
+  const nombre = hijoActivo?.nombre || 'tu hij@';
+  const mats = calificaciones.slice(0,4).map(getMateriaData);
+  const peores = mats.filter(m => m.cal < 7).map(m => m.nombre).join(', ');
+  const mejores = mats.filter(m => m.cal >= 8).map(m => m.nombre).join(', ');
+
+  const prompt = `Soy padre/madre de ${nombre}, alumno de primaria o secundaria en México (Nueva Escuela Mexicana).
+Sus calificaciones: ${mats.map(m => `${m.nombre}: ${m.cal}`).join(', ')}.
+${peores ? `Materias con dificultad: ${peores}.` : ''}
+${mejores ? `Materias donde destaca: ${mejores}.` : ''}
+Dame UNA sugerencia práctica (2-3 oraciones máximo), amigable y directa, de algo que yo como padre pueda hacer HOY para apoyar a mi hij@. Sin listas, sin diagnósticos, solo un consejo cálido y accionable.`;
+
+  try {
+    const { data: { session } } = await sbHub.auth.getSession();
+    const jwt = session?.access_token;
+    const headers = { 'Content-Type': 'application/json' };
+    if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
+
+    const resp = await fetch(AI_ROUTER_URL, {
+      method: 'POST', headers,
+      body: JSON.stringify({ prompt, max_tokens: 150 })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      el.textContent = data.text || 'Sin sugerencias disponibles por ahora.';
+      return;
+    }
+  } catch(e) {}
+
+  // Fallback local si la IA no está disponible
+  const fallbacks = [
+    `Dedica 15 minutos esta noche a preguntarle a ${nombre} qué fue lo más interesante que aprendió hoy. Escucha sin interrumpir — ese momento vale más que cualquier tarea.`,
+    `Revisa juntos la mochila de ${nombre} antes de dormir. Organizarla la noche anterior reduce el estrés matutino y mejora la puntualidad.`,
+    `Felicita hoy a ${nombre} por algo específico de la escuela, no solo las calificaciones. El reconocimiento fortalece la motivación interna.`,
+  ];
+  el.textContent = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+}
+
+// ─── PREGUNTA DEL DÍA ─────────────────────
+function renderPreguntaDia() {
+  const hoy = new Date().getDay();
+  const p = PREGUNTAS_DIA[hoy % PREGUNTAS_DIA.length];
+  const yaRespondida = localStorage.getItem(`pregunta_${new Date().toDateString()}`);
+
+  document.getElementById('pregunta-texto').textContent = p.texto;
+  const optsEl = document.getElementById('pregunta-options');
+  const feedEl = document.getElementById('pregunta-feedback');
+
+  if (yaRespondida) {
+    optsEl.innerHTML = `<div style="grid-column:1/-1;text-align:center;font-size:13px;opacity:0.8">✅ Ya respondiste hoy. ¡Gracias!</div>`;
+    feedEl.style.display = 'block';
+    feedEl.textContent = p.feedback;
+    return;
+  }
+
+  optsEl.innerHTML = p.opciones.map((opt, i) =>
+    `<button class="pregunta-opt" onclick="responderPregunta(${i},${p.correcta},'${p.feedback.replace(/'/g,"\\'")}',this)">${opt}</button>`
+  ).join('');
+}
+
+function responderPregunta(idx, correcta, feedback, btn) {
+  if (preguntaRespondida) return;
+  preguntaRespondida = true;
+  const opts = document.querySelectorAll('.pregunta-opt');
+  opts.forEach((o, i) => {
+    o.disabled = true;
+    if (i === correcta) o.classList.add('correct');
+    if (i === idx && idx !== correcta) o.classList.add('wrong');
+    if (i === idx && idx === correcta) o.classList.add('selected');
+  });
+  const feedEl = document.getElementById('pregunta-feedback');
+  feedEl.style.display = 'block';
+  feedEl.innerHTML = feedback + `<div class="xp-earned">+10 ✨ puntos</div>`;
+  localStorage.setItem(`pregunta_${new Date().toDateString()}`, '1');
+  sumarXPLocal(10);
+}
+
+function sumarXPLocal(pts) {
+  const current = parseInt(document.getElementById('header-xp').textContent) || 0;
+  document.getElementById('header-xp').textContent = current + pts;
+}
+
+// ─── LOGROS ───────────────────────────────
+function renderLogros() {
+  document.getElementById('logros-grid').innerHTML = LOGROS.map(l => `
+    <div class="logro-item">
+      <div class="logro-icon ${l.earned ? 'earned' : 'locked'}">${l.icon}</div>
+      <div class="logro-name">${l.name}</div>
+    </div>
+  `).join('');
+}
+
+// ─── VISTA MATERIAS ───────────────────────
+async function cargarMaterias() {
+  if (!calificaciones.length) await cargarCalificaciones();
+  const mats = calificaciones.map(getMateriaData);
+  const promedio = mats.length
+    ? (mats.reduce((a,m) => a + m.cal, 0) / mats.length).toFixed(1)
+    : '—';
+  document.getElementById('promedio-general').textContent = promedio;
+  const pNum = parseFloat(promedio);
+  document.getElementById('promedio-desc').textContent =
+    pNum >= 9 ? `¡${hijoActivo?.nombre || 'Tu hij@'} está teniendo un ciclo excelente! Sigue apoyándole.` :
+    pNum >= 7 ? `Va bien en general. Hay algunas materias donde puede mejorar con un poco de apoyo en casa.` :
+    pNum >= 6 ? `Necesita refuerzo en algunas materias. Te recomendamos hablar con su docente.` :
+    `Está enfrentando dificultades académicas. Te recomendamos una reunión con la maestra o maestro.`;
+
+  // Radar chart
+  if (chartRadar) { chartRadar.destroy(); chartRadar = null; }
+  const ctx = document.getElementById('chart-radar');
+  if (ctx && mats.length >= 3) {
+    chartRadar = new Chart(ctx, {
+      type: 'radar',
+      data: {
+        labels: mats.map(m => m.nombre.substring(0,8)),
+        datasets: [{
+          data: mats.map(m => m.cal),
+          backgroundColor: 'rgba(29,158,117,0.15)',
+          borderColor: '#1D9E75',
+          borderWidth: 2,
+          pointBackgroundColor: '#1D9E75',
+          pointRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { r: { min: 0, max: 10, ticks: { stepSize: 2, font: { size: 9 } }, pointLabels: { font: { size: 10 } } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  // Lista detalle
+  const el = document.getElementById('materias-detail-list');
+  if (!mats.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-text">Sin calificaciones aún</div></div>';
+    return;
+  }
+  el.innerHTML = mats.map(m => {
+    const pct = Math.min(100, (m.cal/10)*100);
+    const calColor = m.cal >= 8 ? 'var(--verde-mid)' : m.cal >= 6 ? 'var(--azul)' : 'var(--coral)';
+    const trend = m.cal > m.calAnt ? '↑' : m.cal < m.calAnt ? '↓' : '→';
+    const trendColor = trend==='↑'?'var(--verde-mid)':trend==='↓'?'var(--coral)':'var(--gris-400)';
+    return `
+    <div class="materia-row" onclick="showMateriaDetail('${m.nombre}', ${m.cal})">
+      <div class="materia-icon" style="background:${m.color}22">${m.icono}</div>
+      <div class="materia-data">
+        <div class="materia-nombre">${m.nombre}</div>
+        <div class="materia-bar-wrap">
+          <div class="materia-bar-fill" style="width:${pct}%;background:${m.color}"></div>
+        </div>
+        <div class="materia-desc">${calDesc(m.cal)}</div>
+      </div>
+      <div class="materia-cal" style="color:${calColor}">${m.cal.toFixed(1)}</div>
+      <div class="trend-arrow" style="color:${trendColor}">${trend}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── DETALLE MATERIA (MODAL) ──────────────
+async function showMateriaDetail(nombre, cal) {
+  document.getElementById('modal-materia-title').textContent = nombre;
+  const body = document.getElementById('modal-materia-body');
+  body.innerHTML = `<div style="text-align:center;padding:20px 0">
+    <div style="font-size:64px;font-family:var(--font-display);font-weight:900;color:${cal>=8?'var(--verde-mid)':cal>=6?'var(--azul)':'var(--coral)'}">${cal.toFixed(1)}</div>
+    <div style="font-size:14px;color:var(--gris-400);margin-bottom:20px">${calDesc(cal)}</div>
+  </div>
+  <div class="ai-card" style="margin:0 0 16px">
+    <div class="ai-header"><div class="ai-dot"></div><div class="ai-label">Consejo para esta materia</div></div>
+    <div class="ai-text" id="modal-ai-text"><div class="ai-loading"><div class="ai-dot-anim"></div><div class="ai-dot-anim"></div><div class="ai-dot-anim"></div></div></div>
+  </div>`;
+
+  openModal('modal-materia');
+
+  // Cargar sugerencia IA para esta materia
+  try {
+    const prompt = `Dame un consejo MUY CORTO (1-2 oraciones) y práctico para que un padre de familia mexicano ayude a su hij@ a mejorar en la materia de ${nombre}. La calificación actual es ${cal.toFixed(1)}/10. Sin listas, tono amigable.`;
+    const { data: { session } } = await sbHub.auth.getSession();
+    const headers = { 'Content-Type': 'application/json' };
+    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+    const resp = await fetch(AI_ROUTER_URL, {
+      method:'POST', headers,
+      body: JSON.stringify({ prompt, max_tokens: 100 })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const el = document.getElementById('modal-ai-text');
+      if (el) el.textContent = data.text || '—';
+      return;
+    }
+  } catch(e) {}
+  const el = document.getElementById('modal-ai-text');
+  if (el) el.textContent = cal < 7
+    ? `Dedica 20 minutos diarios a repasar ${nombre} con tu hij@. Pregúntale qué parte le cuesta más y busquen videos cortos juntos en YouTube.`
+    : `¡Va muy bien en ${nombre}! Sigue reforzando con pequeños repasos semanales para mantener el nivel.`;
+}
+
+// ─── VISTA AVISOS ─────────────────────────
+async function cargarAvisos() {
+  // Citatorios
+  try {
+    if (sbHub && hijoActivo?.id) {
+      const { data: cit } = await sbHub.from('citatorios')
+        .select('*').eq('alumno_id', hijoActivo.id)
+        .order('fecha', { ascending: true }).limit(10);
+      if (cit?.length) {
+        renderCitatorios(cit);
+        const nuevos = cit.filter(c => !c.visto).length;
+        if (nuevos > 0) {
+          document.getElementById('notif-badge').style.display = 'flex';
+          document.getElementById('notif-badge').textContent = nuevos;
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Avisos generales de la escuela
+  try {
+    if (sbHub) {
+      const { data: avs } = await sbHub.from('avisos')
+        .select('*').eq('activo', true)
+        .order('created_at', { ascending: false }).limit(10);
+      if (avs?.length) { renderAvisosLista(avs); return; }
+    }
+  } catch(e) {}
+
+  // Demo
+  renderAvisosLista([
+    { id:1, tipo:'evento', titulo:'Junta de padres', descripcion:'Reunión bimestral con docentes. Confirma asistencia.', fecha:'2026-03-18', icono:'👥', nuevo: true },
+    { id:2, tipo:'logro',  titulo:'¡Felicidades!', descripcion:'Tu hij@ participó en el torneo escolar de ajedrez.', fecha:'2026-03-15', icono:'🏆', nuevo: false },
+    { id:3, tipo:'aviso',  titulo:'Vacaciones próximas', descripcion:'Del 4 al 11 de abril no hay clases por periodo vacacional.', fecha:'2026-03-12', icono:'📅', nuevo: false },
+  ]);
+}
+
+function renderCitatorios(lista) {
+  const el = document.getElementById('citatorios-list');
+  if (!lista.length) return;
+  el.innerHTML = lista.map(c => `
+    <div class="aviso-card" style="background:var(--coral-light)" onclick="marcarCitatorioVisto('${c.id}')">
+      <div class="aviso-icon">📋</div>
+      <div style="flex:1">
+        <div class="aviso-titulo">${c.motivo || c.titulo || 'Citatorio'}</div>
+        <div class="aviso-body">${c.descripcion || ''}</div>
+        <div class="aviso-fecha">${formatFecha(c.fecha)}</div>
+      </div>
+      ${!c.visto ? '<div class="aviso-new"></div>' : ''}
+    </div>
+  `).join('');
+}
+
+function renderAvisosLista(lista) {
+  const el = document.getElementById('avisos-list');
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📢</div><div class="empty-text">Sin avisos recientes</div></div>';
+    return;
+  }
+  el.innerHTML = lista.map(a => `
+    <div class="aviso-card" style="background:var(--gris-100)">
+      <div class="aviso-icon">${a.icono || '📢'}</div>
+      <div style="flex:1">
+        <div class="aviso-titulo">${a.titulo}</div>
+        <div class="aviso-body">${a.descripcion || a.cuerpo || ''}</div>
+        <div class="aviso-fecha">${formatFecha(a.fecha || a.created_at)}</div>
+      </div>
+      ${a.nuevo ? '<div class="aviso-new"></div>' : ''}
+    </div>
+  `).join('');
+}
+
+async function marcarCitatorioVisto(id) {
+  try {
+    if (sbHub) await sbHub.from('citatorios').update({ visto: true }).eq('id', id);
+  } catch(e) {}
+  showToast('✅ Citatorio marcado como leído');
+}
+
+// ─── VISTA ESCUELA ────────────────────────
+async function cargarEscuela() {
+  // Eventos
+  try {
+    if (sbHub) {
+      const { data: evts } = await sbHub.from('eventos')
+        .select('*').eq('activo', true)
+        .gte('fecha', new Date().toISOString().split('T')[0])
+        .order('fecha').limit(5);
+      if (evts?.length) { renderEventos(evts); }
+    }
+  } catch(e) {}
+
+  // Galería
+  try {
+    if (sbHub) {
+      const { data: fotos } = await sbHub.from('galeria')
+        .select('*').eq('activo', true)
+        .order('created_at', { ascending: false }).limit(10);
+      if (fotos?.length) { renderGaleria(fotos); return; }
+    }
+  } catch(e) {}
+
+  // Demo galería
+  renderGaleria([
+    { titulo: 'Torneo de fútbol', icono: '⚽' },
+    { titulo: 'Día del maestro', icono: '🌸' },
+    { titulo: 'Concurso de ciencias', icono: '🔬' },
+    { titulo: 'Festival de danza', icono: '💃' },
+  ]);
+}
+
+function renderEventos(lista) {
+  const el = document.getElementById('eventos-list');
+  const demos = [
+    { titulo:'Torneo deportivo escolar', fecha:'2026-03-21', descripcion:'Equipos de fútbol y basquetbol. ¡Ven a apoyar!', icono:'⚽' },
+    { titulo:'Concurso de oratoria', fecha:'2026-03-28', descripcion:'Participación voluntaria. Inscripciones abiertas.', icono:'🎤' },
+    { titulo:'Junta de padres 2° bimestre', fecha:'2026-04-04', descripcion:'Entrega de calificaciones y acuerdos de grupo.', icono:'👥' },
+  ];
+  const data = lista.length ? lista : demos;
+  el.innerHTML = data.map(e => `
+    <div class="aviso-card" style="background:var(--verde-light);margin-bottom:8px">
+      <div class="aviso-icon">${e.icono || '📅'}</div>
+      <div style="flex:1">
+        <div class="aviso-titulo">${e.titulo}</div>
+        <div class="aviso-body">${e.descripcion || ''}</div>
+        <div class="aviso-fecha">${formatFecha(e.fecha)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderGaleria(lista) {
+  const el = document.getElementById('galeria-list');
+  el.innerHTML = lista.map(f => `
+    <div class="galeria-item">
+      <div class="galeria-img">${f.icono || (f.url_foto ? '' : '📸')}</div>
+      <div class="galeria-caption">${f.titulo || f.descripcion || ''}</div>
+    </div>
+  `).join('');
+}
+
+// ─── NOTIFICACIONES MODAL ─────────────────
+function showNotifsModal() {
+  document.getElementById('notif-badge').style.display = 'none';
+  document.getElementById('modal-notifs-list').innerHTML = `
+    <div class="aviso-card" style="background:var(--verde-light)">
+      <div class="aviso-icon">✅</div>
+      <div><div class="aviso-titulo">Todo al día</div><div class="aviso-body">No tienes notificaciones pendientes.</div></div>
+    </div>`;
+  openModal('modal-notifs');
+}
+
+// ─── AUTH ─────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('btn-login');
+  if (!email || !pass) { showLoginError('Ingresa tu correo y contraseña'); return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  errEl.style.display = 'none';
+
+  let loggedIn = false;
+  // Intentar en hub primero
+  try {
+    const { data, error } = await sbHub.auth.signInWithPassword({ email, password: pass });
+    if (data?.session) {
+      currentUser = data.session.user;
+      loggedIn = true;
+    } else if (error) throw error;
+  } catch(e) {
+    // Intentar en alumno db
+    try {
+      const { data, error } = await sbHub.auth.signInWithPassword({ email, password: pass });
+      if (data?.session) { currentUser = data.session.user; loggedIn = true; }
+      else throw error;
+    } catch(e2) {
+      showLoginError('Correo o contraseña incorrectos. Verifica los datos.');
+      btn.disabled = false; btn.textContent = 'Entrar →';
+      return;
+    }
+  }
+
+  if (loggedIn) {
+    await cargarPerfil();
+    mostrarApp();
+  }
+  btn.disabled = false; btn.textContent = 'Entrar →';
+}
+
+async function doRegister() {
+  const nombre = document.getElementById('reg-nombre').value.trim();
+  const email  = document.getElementById('reg-email').value.trim();
+  const pass   = document.getElementById('reg-pass').value;
+  const codigo = document.getElementById('reg-codigo').value.trim().toUpperCase();
+  const errEl  = document.getElementById('reg-error');
+  const btn    = document.getElementById('btn-register');
+
+  if (!nombre||!email||!pass||!codigo) { showRegError('Completa todos los campos'); return; }
+  if (pass.length < 6) { showRegError('La contraseña debe tener al menos 6 caracteres'); return; }
+
+  btn.disabled = true; btn.textContent = 'Creando cuenta...';
+  errEl.style.display = 'none';
+
+  try {
+    // Verificar código de alumno
+    const { data: alumno } = await sbHub.from('usuarios')
+      .select('id,nombre').eq('codigo_vinculacion', codigo).single();
+    if (!alumno) { showRegError('Código de alumno no válido. Verifica con la escuela.'); btn.disabled=false; btn.textContent='Crear cuenta →'; return; }
+
+    // Crear usuario en Supabase Auth
+    const { data: authData, error: authErr } = await sbHub.auth.signUp({ email, password: pass });
+    if (authErr) throw authErr;
+
+    // Insertar en tabla usuarios
+    await sbHub.from('usuarios').insert({
+      auth_id: authData.user?.id, nombre, email, rol: 'padre'
+    });
+
+    // Crear vínculo padre-alumno
+    if (authData.user?.id) {
+      const { data: nuevoUsuario } = await sbHub.from('usuarios').select('id').eq('auth_id', authData.user.id).single();
+      if (nuevoUsuario) {
+        await sbHub.from('padres_alumnos').insert({ padre_id: nuevoUsuario.id, alumno_id: alumno.id });
+      }
+    }
+
+    closeModal('modal-register');
+    showToast('✅ Cuenta creada. Revisa tu correo para confirmar.');
+  } catch(e) {
+    showRegError('Error al crear la cuenta: ' + (e.message || 'Inténtalo de nuevo'));
+  }
+  btn.disabled = false; btn.textContent = 'Crear cuenta →';
+}
+
+function doLogout() {
+  if (!confirm('¿Cerrar sesión?')) return;
+  try { sbHub?.auth.signOut(); } catch(e) {}
+  currentUser = null; currentPerfil = null;
+  document.getElementById('app').style.display = 'none';
+  mostrarLogin();
+}
+
+// ─── UTILITIES ────────────────────────────
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function showRegError(msg) {
+  const el = document.getElementById('reg-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+function showRegister() {
+  openModal('modal-register');
+}
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function formatFecha(str) {
+  if (!str) return '';
+  try {
+    return new Date(str).toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' });
+  } catch(e) { return str; }
+}
+
+// ─── MODO DEMO ────────────────────────────
+// Entra sin Supabase, con datos realistas de prueba
+function entrarDemo() {
+  // Perfil padre demo
+  currentUser  = { id: 'demo-user-001', email: 'demo@siembra.mx' };
+  currentPerfil = { id: 'demo-padre-001', nombre: 'Señora García', email: 'demo@siembra.mx', rol: 'padre' };
+
+  // Hijo demo
+  hijoActivo = {
+    id: 'demo-alumno-001',
+    nombre: 'Diego',
+    apellido: 'García López',
+    grupo: '2°B · Turno matutino',
+    grado_asignado: '2'
+  };
+  hijosData = [hijoActivo];
+
+  // Calificaciones demo completas
+  calificaciones = [
+    { materia:'Matemáticas',        cal:8.4, cal_ant:7.8, icono:'📐', color:'#1D9E75' },
+    { materia:'Español',            cal:7.1, cal_ant:7.4, icono:'📖', color:'#2d6fb5' },
+    { materia:'Ciencias Naturales', cal:5.8, cal_ant:6.2, icono:'🔬', color:'#e05c3a' },
+    { materia:'Historia',           cal:8.0, cal_ant:7.5, icono:'🗺', color:'#9b59b6' },
+    { materia:'Educación Física',   cal:9.5, cal_ant:9.0, icono:'⚽', color:'#f5c842' },
+    { materia:'Artes',              cal:8.8, cal_ant:8.5, icono:'🎨', color:'#e74c3c' },
+    { materia:'Formación Cívica',   cal:7.6, cal_ant:7.2, icono:'🏛', color:'#16a085' },
+  ];
+
+  // Parchar funciones de DB para que usen datos demo
+  _patchDemoFunctions();
+
+  // Mostrar app
+  mostrarApp();
+  showToast('🧪 Modo demo activo — datos de prueba');
+}
+
+function _patchDemoFunctions() {
+  // Sobreescribir cargarCalificaciones para que no llame a Supabase
+  window._demoMode = true;
+
+  // Racha demo: L-J presente, V=hoy, S-D libre
+  const origStreak = renderStreak;
+  window.renderStreak = function() {
+    const dias = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    const estados = ['done','done','done','done','today','miss','miss'];
+    const bar = document.getElementById('streak-bar');
+    bar.innerHTML = dias.map((d,i) => `
+      <div class="streak-day-pill ${estados[i]}">
+        ${d}
+        <span class="streak-label">${estados[i]==='done'?'✓':estados[i]==='today'?'⬤':'·'}</span>
+      </div>
+    `).join('');
+  };
+
+  // XP demo
+  window.cargarXP = function() {
+    document.getElementById('header-xp').textContent = '620';
+  };
+
+  // Avisos demo
+  window._demoAvisos = [
+    { id:1, tipo:'citatorio', titulo:'Citatorio — lunes 18 mar', descripcion:'Reunión con la maestra Rodríguez para hablar sobre el avance en Ciencias. Hora: 4:00 pm.', fecha:'2026-03-18', icono:'📋', nuevo:true },
+    { id:2, tipo:'evento',    titulo:'Torneo de fútbol escolar', descripcion:'Diego está inscrito. Viernes 21 de marzo en canchas principales.', fecha:'2026-03-21', icono:'⚽', nuevo:true },
+    { id:3, tipo:'aviso',     titulo:'Semana de evaluaciones', descripcion:'Del 25 al 28 de marzo — revisar agenda con tu hij@.', fecha:'2026-03-25', icono:'📝', nuevo:false },
+    { id:4, tipo:'logro',     titulo:'¡Felicidades!', descripcion:'Diego obtuvo primer lugar en el concurso de lectura del bimestre.', fecha:'2026-03-10', icono:'🏆', nuevo:false },
+  ];
+
+  // Eventos demo
+  window._demoEventos = [
+    { titulo:'Torneo deportivo escolar',   fecha:'2026-03-21', descripcion:'Fútbol y basquetbol. ¡Ven a apoyar a Diego!', icono:'⚽' },
+    { titulo:'Semana de evaluaciones',     fecha:'2026-03-25', descripcion:'Repaso en casa muy recomendado.', icono:'📝' },
+    { titulo:'Junta bimestral de padres',  fecha:'2026-04-04', descripcion:'Entrega de calificaciones y acuerdos de grupo.', icono:'👥' },
+    { titulo:'Vacaciones de Semana Santa', fecha:'2026-04-13', descripcion:'Del 13 al 20 de abril sin clases.', icono:'🌴' },
+  ];
+}
+
+// Sobreescribir cargarAvisos para demo
+const _origCargarAvisos = cargarAvisos;
+window.cargarAvisos = async function() {
+  if (!window._demoMode) { return _origCargarAvisos(); }
+  // Separar citatorios de avisos generales
+  const citatorios = window._demoAvisos?.filter(a => a.tipo === 'citatorio') || [];
+  const avisos     = window._demoAvisos?.filter(a => a.tipo !== 'citatorio') || [];
+
+  if (citatorios.length) {
+    renderCitatorios(citatorios);
+    const nuevos = citatorios.filter(c => c.nuevo).length;
+    if (nuevos) {
+      document.getElementById('notif-badge').style.display = 'flex';
+      document.getElementById('notif-badge').textContent = nuevos;
+    }
+  }
+  renderAvisosLista(avisos);
+};
+
+// Sobreescribir cargarEscuela para demo
+const _origCargarEscuela = cargarEscuela;
+window.cargarEscuela = async function() {
+  if (!window._demoMode) { return _origCargarEscuela(); }
+  renderEventos(window._demoEventos || []);
+  renderGaleria([
+    { titulo:'Torneo de fútbol marzo',   icono:'⚽' },
+    { titulo:'Día del maestro',          icono:'🌸' },
+    { titulo:'Concurso de ciencias',     icono:'🔬' },
+    { titulo:'Festival cultural',        icono:'🎭' },
+    { titulo:'Visita al museo',          icono:'🏛' },
+    { titulo:'Clase de cocina NEM',      icono:'🍳' },
+  ]);
+};
+
+// Sobreescribir cargarAISugerencia para demo (sin llamar al servidor)
+const _origAI = cargarAISugerencia;
+window.cargarAISugerencia = async function() {
+  if (!window._demoMode) { return _origAI(); }
+  await new Promise(r => setTimeout(r, 800));
+  document.getElementById('ai-text').textContent =
+    'Diego tiene dificultades en Ciencias Naturales. Esta semana dedica 10 minutos antes de dormir a preguntarle qué tema vio en clase y escúchale explicarlo con sus palabras — eso refuerza más que releer el libro.';
+};
+
+// ══════════════════════════════════════════
+// RECOMPENSAS — nuevo módulo v2
+// ══════════════════════════════════════════
+
+async function cargarRecompensas() {
+  await cargarPerfilPadre();
+  await cargarLogrosPadre();
+  await cargarTienda();
+  await cargarMisCanjes();
+}
+
+async function cargarPerfilPadre() {
+  if (window._demoMode) {
+    document.getElementById('puntos-display').textContent = '340';
+    document.getElementById('puntos-racha').textContent   = '5';
+    document.getElementById('puntos-nivel').textContent   = '2';
+    document.getElementById('puntos-canjeados').textContent = '1';
+    return;
+  }
+  try {
+    if (!sbHub || !currentPerfil) return;
+    const { data } = await sbHub.from('perfil_padre')
+      .select('*').eq('padre_id', currentPerfil.id).single();
+    if (data) {
+      document.getElementById('puntos-display').textContent    = data.puntos_canjeables ?? 0;
+      document.getElementById('puntos-racha').textContent      = data.racha_dias ?? 0;
+      document.getElementById('puntos-nivel').textContent      = data.nivel ?? 1;
+    }
+    const { count } = await sbHub.from('canjes')
+      .select('*', { count:'exact', head:true }).eq('usuario_id', currentPerfil.id);
+    document.getElementById('puntos-canjeados').textContent = count ?? 0;
+  } catch(e) {}
+}
+
+async function cargarLogrosPadre() {
+  const el = document.getElementById('logros-padre-grid');
+  if (!el) return;
+  const DEMO = [
+    { icon:'👨‍👩‍👦', name:'Papá presente',    earned:true  },
+    { icon:'📸', name:'Evidencia enviada', earned:true  },
+    { icon:'💪', name:'Racha familiar',    earned:false },
+    { icon:'🤝', name:'Junta al 100',      earned:false },
+    { icon:'⭐', name:'Súper papá',        earned:false },
+    { icon:'🏆', name:'Mes perfecto',      earned:false },
+    { icon:'📋', name:'Sin citatorios',    earned:false },
+    { icon:'🌟', name:'Primer logro',      earned:true  },
+  ];
+  let logros = DEMO;
+  if (!window._demoMode && sbHub && currentPerfil) {
+    try {
+      const { data: cat } = await sbHub.from('logros_catalogo')
+        .select('*').in('tipo', ['padre','ambos']);
+      const { data: obt } = await sbHub.from('logros_padre')
+        .select('logro_id').eq('padre_id', currentPerfil.id);
+      if (cat?.length) {
+        const obtIds = new Set((obt||[]).map(o => o.logro_id));
+        logros = cat.map(l => ({ icon:l.icono, name:l.nombre, earned:obtIds.has(l.id) }));
+      }
+    } catch(e) {}
+  }
+  el.innerHTML = logros.map(l => `
+    <div class="logro-item">
+      <div class="logro-icon ${l.earned?'earned':'locked'}">${l.icon}</div>
+      <div class="logro-name">${l.name}</div>
+    </div>`).join('');
+}
+
+async function cargarTienda() {
+  const el = document.getElementById('tienda-list');
+  if (!el) return;
+  let beneficios = [];
+  if (!window._demoMode && sbHub) {
+    try {
+      const { data } = await sbHub.from('beneficios')
+        .select('*, comercios(nombre,categoria)')
+        .eq('activo', true).in('para_quien', ['padre','ambos'])
+        .order('puntos_requeridos');
+      if (data?.length) beneficios = data;
+    } catch(e) {}
+  }
+  if (!beneficios.length) {
+    beneficios = [
+      { id:'b1', titulo:'15% en útiles escolares', descripcion:'Válido en cualquier compra', puntos_requeridos:200, tipo_beneficio:'descuento_porcentaje', valor:15, comercios:{nombre:'Papelería del Maestro',categoria:'papeleria'}},
+      { id:'b2', titulo:'10% en ropa escolar',     descripcion:'Uniformes y ropa casual',    puntos_requeridos:300, tipo_beneficio:'descuento_porcentaje', valor:10, comercios:{nombre:'Coppel',categoria:'departamental'}},
+      { id:'b3', titulo:'$50 de descuento',        descripcion:'En compras mayores a $500',  puntos_requeridos:400, tipo_beneficio:'descuento_fijo',       valor:50, comercios:{nombre:'Soriana',categoria:'supermercado'}},
+      { id:'b4', titulo:'2x1 en boletos',          descripcion:'Domingo familiar',           puntos_requeridos:600, tipo_beneficio:'2x1',                  valor:0,  comercios:{nombre:'Cinépolis',categoria:'entretenimiento'}},
+      { id:'b5', titulo:'Mochila gratis',          descripcion:'Con compra mínima de $300',  puntos_requeridos:800, tipo_beneficio:'producto_gratis',       valor:0,  comercios:{nombre:'Papelería del Maestro',categoria:'papeleria'}},
+    ];
+  }
+  const pts = parseInt(document.getElementById('puntos-display').textContent) || 0;
+  const ico = c => ({papeleria:'✏️',departamental:'🏬',supermercado:'🛒',entretenimiento:'🎬'}[c]||'🏪');
+  const lbl = b => b.tipo_beneficio==='descuento_porcentaje'?`${b.valor}% OFF`:b.tipo_beneficio==='descuento_fijo'?`$${b.valor} OFF`:b.tipo_beneficio==='2x1'?'2x1':'GRATIS';
+  el.innerHTML = beneficios.map(b => {
+    const ok = pts >= b.puntos_requeridos;
+    return `<div style="border:1.5px solid ${ok?'var(--verde-mid)':'var(--gris-200)'};border-radius:var(--radius-md);padding:12px;margin-bottom:8px;opacity:${ok?1:0.6}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:44px;height:44px;border-radius:var(--radius-sm);background:${ok?'var(--verde-light)':'var(--gris-100)'};display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">${ico(b.comercios?.categoria)}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:800;color:var(--gris-900)">${b.titulo}</div>
+          <div style="font-size:11px;color:var(--gris-400)">${b.comercios?.nombre||''} · ${b.descripcion}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:var(--font-display);font-size:13px;font-weight:900;color:${ok?'var(--verde)':'var(--gris-400)'}">${lbl(b)}</div>
+          <div style="font-size:10px;color:var(--gris-400);font-weight:700">${b.puntos_requeridos} pts</div>
+        </div>
+      </div>
+      ${ok
+        ? `<button onclick="confirmarCanje('${b.id}','${b.titulo}','${b.puntos_requeridos}','${b.comercios?.nombre||''}')" style="width:100%;margin-top:10px;padding:9px;background:var(--verde);color:white;border:none;border-radius:var(--radius-sm);font-family:var(--font-display);font-size:13px;font-weight:800;cursor:pointer">Canjear ahora →</button>`
+        : `<div style="text-align:center;margin-top:8px;font-size:11px;color:var(--gris-400);font-weight:700">Te faltan ${b.puntos_requeridos-pts} pts</div>`
+      }</div>`;
+  }).join('');
+}
+
+async function cargarMisCanjes() {
+  const el = document.getElementById('canjes-list');
+  if (!el) return;
+  if (window._demoMode) {
+    el.innerHTML = `<div style="border:1px solid var(--gris-200);border-radius:var(--radius-md);padding:12px;display:flex;gap:10px;align-items:center">
+      <div style="font-size:24px">✏️</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700">15% en útiles escolares</div>
+        <div style="font-size:11px;color:var(--gris-400)">Papelería del Maestro · hace 3 días</div>
+        <div style="font-family:var(--font-display);font-size:14px;font-weight:900;color:var(--verde);margin-top:3px">SIEM-AB12-CD34</div>
+      </div>
+      <div style="background:var(--verde-light);color:var(--verde);font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px">ACTIVO</div>
+    </div>`;
+    return;
+  }
+  try {
+    if (!sbHub || !currentPerfil) return;
+    const { data } = await sbHub.from('canjes')
+      .select('*, beneficios(titulo,comercios(nombre))')
+      .eq('usuario_id', currentPerfil.id)
+      .order('created_at', { ascending:false }).limit(5);
+    if (!data?.length) return;
+    el.innerHTML = data.map(c => `
+      <div style="border:1px solid var(--gris-200);border-radius:var(--radius-md);padding:12px;display:flex;gap:10px;align-items:center;margin-bottom:8px">
+        <div style="font-size:24px">🎁</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${c.beneficios?.titulo||'Beneficio'}</div>
+          <div style="font-size:11px;color:var(--gris-400)">${c.beneficios?.comercios?.nombre||''} · ${formatFecha(c.created_at)}</div>
+          <div style="font-family:var(--font-display);font-size:14px;font-weight:900;color:var(--verde);margin-top:3px">${c.codigo_canje}</div>
+        </div>
+        <div style="background:${c.estado==='generado'?'var(--verde-light)':'var(--gris-200)'};color:${c.estado==='generado'?'var(--verde)':'var(--gris-400)'};font-size:10px;font-weight:800;padding:3px 8px;border-radius:20px">${c.estado.toUpperCase()}</div>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+function confirmarCanje(id, titulo, puntos, comercio) {
+  document.getElementById('modal-canje-title').textContent = '¿Confirmar canje?';
+  document.getElementById('modal-canje-body').innerHTML = `
+    <div style="text-align:center;padding:8px 0 20px">
+      <div style="font-size:48px;margin-bottom:12px">🛍</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">${titulo}</div>
+      <div style="font-size:13px;color:var(--gris-400);margin-bottom:16px">${comercio}</div>
+      <div style="background:var(--coral-light);border-radius:var(--radius-md);padding:12px;margin-bottom:20px">
+        <div style="font-size:13px;color:var(--coral);font-weight:700">Se descontarán <strong>${puntos} puntos</strong> de tu saldo</div>
+      </div>
+      <button onclick="ejecutarCanje('${id}','${titulo}','${comercio}','${puntos}')" style="width:100%;padding:13px;background:var(--verde);color:white;border:none;border-radius:var(--radius-md);font-family:var(--font-display);font-size:15px;font-weight:800;cursor:pointer;margin-bottom:8px">Sí, canjear →</button>
+      <button onclick="closeModal('modal-canje')" style="width:100%;padding:11px;background:var(--gris-100);color:var(--gris-700);border:none;border-radius:var(--radius-md);font-family:var(--font-display);font-size:14px;font-weight:700;cursor:pointer">Cancelar</button>
+    </div>`;
+  openModal('modal-canje');
+}
+
+async function ejecutarCanje(beneficioId, titulo, comercio, puntos) {
+  closeModal('modal-canje');
+  const genCodigo = () => 'SIEM-'+Math.random().toString(36).substring(2,6).toUpperCase()+'-'+Math.random().toString(36).substring(2,6).toUpperCase();
+  if (window._demoMode) {
+    const codigo = genCodigo();
+    document.getElementById('modal-codigo-comercio').textContent = `Presenta en: ${comercio}`;
+    document.getElementById('modal-codigo-texto').textContent    = codigo;
+    document.getElementById('modal-codigo-expira').textContent   = 'Válido por 30 días · demo';
+    const pts = parseInt(document.getElementById('puntos-display').textContent)||0;
+    document.getElementById('puntos-display').textContent = Math.max(0, pts - parseInt(puntos));
+    openModal('modal-codigo');
+    showToast('🎉 ¡Canje realizado!');
+    return;
+  }
+  try {
+    // Verificar que tiene suficientes puntos antes de insertar
+    const ptsSaldo = parseInt(document.getElementById('puntos-display').textContent)||0;
+    if (ptsSaldo < parseInt(puntos)) {
+      showToast('⚠️ No tienes suficientes puntos'); return;
+    }
+
+    // Obtener comercio_id del beneficio
+    const { data: bData } = await sbHub.from('beneficios')
+      .select('comercio_id').eq('id', beneficioId).single();
+
+    const { data, error } = await sbHub.from('canjes').insert({
+      usuario_id:    currentPerfil.id,
+      beneficio_id:  beneficioId,
+      comercio_id:   bData?.comercio_id || null,
+      puntos_usados: parseInt(puntos),
+    }).select().single();
+    if (error) throw error;
+
+    document.getElementById('modal-codigo-comercio').textContent = `Presenta en: ${comercio}`;
+    document.getElementById('modal-codigo-texto').textContent    = data.codigo_canje;
+    document.getElementById('modal-codigo-expira').textContent   = `Válido hasta: ${formatFecha(data.fecha_expiracion)}`;
+    openModal('modal-codigo');
+
+    // Descontar puntos del perfil padre
+    await sbHub.from('perfil_padre')
+      .update({ puntos_canjeables: Math.max(0, ptsSaldo - parseInt(puntos)) })
+      .eq('padre_id', currentPerfil.id);
+
+    await cargarPerfilPadre();
+    showToast('🎉 ¡Canje exitoso!');
+  } catch(e) {
+    console.error('[canje]', e);
+    showToast('❌ Error al canjear: ' + (e.message || 'Intenta de nuevo'));
+  }
+}
+
+function previewEvidencia(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('evidencia-img').src = e.target.result;
+      document.getElementById('evidencia-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+  const lbl = document.querySelector('#evidencia-label div div');
+  if (lbl) lbl.textContent = file.name;
+}
+
+async function subirEvidencia() {
+  const tipo   = document.getElementById('evidencia-tipo').value;
+  const titulo = document.getElementById('evidencia-titulo').value.trim();
+  const file   = document.getElementById('evidencia-file').files[0];
+  const btn    = document.getElementById('btn-subir-evidencia');
+  if (!titulo) { showToast('⚠️ Escribe una descripción'); return; }
+  btn.disabled = true; btn.textContent = 'Subiendo...';
+  if (window._demoMode) {
+    await new Promise(r => setTimeout(r, 1200));
+    showToast('📸 ¡Evidencia enviada! +15 pts para ti, +20 XP para tu hij@');
+    document.getElementById('evidencia-titulo').value = '';
+    document.getElementById('evidencia-preview').style.display = 'none';
+    document.getElementById('evidencia-file').value = '';
+    const pts = parseInt(document.getElementById('puntos-display').textContent)||340;
+    document.getElementById('puntos-display').textContent = pts + 15;
+    btn.disabled = false; btn.textContent = 'Subir evidencia → +15 pts';
+    return;
+  }
+  try {
+    let url_archivo = null, storage_path = null;
+    if (file) {
+      const ext = file.name.split('.').pop();
+      storage_path = `${currentUser.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await sbHub.storage.from('evidencias').upload(storage_path, file);
+      if (!upErr) {
+        const { data: urlData } = sbHub.storage.from('evidencias').getPublicUrl(storage_path);
+        url_archivo = urlData?.publicUrl;
+      }
+    }
+    await sbHub.from('evidencias').insert({
+      padre_id: currentPerfil.id, alumno_id: hijoActivo?.id,
+      tipo, titulo, url_archivo, storage_path,
+    });
+    showToast('📸 ¡Evidencia enviada! +15 pts para ti, +20 XP para tu hij@');
+    document.getElementById('evidencia-titulo').value = '';
+    document.getElementById('evidencia-preview').style.display = 'none';
+    await cargarPerfilPadre();
+  } catch(e) { showToast('❌ Error al subir. Intenta de nuevo.'); }
+  btn.disabled = false; btn.textContent = 'Subir evidencia → +15 pts';
+}
+</script>
+
+<!-- MODAL CANJE CONFIRMACIÓN -->
+<div class="modal-overlay" id="modal-canje">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-canje-title">Canjear beneficio</div>
+    <div id="modal-canje-body"></div>
+  </div>
+</div>
+
+<!-- MODAL CÓDIGO GENERADO -->
+<div class="modal-overlay" id="modal-codigo">
+  <div class="modal-sheet" style="text-align:center">
+    <div class="modal-handle"></div>
+    <div style="font-size:48px;margin:8px 0">🎉</div>
+    <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-bottom:8px">¡Canje exitoso!</div>
+    <div style="font-size:13px;color:var(--gris-400);margin-bottom:20px" id="modal-codigo-comercio">Presenta este código en la tienda</div>
+    <div style="background:var(--gris-100);border:2px dashed var(--gris-200);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--gris-400);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Tu código</div>
+      <div style="font-family:var(--font-display);font-size:28px;font-weight:900;color:var(--verde);letter-spacing:2px" id="modal-codigo-texto">—</div>
+      <div style="font-size:11px;color:var(--gris-400);margin-top:8px" id="modal-codigo-expira">Válido por 30 días</div>
+    </div>
+    <button onclick="closeModal('modal-codigo')" style="width:100%;padding:13px;background:var(--verde);color:white;border:none;border-radius:var(--radius-md);font-family:var(--font-display);font-size:15px;font-weight:800;cursor:pointer">¡Entendido!</button>
+  </div>
+</div>
+</body>
+</html>
