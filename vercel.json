@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/alumno", "destination": "/alumno.html" },
+    { "source": "/padres", "destination": "/padres.html" },
+    { "source": "/superadmin", "destination": "/superadmin.html" }
+  ]
+}
