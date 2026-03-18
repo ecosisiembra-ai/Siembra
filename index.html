@@ -22007,8 +22007,8 @@ window.addEventListener('siembra:datos-cargados', (e) => {
 // SISTEMA DE NIVELES — Primaria / Secundaria / Ambas
 // ══════════════════════════════════════════════════════════════════════
 
-// Nivel activo en el panel admin (independiente del portal docente)
-window._admNivelActivo = localStorage.getItem('siembra_adm_nivel') || 'primaria';
+// Nivel activo en el panel admin (se resolverá correctamente en ADM.init)
+window._admNivelActivo = localStorage.getItem('siembra_adm_nivel') || null;
 
 /**
  * Cambia el nivel activo en el panel de administración.
@@ -22106,21 +22106,24 @@ async function admCargarMateriasNivel(nivel) {
  * Se llama desde ADM.init() después de cargar el perfil.
  */
 function admInicializarSwitcherNivel() {
-  const escuelaNivel = ADM.currentPerfil?.nivel || window.currentPerfil?.nivel || 'primaria';
+  // Usar el nivel de la ESCUELA (resuelto en ADM.init desde tabla escuelas), no del perfil del usuario
+  const escuelaNivel = ADM.escuelaNivel || window._admNivelActivo || 'primaria';
   const switcher = document.getElementById('adm-nivel-switcher');
 
-  if (escuelaNivel === 'primaria_y_secundaria') {
-    // Show the switcher
+  if (escuelaNivel === 'primaria_y_secundaria' || escuelaNivel === 'ambos') {
+    // Show the switcher — escuela maneja ambos niveles
     if (switcher) switcher.style.display = 'flex';
-
-    // Set active nivel from localStorage or default to primaria
     const savedNivel = localStorage.getItem('siembra_adm_nivel') || 'primaria';
     window._admNivelActivo = savedNivel;
-    admCambiarNivel(savedNivel);  // This will also reload data
+    ADM.escuelaNivel = savedNivel; // Override para filtrar materias
+    admCambiarNivel(savedNivel);
   } else {
-    // Single-level school — hide switcher, set nivel
+    // Single-level school — hide switcher, force correct nivel
     if (switcher) switcher.style.display = 'none';
-    window._admNivelActivo = escuelaNivel || 'primaria';
+    window._admNivelActivo = escuelaNivel;
+    ADM.escuelaNivel = escuelaNivel;
+    // Guardar en localStorage para que sea consistente
+    try { localStorage.setItem('siembra_adm_nivel', escuelaNivel); } catch(e) {}
   }
 }
 
@@ -23009,7 +23012,7 @@ ADM.cargarMaterias = async function() {
 };
 
 ADM._materiasDefault = function() {
-  const nivel = window._admNivelActivo || window.currentPerfil?.nivel_default || window._nivelActivo || 'primaria';
+  const nivel = ADM.escuelaNivel || window._admNivelActivo || window._nivelActivo || 'primaria';
   return ADM._demoMaterias ? ADM._demoMaterias() : getMateriasByNivel(nivel).map((nombre, i) => ({
     id: 'mat-default-' + i, nombre, nivel, horas_semana: 5, activo: true
   }));
@@ -23231,10 +23234,18 @@ ADM.abrirModalPersonal = function() {
         (g.nombre||g.grado+'°') + '</label>').join('')
     : '<span style="font-size:12px;color:#94a3b8;">Sin grupos registrados — crea grupos primero</span>';
 
-  const materiasHtml = ADM.materias.length
-    ? ADM.materias.map(m => '<label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">' +
+  // Materias: usar ADM.materias si existen, si no generarlas del nivel correcto
+  let materiasList = ADM.materias;
+  if (!materiasList.length) {
+    const nivel = ADM.escuelaNivel || window._admNivelActivo || 'primaria';
+    materiasList = getMateriasByNivel(nivel).map((nombre, i) => ({ id: 'gen-' + i, nombre }));
+  }
+  const materiasHtml = materiasList.length
+    ? materiasList.map(m => '<label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">' +
         '<input type="checkbox" value="' + (m.nombre||m.id) + '" style="accent-color:#0d5c2f;"> ' + (m.nombre||'?') + '</label>').join('')
     : '<span style="font-size:12px;color:#94a3b8;">Sin materias en catálogo — agrega en Materias</span>';
+
+  const nivelLabel = (ADM.escuelaNivel || 'primaria') === 'secundaria' ? 'Secundaria (Campos Formativos Fase 6)' : 'Primaria (Asignaturas NEM)';
 
   const alumnosHtml = ADM.alumnos.length
     ? ADM.alumnos.map(a => '<option value="' + a.id + '">' + (a.nombre+' '+(a.apellido||a.apellido_p||'')).trim() + '</option>').join('')
@@ -23280,18 +23291,18 @@ ADM.abrirModalPersonal = function() {
         </select>
       </div>
     </div>
-    <div class="adm-form-group" id="campo-grupo-tutoria" style="display:none;">
+    <div class="adm-form-group" id="campo-grupo-tutoria">
       <label>Grupo tutoría</label>
       <select id="adm-p-grupo-tutoria"><option value="">— Sin tutoría —</option>${gruposTutoriaHtml}</select>
     </div>
-    <div id="adm-p-grupos-wrap" style="display:none;">
+    <div id="adm-p-grupos-wrap">
       <div class="adm-form-group">
         <label>Grupos que atiende</label>
         <div id="adm-p-grupos-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">${gruposHtml}</div>
         <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Selecciona todos los grupos donde imparte clases</div>
       </div>
       <div class="adm-form-group">
-        <label>Materias que imparte</label>
+        <label>Materias que imparte <span style="font-weight:400;color:#94a3b8;text-transform:none;letter-spacing:0;">(${nivelLabel})</span></label>
         <div id="adm-p-materias-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">${materiasHtml}</div>
         <div style="margin-top:8px;display:flex;gap:8px;">
           <input type="text" id="adm-p-materia-extra" placeholder="Otra materia…" style="flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:12px;outline:none;">
