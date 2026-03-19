@@ -1061,22 +1061,20 @@ const LOGROS = [
 
 // ─── INIT ─────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  setTimeout(async () => {
-    try {
-      // Intentar sesión en hub primero
-      if (sbHub) {
-        const { data: { session } } = await sbHub.auth.getSession();
-        if (session) {
-          currentUser = session.user;
-          await cargarPerfil();
-          mostrarApp();
-          return;
-        }
+  // Si hay sesión activa, mostrar app rápido (400ms para animación)
+  // Si no hay sesión, mostrar login en 400ms también — no 2 segundos
+  try {
+    if (sbHub) {
+      const { data: { session } } = await sbHub.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        await cargarPerfil();
+        setTimeout(() => mostrarApp(), 400);
+        return;
       }
-    } catch(e) { console.warn('Session check error:', e); }
-    ocultarLoading();
-    mostrarLogin();
-  }, 2000);
+    }
+  } catch(e) { console.warn('Session check error:', e); }
+  setTimeout(() => { ocultarLoading(); mostrarLogin(); }, 400);
 });
 
 function ocultarLoading() {
@@ -1158,12 +1156,18 @@ function renderHeader() {
   document.getElementById('child-greeting').textContent = `Hola, ${padreNombre} 👋`;
   document.getElementById('child-name').textContent = nombre.trim() || 'Tu hij@';
   document.getElementById('child-group').textContent = hijoActivo.grupo || hijoActivo.grado_asignado || '—';
-  document.getElementById('child-avatar').textContent = nombre.trim().charAt(0) === '' ? '👦' : '👦';
+  const inicial = nombre.trim().charAt(0).toUpperCase();
+  document.getElementById('child-avatar').textContent = inicial || '👦';
   // XP: buscar en db o demo
   cargarXP();
 }
 
 async function cargarXP() {
+  // Demo mode: mostrar puntos del perfil demo
+  if (window._demoMode) {
+    document.getElementById('header-xp').textContent = '620';
+    return;
+  }
   try {
     if (sbHub && hijoActivo?.id) {
       const { data } = await sbHub.from('perfil_alumno')
@@ -1171,12 +1175,12 @@ async function cargarXP() {
         .eq('alumno_id', hijoActivo.id)
         .single();
       if (data) {
-        document.getElementById('header-xp').textContent = data.xp_total ?? '—';
+        document.getElementById('header-xp').textContent = data.xp_total ?? '0';
         return;
       }
     }
   } catch(e) {}
-  document.getElementById('header-xp').textContent = '—';
+  document.getElementById('header-xp').textContent = '0';
 }
 
 // ─── SELECTOR DE HIJOS ────────────────────
