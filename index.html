@@ -2732,7 +2732,7 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
         <button id="dm-toggle" onclick="toggleDarkMode()" title="Modo oscuro">☀️</button>
         <button class="tb-btn" onclick="dToggleNotif()" title="Notificaciones">🔔<span class="badge">3</span></button>
         <button class="tb-btn" onclick="abrirConfig()" title="Configuración IA">⚙️</button>
-        <button class="tb-btn" title="Ayuda">❓</button>
+        <button class="tb-btn" title="Ayuda" onclick="hubToast('💡 Tip: Navega por las secciones del menú lateral para acceder a todas las funciones','info')">❓</button>
       </div>
     </div>
 
@@ -3662,37 +3662,37 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
             <div style="font-size:40px;margin-bottom:12px;">📊</div>
             <div style="font-weight:700;margin-bottom:6px;">Reporte por salón</div>
             <div style="font-size:12px;color:var(--gris-50);">Calificaciones completas de todo el grupo por trimestre</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:16px;">⬇ Descargar Excel</button>
+            <button class="btn btn-outline btn-sm" style="margin-top:16px;" onclick="sepCalificaciones()">⬇ Descargar Excel</button>
           </div>
           <div class="card" style="text-align:center;cursor:pointer;" onclick="generarReporte('alumno')">
             <div style="font-size:40px;margin-bottom:12px;">👤</div>
             <div style="font-weight:700;margin-bottom:6px;">Ficha individual</div>
             <div style="font-size:12px;color:var(--gris-50);">Expediente completo por alumno exportable en PDF</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:16px;">⬇ Descargar PDF</button>
+            <button class="btn btn-outline btn-sm" style="margin-top:16px;" onclick="sepReporteCURP()">⬇ Descargar PDF</button>
           </div>
           <div class="card" style="text-align:center;cursor:pointer;" onclick="generarReporte('anual')">
             <div style="font-size:40px;margin-bottom:12px;">📅</div>
             <div style="font-weight:700;margin-bottom:6px;">Reporte anual</div>
             <div style="font-size:12px;color:var(--gris-50);">Resumen del año escolar completo con estadísticas</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:16px;">⬇ Descargar</button>
+            <button class="btn btn-outline btn-sm" style="margin-top:16px;" onclick="sepReporteEstadistica()">⬇ Descargar</button>
           </div>
-          <div class="card" style="text-align:center;cursor:pointer;">
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="sepListaAsistencia()">
             <div style="font-size:40px;margin-bottom:12px;">📋</div>
             <div style="font-weight:700;margin-bottom:6px;">Lista de asistencia</div>
             <div style="font-size:12px;color:var(--gris-50);">Formato oficial por mes para firma y entrega</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:16px;">⬇ Descargar Excel</button>
+            <button class="btn btn-outline btn-sm" style="margin-top:16px;" onclick="sepListaAsistencia()">⬇ Descargar Excel</button>
           </div>
-          <div class="card" style="text-align:center;cursor:pointer;">
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="sepReporteEstadistica()">
             <div style="font-size:40px;margin-bottom:12px;">📈</div>
             <div style="font-weight:700;margin-bottom:6px;">Estadísticas escuela</div>
             <div style="font-size:12px;color:var(--gris-50);">Comparativa global de grupos y materias</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:16px;">Ver reporte</button>
+            <button class="btn btn-outline btn-sm" style="margin-top:16px;" onclick="sepReporteEstadistica()">Ver reporte</button>
           </div>
-          <div class="card" style="text-align:center;cursor:pointer;">
+          <div class="card" style="text-align:center;cursor:pointer;" onclick="sepGenerarActas()">
             <div style="font-size:40px;margin-bottom:12px;">🔒</div>
             <div style="font-weight:700;margin-bottom:6px;">Actas de evaluación</div>
             <div style="font-size:12px;color:var(--gris-50);">Formato oficial firmado para entrega a dirección</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:16px;">Generar acta</button>
+            <button class="btn btn-outline btn-sm" style="margin-top:16px;" onclick="sepGenerarActas()">Generar acta</button>
           </div>
         </div>
       </div>
@@ -6153,7 +6153,7 @@ async function dirCargarInvitaciones() {
     <div class="sb-user-row">
       <div class="sb-avatar">DG</div>
       <div><div class="sb-name">Dir. García</div><div class="sb-role">Director · Benito Juárez</div></div>
-      <button class="sb-logout" title="Cerrar sesión">⏏</button>
+      <button class="sb-logout" title="Cerrar sesión" onclick="hubLogout()">⏏</button>
     </div>
   </div>
 </div>
@@ -6214,7 +6214,7 @@ async function dirCargarInvitaciones() {
         <h2>Docentes registrados</h2>
         <div class="sec-actions">
           <button class="btn btn-outline btn-sm" onclick="enviarRecordatorio()">📧 Recordatorio masivo</button>
-          <button class="btn btn-primary btn-sm">+ Agregar docente</button>
+          <button class="btn btn-primary btn-sm" onclick="dirNav('invitaciones')">+ Agregar docente</button>
         </div>
       </div>
       <div class="card">
@@ -6352,7 +6352,7 @@ async function dirCargarInvitaciones() {
 
     <!-- ── GRUPOS ── -->
     <div class="page" id="p-grupos">
-      <div class="sec-header"><h2>Grupos y salones</h2><button class="btn btn-primary btn-sm">+ Nuevo grupo</button></div>
+      <div class="sec-header"><h2>Grupos y salones</h2><button class="btn btn-primary btn-sm" onclick="if(typeof ADM!=='undefined'&&ADM.abrirModalGrupo)ADM.abrirModalGrupo();else hubToast('Usa el panel de Secretaría para crear grupos','info')">+ Nuevo grupo</button></div>
       <div class="grid-3" id="grupos-grid"></div>
     </div>
 
@@ -6426,19 +6426,19 @@ async function dirCargarInvitaciones() {
           <div style="font-size:48px;margin-bottom:12px;">📊</div>
           <div style="font-weight:700;font-size:15px;margin-bottom:8px;">Excel · Todos los grupos</div>
           <div style="font-size:12px;color:var(--gris-50);margin-bottom:16px;">Una hoja por grupo, todos los docentes y materias</div>
-          <button class="btn btn-outline">⬇ Descargar Excel</button>
+          <button class="btn btn-outline" onclick="dirExportarExcel()">⬇ Descargar Excel</button>
         </div>
         <div class="card" style="text-align:center;cursor:pointer;" onclick="exportarPDF()">
           <div style="font-size:48px;margin-bottom:12px;">📄</div>
           <div style="font-weight:700;font-size:15px;margin-bottom:8px;">PDF · Horario oficial</div>
           <div style="font-size:12px;color:var(--gris-50);margin-bottom:16px;">Formato para imprimir y pegar en cada salón</div>
-          <button class="btn btn-outline">⬇ Descargar PDF</button>
+          <button class="btn btn-outline" onclick="dirExportarPDF()">⬇ Descargar PDF</button>
         </div>
         <div class="card" style="text-align:center;cursor:pointer;" onclick="notificarDocentes()">
           <div style="font-size:48px;margin-bottom:12px;">📧</div>
           <div style="font-weight:700;font-size:15px;margin-bottom:8px;">Notificar a todos</div>
           <div style="font-size:12px;color:var(--gris-50);margin-bottom:16px;">Envía el horario por correo a cada docente</div>
-          <button class="btn btn-primary">📧 Enviar notificaciones</button>
+          <button class="btn btn-primary" onclick="notificarDocentes()">📧 Enviar notificaciones</button>
         </div>
       </div>
     </div>
@@ -13372,8 +13372,8 @@ function renderPlaneacionesSimple(){
       <div class="plan-meta">
         <span class="plan-tag">${p.materia}</span>
         <span class="plan-status ${p.status==='listo'?'status-listo':'status-borrador'}">${p.status==='listo'?'✅ Lista':'✏️ Borrador'}</span>
-        <button class="btn btn-outline btn-sm" style="margin-left:auto;">✏️ Editar</button>
-        <button class="btn btn-outline btn-sm">⬇ PDF</button>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="hubToast('✏️ Editar planeación — usa el módulo de Planeaciones','info')">✏️ Editar</button>
+        <button class="btn btn-outline btn-sm" onclick="planExportarWordActual ? planExportarWordActual() : hubToast('📄 Exporta desde el módulo de Planeaciones','info')">⬇ PDF</button>
       </div>
     </div>
   `).join('');
@@ -14516,9 +14516,31 @@ function tutorContactarPadre(nombreAlumno) {
   hubToast(`📧 Redactando correo a tutor/a de ${nombreAlumno}`, 'ok');
 }
 
-function tutorDerivarTSCompleto(nombreAlumno, motivo) {
-  hubToast(`📤 Caso de ${nombreAlumno} derivado a Trabajo Social · Motivo: ${motivo}`, 'ok');
-  // In production: insert into incidencias table with derivada_ts=true
+async function tutorDerivarTSCompleto(nombreAlumno, motivo) {
+  if (sb && currentPerfil) {
+    try {
+      // Buscar alumno_id por nombre
+      const alumno = (window._alumnosActivos || alumnos).find(a =>
+        (a.n || a.nombre || '').toLowerCase().includes(nombreAlumno.toLowerCase())
+      );
+      const { error } = await sb.from('incidencias').insert({
+        alumno_id:     alumno?.id || null,
+        grupo_id:      window._grupoActivo || null,
+        reportado_por: currentPerfil.id,
+        tipo:          'otro',
+        descripcion:   motivo || 'Derivado desde panel de tutoría',
+        estado:        'abierta',
+        derivada_ts:   true,
+        created_at:    new Date().toISOString(),
+      });
+      if (error) throw error;
+      hubToast(`📤 Caso de ${nombreAlumno} enviado a Trabajo Social`, 'ok');
+    } catch(e) {
+      hubToast('❌ Error al derivar: ' + e.message, 'err');
+    }
+  } else {
+    hubToast(`📤 Caso de ${nombreAlumno} derivado a Trabajo Social · Motivo: ${motivo}`, 'ok');
+  }
 }
 
 function tutorMarcarResuelta(btn) {
@@ -14594,13 +14616,106 @@ async function tutoriaInit() {
 }
 
 function tutorNuevaIncidencia() {
-  hubToast('📋 Módulo de nueva incidencia — próximamente en v18', 'ok');
+  // Mostrar formulario inline si no existe
+  let modal = document.getElementById('modal-tutor-incidencia');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-tutor-incidencia';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+      <div style="background:white;border-radius:16px;padding:28px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <h3 style="font-family:'Fraunces',serif;font-size:18px;margin-bottom:20px;color:#1c1c1a;">📋 Nueva incidencia</h3>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:11px;font-weight:700;color:#6b6b65;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Alumno</label>
+          <select id="ti-alumno" style="width:100%;padding:10px 12px;border:1.5px solid #e2e0d8;border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:white;">
+            <option value="">Seleccionar alumno…</option>
+            ${(window._alumnosActivos||alumnos).map(a=>`<option value="${a.id||a.n}">${a.n||a.nombre}</option>`).join('')}
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:11px;font-weight:700;color:#6b6b65;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Tipo</label>
+          <select id="ti-tipo" style="width:100%;padding:10px 12px;border:1.5px solid #e2e0d8;border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:white;">
+            <option value="academica">Académica</option>
+            <option value="conducta">Conducta</option>
+            <option value="asistencia">Asistencia</option>
+            <option value="salud">Salud</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:11px;font-weight:700;color:#6b6b65;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Descripción</label>
+          <textarea id="ti-desc" rows="3" placeholder="Describe la situación…" style="width:100%;padding:10px 12px;border:1.5px solid #e2e0d8;border-radius:8px;font-size:14px;font-family:inherit;outline:none;resize:vertical;"></textarea>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;font-size:13px;color:#334155;">
+          <input type="checkbox" id="ti-derivar" style="width:16px;height:16px;">
+          Derivar a Trabajo Social
+        </label>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button onclick="document.getElementById('modal-tutor-incidencia').style.display='none'"
+            style="padding:9px 18px;border:1.5px solid #e2e0d8;border-radius:8px;background:white;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Cancelar</button>
+          <button onclick="_tutorGuardarIncidencia()"
+            style="padding:9px 18px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Guardar incidencia</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if(e.target===modal) modal.style.display='none'; });
+  }
+  // Actualizar lista de alumnos
+  const sel = modal.querySelector('#ti-alumno');
+  if (sel) {
+    sel.innerHTML = '<option value="">Seleccionar alumno…</option>' +
+      (window._alumnosActivos||alumnos).map(a=>`<option value="${a.id||a.n}">${a.n||a.nombre}</option>`).join('');
+  }
+  modal.querySelector('#ti-desc').value = '';
+  modal.querySelector('#ti-derivar').checked = false;
+  modal.style.display = 'flex';
 }
+
+async function _tutorGuardarIncidencia() {
+  const alumnoVal = document.getElementById('ti-alumno')?.value;
+  const tipo      = document.getElementById('ti-tipo')?.value;
+  const desc      = document.getElementById('ti-desc')?.value.trim();
+  const derivar   = document.getElementById('ti-derivar')?.checked;
+
+  if (!alumnoVal) { hubToast('⚠️ Selecciona un alumno', 'warn'); return; }
+  if (!desc)      { hubToast('⚠️ Escribe una descripción', 'warn'); return; }
+
+  if (sb && currentPerfil) {
+    try {
+      const { error } = await sb.from('incidencias').insert({
+        alumno_id:     alumnoVal,
+        grupo_id:      window._grupoActivo || null,
+        reportado_por: currentPerfil.id,
+        tipo,
+        descripcion:   desc,
+        estado:        'abierta',
+        derivada_ts:   derivar,
+        created_at:    new Date().toISOString(),
+      });
+      if (error) throw error;
+      hubToast(derivar ? '✅ Incidencia registrada y enviada a TS' : '✅ Incidencia registrada', 'ok');
+    } catch(e) {
+      hubToast('❌ Error: ' + e.message, 'err'); return;
+    }
+  } else {
+    hubToast('✅ Incidencia registrada (demo)', 'ok');
+  }
+  document.getElementById('modal-tutor-incidencia').style.display = 'none';
+}
+
 function tutorVerIncidencia(id) {
-  hubToast('🔍 Detalle de incidencia #' + id, 'ok');
+  hubToast('🔍 Incidencia #' + String(id).slice(0,8) + ' — ver en sección Tutoría', 'info');
 }
-function tutorDerivarTS(id) {
-  hubToast('📤 Incidencia #' + id + ' derivada a Trabajo Social', 'ok');
+
+async function tutorDerivarTS(id) {
+  if (!sb || !currentPerfil) { hubToast('📤 Incidencia derivada a TS (demo)', 'ok'); return; }
+  try {
+    const { error } = await sb.from('incidencias')
+      .update({ derivada_ts: true, estado: 'en_seguimiento' })
+      .eq('id', id);
+    if (error) throw error;
+    hubToast('📤 Incidencia derivada a Trabajo Social', 'ok');
+  } catch(e) { hubToast('❌ Error: ' + e.message, 'err'); }
 }
 function tutorEnviarMensaje() {
   const inp = document.getElementById('tutor-chat-input');
@@ -15595,12 +15710,20 @@ function autoAsignar(){
   },1200);
 }
 
-function guardarHorario(){
-  showToast('💾 Guardando y publicando…');
-  setTimeout(()=>{
-    grupos.find(g=>g.nombre.startsWith(grupoActual.slice(0,2))||g.nombre.includes(grupoActual))?.horario===true;
-    showToast('✅ Horario publicado. Docentes notificados por correo.','success');
-  },800);
+async function guardarHorario(){
+  showToast('💾 Guardando horario…');
+  if (sb && currentPerfil) {
+    try {
+      await horarioGuardarDB();
+      showToast('✅ Horario guardado. Docentes notificados.','success');
+    } catch(e) {
+      showToast('❌ Error: ' + e.message, 'error');
+    }
+  } else {
+    // Demo: guardar en localStorage
+    try { localStorage.setItem('siembra_horario_dir', JSON.stringify({grupos, horarioData, grupoActual})); } catch(e) {}
+    setTimeout(()=>{ showToast('✅ Horario guardado localmente (demo)','success'); }, 800);
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -16032,22 +16155,149 @@ function coordNav(page) {
   };
   const t = document.getElementById('coord-title');
   if (t) t.textContent = titles[page] || page;
-  if (page === 'visitas') coordRenderVisitasLista();
+  if (page === 'visitas')    { coordRenderVisitasLista(); }
+  if (page === 'dashboard')  { coordRenderDash(); }
+  if (page === 'historial')  { coordRenderHistorial(); }
+  if (page === 'planeaciones') { coordRenderPlaneaciones(); }
 }
 
 function coordRenderVisitasLista() {
   const lista = document.getElementById('coord-visitas-lista');
   if (!lista) return;
-  lista.innerHTML = COORD_DOCENTES.map((d,i) => {
-    const color = d.promedio >= 9 ? '#15803d' : d.promedio >= 8 ? '#1e40af' : '#a16207';
-    const bg = d.promedio >= 9 ? '#dcfce7' : d.promedio >= 8 ? '#dbeafe' : '#fef9c3';
+  // Usar docentes reales si están cargados, si no usar demo
+  const src = window._coordDocentes?.length ? window._coordDocentes : COORD_DOCENTES;
+  lista.innerHTML = src.map((d,i) => {
+    const nombre  = d.nombre || d.n || '—';
+    const materia = d.docente_grupos?.[0]?.materia || d.materia || '—';
+    const visitas = (window._coordVisitas||[]).filter(v => v.docente_id === d.id);
+    const ultimaV = visitas[0] ? new Date(visitas[0].created_at||visitas[0].fecha_visita).toLocaleDateString('es-MX') : 'Sin visitas';
+    const prom    = d.promedio || (visitas[0]?.calificacion?.toFixed(1)) || '—';
+    const color   = parseFloat(prom) >= 9 ? '#15803d' : parseFloat(prom) >= 8 ? '#1e40af' : '#a16207';
+    const bg      = parseFloat(prom) >= 9 ? '#dcfce7' : parseFloat(prom) >= 8 ? '#dbeafe' : '#fef9c3';
+    const ini     = nombre.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
     return `<div onclick="coordSelDocentePortal(${i})" style="padding:12px 16px;border-bottom:1px solid #f1f5f9;cursor:pointer;display:flex;align-items:center;gap:10px;"
       onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-      <div style="width:34px;height:34px;border-radius:50%;background:#5b21b6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">${d.nombre.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase()}</div>
-      <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.nombre}</div><div style="font-size:11px;color:#64748b;">${d.materia} · Última visita: ${d.ultimaVisita}</div></div>
-      <span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:${bg};color:${color};flex-shrink:0;">${d.promedio}</span>
+      <div style="width:34px;height:34px;border-radius:50%;background:#5b21b6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">${ini}</div>
+      <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${nombre}</div><div style="font-size:11px;color:#64748b;">${materia} · Última: ${ultimaV}</div></div>
+      <span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:${bg};color:${color};flex-shrink:0;">${prom}</span>
     </div>`;
+  }).join('') || '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:13px;">Sin docentes cargados</div>';
+}
+
+// ── Función faltante: renderizar visitas en sección historial ──────────
+function coordRenderVisitas() {
+  // Esta función renderiza en la sección de historial
+  coordRenderHistorial();
+}
+
+// ── Dashboard coordinador con datos reales ────────────────────────────
+function coordRenderDash() {
+  const docentes = window._coordDocentes || COORD_DOCENTES;
+  const visitas  = window._coordVisitas  || [];
+  const mes      = new Date().getMonth();
+
+  // Actualizar stats
+  const statDocs = document.getElementById('coord-stat-docentes');
+  const statVis  = document.getElementById('coord-stat-visitas');
+  const statPend = document.getElementById('coord-stat-pendientes');
+  const statProm = document.getElementById('coord-stat-promedio');
+
+  if (statDocs) statDocs.textContent = docentes.length || '—';
+  if (statVis)  statVis.textContent  = visitas.length  || '—';
+
+  // Pendientes = docentes sin visita este mes
+  const visitasMes = visitas.filter(v => {
+    const d = new Date(v.created_at || v.fecha_visita || 0);
+    return d.getMonth() === mes;
+  });
+  const docConVisitaMes = new Set(visitasMes.map(v => v.docente_id));
+  const pendientes = docentes.filter(d => !docConVisitaMes.has(d.id)).length;
+  if (statPend) statPend.textContent = pendientes || '—';
+
+  // Promedio general de rúbricas
+  if (statProm && visitas.length) {
+    const proms = visitas.filter(v => v.calificacion).map(v => parseFloat(v.calificacion));
+    if (proms.length) statProm.textContent = (proms.reduce((s,p)=>s+p,0)/proms.length).toFixed(1);
+  }
+
+  // Alertas: docentes con calificación baja
+  const alertEl = document.getElementById('coord-alertas-lista');
+  if (alertEl) {
+    const alertas = docentes.filter(d => {
+      const vsDoc = visitas.filter(v => v.docente_id === d.id);
+      if (!vsDoc.length) return false;
+      const avgD = vsDoc.reduce((s,v)=>s+(v.calificacion||0),0)/vsDoc.length;
+      return avgD < 8;
+    });
+    if (alertas.length) {
+      alertEl.innerHTML = alertas.slice(0,3).map(d => {
+        const vsDoc = visitas.filter(v => v.docente_id === d.id);
+        const avgD  = (vsDoc.reduce((s,v)=>s+(v.calificacion||0),0)/vsDoc.length).toFixed(1);
+        const ini   = (d.nombre||'').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fef9c3;border-radius:9px;margin-bottom:6px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">${ini}</div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:700;">${d.nombre||'—'}</div><div style="font-size:11px;color:#92400e;">Promedio rúbrica: ${avgD}</div></div>
+          <span style="font-size:11px;font-weight:800;background:#fef9c3;color:#a16207;padding:2px 8px;border-radius:99px;">${avgD}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+// ── Historial de evaluaciones con datos reales ────────────────────────
+function coordRenderHistorial() {
+  const tbody = document.querySelector('#coord-p-historial tbody');
+  if (!tbody) return;
+  const visitas = window._coordVisitas || [];
+  if (!visitas.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:32px;text-align:center;color:#94a3b8;font-size:13px;">Sin evaluaciones registradas aún</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = visitas.slice(0,20).map(v => {
+    const nombre = v.usuarios ? `${v.usuarios.nombre||''} ${v.usuarios.apellido_p||''}`.trim() : '—';
+    const fecha  = v.created_at ? new Date(v.created_at).toLocaleDateString('es-MX') : (v.fecha_visita || '—');
+    const tipo   = v.tipo || 'Visita aula';
+    const cal    = v.calificacion ? v.calificacion.toFixed(1)+'/10' : '—';
+    const color  = parseFloat(v.calificacion) >= 9 ? '#15803d' : parseFloat(v.calificacion) >= 8 ? '#1e40af' : '#a16207';
+    const bg     = parseFloat(v.calificacion) >= 9 ? '#dcfce7' : parseFloat(v.calificacion) >= 8 ? '#dbeafe' : '#fef9c3';
+    return `<tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:12px 16px;font-weight:600;">${nombre}</td>
+      <td style="padding:12px 16px;color:#64748b;">${fecha}</td>
+      <td style="padding:12px 16px;"><span style="background:${bg};color:${color};padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">${tipo}</span></td>
+      <td style="padding:12px 16px;font-weight:700;color:${color};">${cal}</td>
+      <td style="padding:12px 16px;"><button onclick="hubToast('📄 ${nombre} · ${fecha}','info')" style="padding:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Sora',sans-serif;">Ver</button></td>
+    </tr>`;
   }).join('');
+}
+
+// ── Planeaciones con datos reales ────────────────────────────────────
+async function coordRenderPlaneaciones() {
+  const lista = document.getElementById('coord-planeaciones-lista');
+  if (!lista) return;
+  if (!sb || !window._coordDocentes?.length) return; // mantener demo si no hay datos
+  try {
+    const docenteIds = window._coordDocentes.map(d => d.id);
+    const { data } = await sb.from('planeaciones')
+      .select('*, usuarios!docente_id(nombre, apellido_p)')
+      .in('docente_id', docenteIds)
+      .eq('ciclo', '2025-2026')
+      .order('updated_at', { ascending: false })
+      .limit(20);
+    if (!data?.length) return;
+    lista.innerHTML = data.map(p => {
+      const nombre  = `${p.usuarios?.nombre||''} ${p.usuarios?.apellido_p||''}`.trim();
+      const semana  = p.semana ? `Semana ${p.semana}` : 'Sin semana';
+      const fecha   = p.updated_at ? new Date(p.updated_at).toLocaleDateString('es-MX') : '—';
+      return `<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px 18px;display:flex;align-items:center;gap:14px;">
+        <div style="width:44px;height:44px;border-radius:10px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;">${nombre} · ${p.materia||'—'}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px;">${semana} · T${p.trimestre||'?'} · Actualizado: ${fecha}</div>
+        </div>
+        <button onclick="hubToast('📋 Planeación de ${nombre}','info')" style="padding:6px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;color:#374151;">Revisar</button>
+      </div>`;
+    }).join('');
+  } catch(e) { /* mantener contenido demo */ }
 }
 
 function coordSelDocentePortal(idx) {
@@ -17012,6 +17262,109 @@ function sepReporteSIEMBRA() {
   }));
   _csvDownload(`reporte_siembra_${new Date().toISOString().split('T')[0]}.csv`, rows,
     ['alumno','grupo','xp','racha','nivel','promedio']);
+}
+
+// ── Lista de asistencia mensual (formato para impresión y firma) ──────
+async function sepListaAsistencia() {
+  hubToast('⏳ Generando lista de asistencia…');
+  try {
+    const hoy   = new Date();
+    const mes   = hoy.getMonth() + 1;
+    const anio  = hoy.getFullYear();
+    // Días hábiles del mes actual (lunes-viernes)
+    const dias  = [];
+    const d     = new Date(anio, mes - 1, 1);
+    while (d.getMonth() === mes - 1) {
+      if (d.getDay() > 0 && d.getDay() < 6) dias.push(d.getDate());
+      d.setDate(d.getDate() + 1);
+    }
+
+    const lista = window._alumnosActivos || alumnos;
+    let asistData = {};
+
+    if (sb && window._grupoActivo) {
+      const desde = `${anio}-${String(mes).padStart(2,'0')}-01`;
+      const hasta = `${anio}-${String(mes).padStart(2,'0')}-31`;
+      const { data } = await sb.from('asistencia')
+        .select('alumno_id, fecha, estado')
+        .eq('grupo_id', window._grupoActivo)
+        .gte('fecha', desde).lte('fecha', hasta);
+      (data || []).forEach(r => {
+        if (!asistData[r.alumno_id]) asistData[r.alumno_id] = {};
+        const dia = new Date(r.fecha).getDate();
+        asistData[r.alumno_id][dia] = r.estado;
+      });
+    }
+
+    const rows = lista.map((a, idx) => {
+      const row = { num: idx + 1, alumno: a.n || a.nombre || '—' };
+      dias.forEach(dia => {
+        const est = asistData[a.id]?.[dia];
+        row[`d${dia}`] = est === 'A' ? 'F' : est === 'T' ? 'T' : '';
+      });
+      const faltas = dias.filter(dia => asistData[a.id]?.[dia] === 'A').length;
+      row.total_faltas = faltas;
+      return row;
+    });
+
+    const cols = ['num', 'alumno', ...dias.map(d => `d${d}`), 'total_faltas'];
+    _csvDownload(`lista_asistencia_${anio}_${String(mes).padStart(2,'0')}.csv`, rows, cols);
+    hubToast('✅ Lista de asistencia descargada', 'ok');
+  } catch(e) { hubToast('Error: ' + e.message, 'err'); }
+}
+
+// ── Actas de evaluación (formato oficial por grupo y trimestre) ────────
+async function sepGenerarActas() {
+  hubToast('⏳ Generando actas de evaluación…');
+  try {
+    const trim = calTrimActual || 1;
+    const lista = window._alumnosActivos || alumnos;
+    const rows  = [];
+
+    if (sb && window._grupoActivo) {
+      const { data } = await sb.from('calificaciones')
+        .select('alumno_id, materia, aspecto, calificacion, usuarios!alumno_id(nombre,apellido_p)')
+        .eq('grupo_id', window._grupoActivo)
+        .eq('trimestre', trim)
+        .eq('ciclo', '2025-2026');
+
+      // Agrupar por alumno y calcular promedio
+      const porAlumno = {};
+      (data || []).forEach(c => {
+        const nombre = `${c.usuarios?.nombre||''} ${c.usuarios?.apellido_p||''}`.trim();
+        if (!porAlumno[c.alumno_id]) porAlumno[c.alumno_id] = { nombre, materias: {} };
+        if (!porAlumno[c.alumno_id].materias[c.materia]) porAlumno[c.alumno_id].materias[c.materia] = [];
+        porAlumno[c.alumno_id].materias[c.materia].push(parseFloat(c.calificacion || 0));
+      });
+
+      Object.values(porAlumno).forEach(al => {
+        const row = { alumno: al.nombre, trimestre: trim, ciclo: '2025-2026' };
+        let suma = 0, cnt = 0;
+        MATERIAS_NEM.forEach(mat => {
+          const cals = al.materias[mat] || [];
+          const prom = cals.length ? (cals.reduce((s,c)=>s+c,0)/cals.length).toFixed(1) : '—';
+          row[mat.replace(/ /g,'_').substring(0,15)] = prom;
+          if (prom !== '—') { suma += parseFloat(prom); cnt++; }
+        });
+        row.promedio_general = cnt ? (suma/cnt).toFixed(1) : '—';
+        rows.push(row);
+      });
+    } else {
+      // Demo
+      lista.forEach(a => {
+        const row = { alumno: a.n || '—', trimestre: trim, ciclo: '2025-2026' };
+        MATERIAS_NEM.forEach(mat => { row[mat.substring(0,15)] = (7 + Math.random()*3).toFixed(1); });
+        row.promedio_general = (7.5 + Math.random()*2).toFixed(1);
+        rows.push(row);
+      });
+    }
+
+    const cols = ['alumno', 'trimestre', 'ciclo',
+      ...MATERIAS_NEM.map(m => m.replace(/ /g,'_').substring(0,15)),
+      'promedio_general'];
+    _csvDownload(`acta_evaluacion_T${trim}_${new Date().toISOString().split('T')[0]}.csv`, rows, cols);
+    hubToast('✅ Actas generadas correctamente', 'ok');
+  } catch(e) { hubToast('Error: ' + e.message, 'err'); }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -20664,19 +21017,19 @@ document.addEventListener('DOMContentLoaded', () => {
               <div style="font-size:36px;margin-bottom:10px;">📈</div>
               <div style="font-size:13px;font-weight:700;">Rendimiento por grado</div>
               <div style="font-size:11px;color:#64748b;margin-top:4px;">Promedios y análisis por grupo</div>
-              <button style="margin-top:12px;padding:6px 14px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">⬇ Descargar</button>
+              <button style="margin-top:12px;padding:6px 14px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;" onclick="sepReporteEstadistica()">⬇ Descargar</button>
             </div>
-            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;cursor:pointer;" onclick="hubToast('📊 Generando reporte…','ok')">
+            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;cursor:pointer;" onclick="sepListaAsistencia()">
               <div style="font-size:36px;margin-bottom:10px;">📅</div>
               <div style="font-size:13px;font-weight:700;">Asistencia mensual</div>
               <div style="font-size:11px;color:#64748b;margin-top:4px;">Por grupo y alumno individual</div>
-              <button style="margin-top:12px;padding:6px 14px;background:#f0fdf4;color:#15803d;border:1.5px solid #86efac;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">⬇ Descargar</button>
+              <button style="margin-top:12px;padding:6px 14px;background:#f0fdf4;color:#15803d;border:1.5px solid #86efac;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;" onclick="sepListaAsistencia()">⬇ Descargar</button>
             </div>
-            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;cursor:pointer;" onclick="hubToast('📊 Generando reporte…','ok')">
+            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;cursor:pointer;" onclick="sepCalificaciones()">
               <div style="font-size:36px;margin-bottom:10px;">⚠️</div>
               <div style="font-size:13px;font-weight:700;">Incidencias disciplinarias</div>
               <div style="font-size:11px;color:#64748b;margin-top:4px;">Reporte de prefectos y tutores</div>
-              <button style="margin-top:12px;padding:6px 14px;background:#fef9c3;color:#a16207;border:1.5px solid #fde68a;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">⬇ Descargar</button>
+              <button style="margin-top:12px;padding:6px 14px;background:#fef9c3;color:#a16207;border:1.5px solid #fde68a;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;" onclick="sepCalificaciones()">⬇ Descargar</button>
             </div>
           </div>
         </div>
@@ -20728,15 +21081,16 @@ document.addEventListener('DOMContentLoaded', () => {
         <!-- DASHBOARD -->
         <div class="coord-page" id="coord-p-dashboard">
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
-            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;"><div style="font-size:32px;font-weight:800;color:#5b21b6;font-family:'Fraunces',serif;">24</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Docentes a cargo</div></div>
-            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;"><div style="font-size:32px;font-weight:800;color:#0d5c2f;font-family:'Fraunces',serif;">18</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Visitas realizadas</div></div>
-            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;"><div style="font-size:32px;font-weight:800;color:#c2410c;font-family:'Fraunces',serif;">6</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Pendientes este mes</div></div>
-            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;"><div style="font-size:32px;font-weight:800;color:#1e40af;font-family:'Fraunces',serif;">8.4</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Promedio general rúbrica</div></div>
+            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;"><div id="coord-stat-docentes" style="font-size:32px;font-weight:800;color:#5b21b6;font-family:'Fraunces',serif;">—</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Docentes a cargo</div></div>
+            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;"><div id="coord-stat-visitas" style="font-size:32px;font-weight:800;color:#0d5c2f;font-family:'Fraunces',serif;">—</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Visitas realizadas</div></div>
+            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;"><div id="coord-stat-pendientes" style="font-size:32px;font-weight:800;color:#c2410c;font-family:'Fraunces',serif;">—</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Pendientes este mes</div></div>
+            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;text-align:center;"><div id="coord-stat-promedio" style="font-size:32px;font-weight:800;color:#1e40af;font-family:'Fraunces',serif;">—</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Promedio general rúbrica</div></div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
             <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;">
               <div style="font-size:14px;font-weight:700;margin-bottom:14px;">⚠️ Docentes con alerta</div>
-              <div style="display:flex;flex-direction:column;gap:8px;">
+              <div id="coord-alertas-lista" style="display:flex;flex-direction:column;gap:8px;"></div>
+            </div>
                 <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fef9c3;border-radius:9px;">
                   <div style="width:32px;height:32px;border-radius:50%;background:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:white;flex-shrink:0;">KP</div>
                   <div style="flex:1;"><div style="font-size:13px;font-weight:700;">Mtra. Karla Pérez</div><div style="font-size:11px;color:#92400e;">Planeación sin entregar · 2 semanas</div></div>
