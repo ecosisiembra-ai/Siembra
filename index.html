@@ -15162,7 +15162,7 @@ function emailEnviar() {
   emailHilos.unshift({
     id: Date.now(), alumnoIdx: idx,
     nombre: `Familia de ${a.n}`,
-    addr: `familia.${a.n.toLowerCase().replace(/\s+/g,'.')}@gmail.com`,
+    addr: `familia.${a.n.toLowerCase().replace(/\s+/g,'.')}` + '\u0040' + `gmail.com`,
     asunto, leido: true,
     msgs: [{ out:true, de:'Maestra Laura', t:cuerpo, h:hoy }]
   });
@@ -18067,6 +18067,7 @@ function padreCambiarTrim(t) {
 }
 
 
+function padreChatEnviar() {
   const input = document.getElementById('p-chat-input');
   if (!input || !input.value.trim()) return;
   const msg = input.value.trim();
