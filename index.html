@@ -8883,38 +8883,58 @@ function examenesStats() {
 }
 
 function examenesNuevo() {
-  const gruposOpts = (window._gruposDocente||[]).map(g=>'<option value="'+g.id+'">'+(g.nombre||g.grado+'° '+g.seccion||'')+'</option>').join('');
-  const matsOpts = (window._materiasDocente||[]).map(m=>'<option value="'+m+'">'+m+'</option>').join('');
-  const today = new Date().toISOString().split('T')[0];
   const div = document.createElement('div');
-  div.id='ex-modal';
-  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
-  div.innerHTML='<div style="background:white;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">' +
-    '<div style="font-family:Fraunces,serif;font-size:20px;font-weight:700;color:#0d5c2f;margin-bottom:20px;">📝 Nuevo examen</div>' +
-    '<div style="display:flex;flex-direction:column;gap:12px;">' +
-    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Nombre del examen *</label>' +
-    '<input id="ex-n-nombre" type="text" placeholder="Ej: Examen parcial 1" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
-    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Grupo *</label>' +
-    '<select id="ex-n-grupo" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="">Seleccionar…</option>'+gruposOpts+'</select></div>' +
-    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Materia *</label>' +
-    '<select id="ex-n-materia" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="">Seleccionar…</option>'+matsOpts+'</select></div>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' +
-    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Trimestre</label>' +
-    '<select id="ex-n-trim" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="1">T1</option><option value="2">T2</option><option value="3">T3</option></select></div>' +
-    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Valor (pts)</label>' +
-    '<input id="ex-n-valor" type="number" min="1" max="100" value="10" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div>' +
-    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Fecha</label>' +
-    '<input id="ex-n-fecha" type="date" value="'+today+'" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div></div>' +
-    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Temas evaluados</label>' +
-    '<textarea id="ex-n-desc" rows="2" placeholder="Ej: Fracciones, decimales…" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea></div>' +
-    '</div>' +
-    '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">' +
-    '<button onclick="document.getElementById(\'ex-modal\').remove()" style="padding:10px 18px;background:#f1f5f9;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>' +
-    '<button onclick="examenesGuardarNuevo()" style="padding:10px 18px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Crear examen →</button>' +
-    '</div></div>';
+  div.id = 'ex-modal';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+
+  const inner = document.createElement('div');
+  inner.style.cssText = 'background:white;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;';
+
+  const today = new Date().toISOString().split('T')[0];
+  const gruposOpts = (window._gruposDocente||[]).map(g => {
+    const o = document.createElement('option');
+    o.value = g.id;
+    o.textContent = (g.nombre||g.grado+'° '+(g.seccion||''));
+    return o.outerHTML;
+  }).join('');
+  const matsOpts = (window._materiasDocente||[]).map(m => {
+    const o = document.createElement('option');
+    o.value = m; o.textContent = m;
+    return o.outerHTML;
+  }).join('');
+
+  inner.innerHTML = [
+    '<div style="font-family:Fraunces,serif;font-size:20px;font-weight:700;color:#0d5c2f;margin-bottom:20px;">📝 Nuevo examen</div>',
+    '<div style="display:flex;flex-direction:column;gap:12px;">',
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Nombre del examen *</label>',
+    '<input id="ex-n-nombre" type="text" placeholder="Ej: Examen parcial 1" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div>',
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">',
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Grupo *</label>',
+    '<select id="ex-n-grupo" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="">Seleccionar...</option>'+gruposOpts+'</select></div>',
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Materia *</label>',
+    '<select id="ex-n-materia" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="">Seleccionar...</option>'+matsOpts+'</select></div>',
+    '</div>',
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">',
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Trimestre</label>',
+    '<select id="ex-n-trim" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="1">T1</option><option value="2">T2</option><option value="3">T3</option></select></div>',
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Valor (pts)</label>',
+    '<input id="ex-n-valor" type="number" min="1" max="100" value="10" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div>',
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Fecha</label>',
+    '<input id="ex-n-fecha" type="date" value="'+today+'" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div></div>',
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Temas evaluados</label>',
+    '<textarea id="ex-n-desc" rows="2" placeholder="Ej: Fracciones, decimales..." style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea></div>',
+    '</div>',
+    '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">',
+    '<button id="ex-cancel-btn" style="padding:10px 18px;background:#f1f5f9;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>',
+    '<button id="ex-save-btn" style="padding:10px 18px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Crear examen</button>',
+    '</div>'
+  ].join('');
+
+  div.appendChild(inner);
   document.body.appendChild(div);
+  // Attach events after DOM insertion (no inline onclick)
+  document.getElementById('ex-cancel-btn').onclick = () => div.remove();
+  document.getElementById('ex-save-btn').onclick = () => examenesGuardarNuevo();
 }
 
 async function examenesGuardarNuevo() {
@@ -8958,24 +8978,32 @@ async function examenesCapturar(examenId) {
       '<input type="number" min="0" max="'+ex.valor_maximo+'" step="0.5" value="'+(prev?.calificacion??'')+'" placeholder="—" id="ecal_'+a.id+'" style="width:100%;padding:6px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-family:Sora,sans-serif;font-size:13px;text-align:center;">' +
       '<input type="text" placeholder="Comentario…" value="'+(prev?.comentario||'')+'" id="ecmt_'+a.id+'" style="width:100%;padding:6px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-family:Sora,sans-serif;font-size:12px;"></div>';
   }).join('');
-  const div=document.createElement('div');
-  div.id='ex-cap-modal';
-  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
-  div.innerHTML='<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">' +
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">' +
-    '<div><div style="font-family:Fraunces,serif;font-size:18px;font-weight:700;color:#0d5c2f;">'+ex.nombre+'</div>' +
-    '<div style="font-size:12px;color:#64748b;">'+ex.materia+' · '+ex.grupo_nombre+' · T'+ex.trimestre+' · Valor: '+ex.valor_maximo+' pts</div></div>' +
-    '<button onclick="document.getElementById(\'ex-cap-modal\').remove()" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;">✕</button></div>' +
-    '<div style="display:grid;grid-template-columns:1fr 80px 1fr;gap:6px;padding:6px 10px;background:#f0fdf4;border-radius:6px;margin-bottom:8px;">' +
-    '<div style="font-size:11px;font-weight:700;color:#64748b;">ALUMNO</div>' +
-    '<div style="font-size:11px;font-weight:700;color:#64748b;text-align:center;">CALIF.</div>' +
-    '<div style="font-size:11px;font-weight:700;color:#64748b;">COMENTARIO</div></div>' +
-    '<div style="display:flex;flex-direction:column;gap:3px;">'+rows+'</div>' +
-    '<div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">' +
-    '<button onclick="document.getElementById(\'ex-cap-modal\').remove()" style="padding:10px 18px;background:#f1f5f9;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>' +
-    '<button onclick="examenesGuardarCalif(''+examenId+'')" style="padding:10px 18px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar calificaciones</button>' +
-    '</div></div>';
+  const div = document.createElement('div');
+  div.id = 'ex-cap-modal';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  const inner = document.createElement('div');
+  inner.style.cssText = 'background:white;border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;';
+  inner.innerHTML = [
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">',
+    '<div><div style="font-family:Fraunces,serif;font-size:18px;font-weight:700;color:#0d5c2f;">'+ex.nombre+'</div>',
+    '<div style="font-size:12px;color:#64748b;">'+ex.materia+' · '+ex.grupo_nombre+' · T'+ex.trimestre+' · Valor: '+ex.valor_maximo+' pts</div></div>',
+    '<button id="ex-cap-close" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;">✕</button></div>',
+    '<div style="display:grid;grid-template-columns:1fr 80px 1fr;gap:6px;padding:6px 10px;background:#f0fdf4;border-radius:6px;margin-bottom:8px;">',
+    '<div style="font-size:11px;font-weight:700;color:#64748b;">ALUMNO</div>',
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-align:center;">CALIF.</div>',
+    '<div style="font-size:11px;font-weight:700;color:#64748b;">COMENTARIO</div></div>',
+    '<div style="display:flex;flex-direction:column;gap:3px;">'+rows+'</div>',
+    '<div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">',
+    '<button id="ex-cap-cancel" style="padding:10px 18px;background:#f1f5f9;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>',
+    '<button id="ex-cap-save" style="padding:10px 18px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Guardar calificaciones</button>',
+    '</div>'
+  ].join('');
+  div.appendChild(inner);
   document.body.appendChild(div);
+  // Attach events after DOM insertion
+  document.getElementById('ex-cap-close').onclick   = () => div.remove();
+  document.getElementById('ex-cap-cancel').onclick  = () => div.remove();
+  document.getElementById('ex-cap-save').onclick    = () => examenesGuardarCalif(examenId);
 }
 
 async function examenesGuardarCalif(examenId) {
@@ -9030,9 +9058,6 @@ async function calDetectarRiesgoYNotificar() {
 }
 
 function calExportar() {
-  const mat  = calMatActual;
-  const trim = calTrimActual;
-  const als  = window._alumnosActivos || alumnos;
   const mat  = calMatActual;
   const trim = calTrimActual;
   const als  = window._alumnosActivos || alumnos;
