@@ -8336,11 +8336,18 @@ let calMatActual  = MATERIAS_NEM[0];
 
 // Inicializar datos demo
 async function calInit() {
-  // Inicializar estructura vacía
-  MATERIAS_NEM.forEach(mat => {
+  // Usar materias asignadas al docente, o todas si aún no se han cargado
+  const matsInit = (window._materiasDocente?.length)
+    ? window._materiasDocente
+    : MATERIAS_NEM;
+  matsInit.forEach(mat => {
     CAL_ASPECTOS[mat] = ASPECTOS_DEFAULT.map(a => ({...a}));
     CAL_DATA[mat] = { 1:{}, 2:{}, 3:{} };
   });
+  // Sincronizar calMatActual con las materias disponibles
+  if (matsInit.length && !matsInit.includes(calMatActual)) {
+    calMatActual = matsInit[0];
+  }
 
   if (!sb || !currentPerfil) {
     // Modo demo sin Supabase
@@ -8506,7 +8513,13 @@ async function calCargarCalificacionesDB(grupoId) {
 function calRenderMatTabs() {
   const wrap = document.getElementById('cal-mat-tabs');
   if (!wrap) return;
-  wrap.innerHTML = MATERIAS_NEM.map(m => `
+  // Usar SOLO las materias asignadas al docente si están disponibles
+  const mats = (window._materiasDocente?.length)
+    ? window._materiasDocente
+    : MATERIAS_NEM;
+  // Si calMatActual no está en la lista, resetear a la primera
+  if (mats.length && !mats.includes(calMatActual)) calMatActual = mats[0];
+  wrap.innerHTML = mats.map(m => `
     <button onclick="calSetMateria('${m}')" 
       style="padding:7px 14px;border-radius:99px;border:1.5px solid ${m===calMatActual?'var(--verde)':'var(--gris-20)'};
              background:${m===calMatActual?'var(--verde)':'white'};color:${m===calMatActual?'white':'var(--gris-80)'};
@@ -23689,24 +23702,32 @@ ADM.cargarGrupos = async function() {
 };
 
 ADM.cargarDocentes = async function() {
-  const cct = window.currentPerfil?.escuela_cct || ADM.escuelaCct;
-  if (!window.sb || !cct) {
+  const cct    = window.currentPerfil?.escuela_cct || ADM.escuelaCct;
+  const uuid   = ADM.escuelaId || null;
+  const sbRef  = window.sb || ADM.sb;
+  if (!sbRef || !cct) {
     ADM.docentes = []; return;
   }
+  const sb = sbRef;
   try {
-    // Query por escuela_cct O escuela_id para cubrir ambos esquemas
+    const roles = ['docente','coordinador','ts','prefecto','subdirector','tutor'];
+    // Query 1: por escuela_cct (text) — campo correcto
     const { data: d1 } = await sb.from('usuarios')
       .select('*').eq('escuela_cct', cct)
-      .in('rol', ['docente','coordinador','ts','prefecto','subdirector','tutor'])
-      .eq('activo', true).order('nombre');
-    const { data: d2 } = await sb.from('usuarios')
-      .select('*').eq('escuela_id', cct)
-      .in('rol', ['docente','coordinador','ts','prefecto','subdirector','tutor'])
-      .eq('activo', true).order('nombre');
+      .in('rol', roles).eq('activo', true).order('nombre');
+    // Query 2: por escuela_id (UUID) — solo si tenemos UUID válido
+    let d2 = [];
+    if (uuid && /^[0-9a-f-]{36}$/i.test(String(uuid))) {
+      const { data } = await sb.from('usuarios')
+        .select('*').eq('escuela_id', uuid)
+        .in('rol', roles).eq('activo', true).order('nombre');
+      d2 = data || [];
+    }
     // Merge y deduplicar por id
-    const combined = [...(d1 || []), ...(d2 || [])];
+    const combined = [...(d1 || []), ...d2];
     const seen = new Set();
     ADM.docentes = combined.filter(u => { if (seen.has(u.id)) return false; seen.add(u.id); return true; });
+    console.log('[ADM] Docentes cargados:', ADM.docentes.length, 'para CCT:', cct);
     // Cargar asignaciones de materias para mostrar en las tarjetas
     try {
       const ids = ADM.docentes.map(d => d.id);
