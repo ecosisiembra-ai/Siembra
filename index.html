@@ -71,7 +71,10 @@ async function callAI({ feature, prompt, system, context, stream = false }) {
 }
 
 // ── Nivel educativo activo (primaria | secundaria) ──────────────────────────
-window._nivelActivo = localStorage.getItem('siembra_nivel') || window._escuelaCfg?.nivel_default || 'primaria';
+// PRIORIDAD: 1) nivel de la escuela configurada, 2) localStorage, 3) secundaria como default seguro
+window._nivelActivo = window._escuelaCfg?.nivel_default
+  || localStorage.getItem('siembra_nivel')
+  || 'secundaria';
 
 // ── Supabase Realtime channels (para cleanup) ──────────────────────────────
 window._realtimeChannels = {};
@@ -22666,24 +22669,31 @@ async function admCargarMateriasNivel(nivel) {
  * Se llama desde ADM.init() después de cargar el perfil.
  */
 function admInicializarSwitcherNivel() {
-  // Usar el nivel de la ESCUELA (resuelto en ADM.init desde tabla escuelas), no del perfil del usuario
-  const escuelaNivel = ADM.escuelaNivel || window._admNivelActivo || 'primaria';
+  // Usar el nivel de la ESCUELA (resuelto en ADM.init desde tabla escuelas)
+  // NUNCA usar 'primaria' como fallback sin verificar la escuela primero
+  const escuelaNivel = ADM.escuelaNivel || window._admNivelActivo
+    || window._escuelaCfg?.nivel_default || 'secundaria';
   const switcher = document.getElementById('adm-nivel-switcher');
 
   if (escuelaNivel === 'primaria_y_secundaria' || escuelaNivel === 'ambos') {
-    // Show the switcher — escuela maneja ambos niveles
+    // Escuela maneja ambos niveles — mostrar switcher
     if (switcher) switcher.style.display = 'flex';
-    const savedNivel = localStorage.getItem('siembra_adm_nivel') || 'primaria';
+    // Respetar lo que el admin eligió en esta sesión, pero sin asumir primaria
+    const savedNivel = localStorage.getItem('siembra_adm_nivel') || escuelaNivel || 'secundaria';
     window._admNivelActivo = savedNivel;
-    ADM.escuelaNivel = savedNivel; // Override para filtrar materias
+    ADM.escuelaNivel = savedNivel;
     admCambiarNivel(savedNivel);
   } else {
-    // Single-level school — hide switcher, force correct nivel
+    // Escuela de nivel único — ocultar switcher, forzar nivel correcto
     if (switcher) switcher.style.display = 'none';
     window._admNivelActivo = escuelaNivel;
     ADM.escuelaNivel = escuelaNivel;
-    // Guardar en localStorage para que sea consistente
     try { localStorage.setItem('siembra_adm_nivel', escuelaNivel); } catch(e) {}
+    // Actualizar visualmente los botones del switcher
+    const btnPri = document.getElementById('adm-nivel-btn-pri');
+    const btnSec = document.getElementById('adm-nivel-btn-sec');
+    if (btnPri) btnPri.style.background = escuelaNivel === 'primaria' ? 'var(--verde)' : '';
+    if (btnSec) btnSec.style.background = escuelaNivel === 'secundaria' ? 'var(--verde)' : '';
   }
 }
 
@@ -23641,8 +23651,10 @@ ADM.cargarMaterias = async function() {
 };
 
 ADM._materiasDefault = function() {
-  const nivel = ADM.escuelaNivel || window._admNivelActivo || window._nivelActivo || 'primaria';
-  return ADM._demoMaterias ? ADM._demoMaterias() : getMateriasByNivel(nivel).map((nombre, i) => ({
+  // Usar siempre el nivel de la escuela resuelta, nunca asumir primaria
+  const nivel = ADM.escuelaNivel || window._admNivelActivo || window._nivelActivo
+    || window._escuelaCfg?.nivel_default || 'secundaria';
+  return getMateriasByNivel(nivel).map((nombre, i) => ({
     id: 'mat-default-' + i, nombre, nivel, horas_semana: 5, activo: true
   }));
 };
@@ -23857,24 +23869,41 @@ ADM.renderDocentes = function() {
 };
 
 ADM.abrirModalPersonal = function() {
+  // Asegurar nivel correcto ANTES de renderizar
+  if (!ADM.escuelaNivel) {
+    ADM.escuelaNivel = window._admNivelActivo
+      || window._nivelActivo
+      || window._escuelaCfg?.nivel_default
+      || 'secundaria';
+  }
+
+  // Si ADM.grupos está vacío, cargar primero y luego reabrir
+  if (!ADM.grupos.length && window.sb) {
+    ADM.cargarGrupos().then(() => ADM.abrirModalPersonal());
+    return;
+  }
+
   const gruposHtml = ADM.grupos.length
     ? ADM.grupos.map(g => '<label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">' +
         '<input type="checkbox" id="adm-grp-' + g.id + '" value="' + g.id + '" style="accent-color:#0d5c2f;"> ' +
         (g.nombre||g.grado+'°') + '</label>').join('')
-    : '<span style="font-size:12px;color:#94a3b8;">Sin grupos registrados — crea grupos primero</span>';
+    : '<span style="font-size:12px;color:#94a3b8;">Sin grupos — crea grupos primero</span>';
 
-  // Materias: usar ADM.materias si existen, si no generarlas del nivel correcto
-  let materiasList = ADM.materias;
+  // Materias filtradas por nivel de la escuela
+  let materiasList = (ADM.materias || []).filter(m =>
+    !m.nivel || m.nivel === ADM.escuelaNivel || m.nivel === 'ambos'
+  );
   if (!materiasList.length) {
-    const nivel = ADM.escuelaNivel || window._admNivelActivo || 'primaria';
-    materiasList = getMateriasByNivel(nivel).map((nombre, i) => ({ id: 'gen-' + i, nombre }));
+    materiasList = getMateriasByNivel(ADM.escuelaNivel).map((nombre, i) => ({ id: 'gen-' + i, nombre }));
   }
   const materiasHtml = materiasList.length
     ? materiasList.map(m => '<label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">' +
         '<input type="checkbox" value="' + (m.nombre||m.id) + '" style="accent-color:#0d5c2f;"> ' + (m.nombre||'?') + '</label>').join('')
-    : '<span style="font-size:12px;color:#94a3b8;">Sin materias en catálogo — agrega en Materias</span>';
+    : '<span style="font-size:12px;color:#94a3b8;">Sin materias — agrega en la sección Materias</span>';
 
-  const nivelLabel = (ADM.escuelaNivel || 'primaria') === 'secundaria' ? 'Secundaria (Campos Formativos Fase 6)' : 'Primaria (Asignaturas NEM)';
+  const nivelLabel = ADM.escuelaNivel === 'secundaria'
+    ? 'Secundaria (Campos Formativos Fase 6)'
+    : 'Primaria (Asignaturas NEM)';
 
   const alumnosHtml = ADM.alumnos.length
     ? ADM.alumnos.map(a => '<option value="' + a.id + '">' + (a.nombre+' '+(a.apellido||a.apellido_p||'')).trim() + '</option>').join('')
@@ -23884,10 +23913,15 @@ ADM.abrirModalPersonal = function() {
     '<option value="' + g.id + '">' + (g.nombre||g.grado+'° '+(g.seccion||'A')) + '</option>'
   ).join('');
 
+  // Ciclos disponibles
+  const anioActual = new Date().getFullYear();
+  const ciclosHtml = [anioActual+'-'+(anioActual+1), (anioActual-1)+'-'+anioActual]
+    .map((c,i) => '<option value="'+c+'"'+(i===0?' selected':'')+'>'+c+'</option>').join('');
+
   ADM.abrirModal('adm-modal-personal',
-    '➕ Alta de personal escolar',
+    '\u2795 Alta de personal escolar',
     `<div style="background:#f0fdf4;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#166534;display:flex;align-items:center;gap:8px;">
-      <span style="font-size:16px;">📧</span>
+      <span style="font-size:16px;">\u{1f4e7}</span>
       <span>Se enviará un correo de invitación automáticamente para que el usuario cree su contraseña.</span>
     </div>
     <div class="adm-form-row">
@@ -23902,14 +23936,14 @@ ADM.abrirModalPersonal = function() {
       <div class="adm-form-group">
         <label>Rol en la escuela</label>
         <select id="adm-p-rol" onchange="admToggleRolFields(this.value)">
-          <option value="docente">👨‍🏫 Docente</option>
-          <option value="director">👩‍💼 Director/a</option>
-          <option value="subdirector">🏫 Subdirector/a</option>
-          <option value="coordinador">📋 Coordinador académico</option>
-          <option value="ts">🧠 Trabajo Social</option>
-          <option value="prefecto">👮 Prefecto/a</option>
-          <option value="tutor">🎓 Tutor de grupo</option>
-          <option value="padre">👨‍👩‍👧 Familia / Padre de familia</option>
+          <option value="docente">Docente</option>
+          <option value="director">Director/a</option>
+          <option value="subdirector">Subdirector/a</option>
+          <option value="coordinador">Coordinador académico</option>
+          <option value="ts">Trabajo Social</option>
+          <option value="prefecto">Prefecto/a</option>
+          <option value="tutor">Tutor de grupo</option>
+          <option value="padre">Familia / Padre de familia</option>
         </select>
       </div>
       <div class="adm-form-group">
@@ -23917,6 +23951,19 @@ ADM.abrirModalPersonal = function() {
         <select id="adm-p-turno">
           <option value="matutino">Matutino</option>
           <option value="vespertino">Vespertino</option>
+          <option value="discontinuo">Discontinuo</option>
+        </select>
+      </div>
+    </div>
+    <div class="adm-form-row">
+      <div class="adm-form-group">
+        <label>Ciclo escolar</label>
+        <select id="adm-p-ciclo">${ciclosHtml}</select>
+      </div>
+      <div class="adm-form-group">
+        <label>Nivel educativo</label>
+        <select id="adm-p-nivel" disabled style="background:#f8fafc;color:#64748b;">
+          <option value="${ADM.escuelaNivel}">${nivelLabel}</option>
         </select>
       </div>
     </div>
@@ -23935,7 +23982,7 @@ ADM.abrirModalPersonal = function() {
         <div id="adm-p-materias-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">${materiasHtml}</div>
         <div style="margin-top:8px;display:flex;gap:8px;">
           <input type="text" id="adm-p-materia-extra" placeholder="Otra materia…" style="flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:12px;outline:none;">
-          <button type="button" onclick="admAgregarMateriaExtra()" style="padding:7px 12px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">+ Agregar</button>
+          <button type="button" onclick="admAgregarMateriaExtra()" style="padding:7px 12px;background:#f0fdf4;border:1.5px solid #86efac;color:#166634;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">+ Agregar</button>
         </div>
       </div>
     </div>
@@ -23947,7 +23994,7 @@ ADM.abrirModalPersonal = function() {
       </div>
     </div>`,
     'ADM.guardarPersonal()',
-    '📧 Dar de alta y enviar invitación'
+    'Dar de alta y enviar invitación'
   );
   setTimeout(() => admToggleRolFields('docente'), 80);
 };
@@ -23958,7 +24005,8 @@ ADM.guardarPersonal = async function() {
   const apellido     = document.getElementById('adm-p-apellido').value.trim();
   const email        = document.getElementById('adm-p-email').value.trim().toLowerCase();
   const rol          = document.getElementById('adm-p-rol').value;
-  const turno        = document.getElementById('adm-p-turno').value;
+  const turno        = document.getElementById('adm-p-turno')?.value || 'matutino';
+  const cicloForm    = document.getElementById('adm-p-ciclo')?.value || '2025-2026';
   const grupoTutoria   = document.getElementById('adm-p-grupo-tutoria')?.value || null;
   const familiaAlumnoId= document.getElementById('adm-p-familia-alumno')?.value || null;
   // Recoger grupos seleccionados
@@ -24025,7 +24073,7 @@ ADM.guardarPersonal = async function() {
         // Fallback: insert directo
         const insertPayload = {
           nombre, apellido_p: apellido.split(' ')[0] || '', apellido_m: apellido.split(' ').slice(1).join(' ') || '',
-          email, rol, activo: true,
+          email, rol, activo: true, turno,
           escuela_cct: escuelaCct, escuela_id: escuelaCct,
           created_at: new Date().toISOString(),
         };
@@ -24087,7 +24135,7 @@ ADM.guardarPersonal = async function() {
         const mats4insert  = materiasSeleccionadas.length ? materiasSeleccionadas : ['—'];
         for (const gId of grupos4insert) {
           for (const mat of mats4insert) {
-            combos.push({ docente_id: usuarioId, grupo_id: gId || null, materia: mat, ciclo:'2025-2026', activo:true });
+            combos.push({ docente_id: usuarioId, grupo_id: gId || null, materia: mat, ciclo: cicloForm, activo:true });
           }
         }
         try {
