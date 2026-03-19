@@ -47,6 +47,29 @@ window._escuelaCfg = _instCfg || { url: SUPABASE_URL, key: SUPABASE_KEY, nombre:
 let sb = null;
 try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase no disponible'); }
 
+// ══════════════════════════════════════════════════════
+// SIEMBRA — Estado global centralizado
+// En consola: escribe SIEMBRA para ver todo el estado
+// ══════════════════════════════════════════════════════
+window.SIEMBRA = {
+  ciclo:       null,
+  perfil:      null,
+  escuela:     null,
+  grupos:      [],
+  grupoActivo: null,
+  alumnos:     [],
+  materias:    [],
+};
+
+// Sincronizar con variables existentes (compatibilidad total)
+Object.defineProperty(window, '_grupoActivo',    { get(){ return window.SIEMBRA.grupoActivo; },  set(v){ window.SIEMBRA.grupoActivo = v; },  configurable:true });
+Object.defineProperty(window, '_alumnosActivos', { get(){ return window.SIEMBRA.alumnos; },      set(v){ window.SIEMBRA.alumnos = v; },      configurable:true });
+Object.defineProperty(window, '_gruposDocente',  { get(){ return window.SIEMBRA.grupos; },       set(v){ window.SIEMBRA.grupos = v; },       configurable:true });
+Object.defineProperty(window, '_materiasDocente',{ get(){ return window.SIEMBRA.materias; },     set(v){ window.SIEMBRA.materias = v; },     configurable:true });
+Object.defineProperty(window, 'currentPerfil',   { get(){ return window.SIEMBRA.perfil; },       set(v){ window.SIEMBRA.perfil = v; },       configurable:true });
+Object.defineProperty(window, 'ESCUELA_ACTIVA',  { get(){ return window.SIEMBRA.escuela; },      set(v){ window.SIEMBRA.escuela = v; },      configurable:true });
+Object.defineProperty(window, 'CICLO_ACTIVO',    { get(){ return window.SIEMBRA.ciclo || '2025-2026'; }, set(v){ window.SIEMBRA.ciclo = v; }, configurable:true });
+
 // ── Ciclo escolar activo — cargado desde config_global, no hardcodeado ──
 window.CICLO_ACTIVO = '2025-2026'; // fallback mientras carga
 async function cargarCicloActivo() {
