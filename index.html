@@ -24071,55 +24071,92 @@ ADM._abrirFormPersonal = function() {
   // ── Bloque de materias con selector de grupo por cada una ──
   let materiasHtml = '';
   if (esSecundaria) {
+    // Agrupar grupos por grado para navegación rápida con muchos grupos
+    const gruposPorGrado = {};
+    ADM.grupos.forEach(g => {
+      const k = g.grado || '?';
+      if (!gruposPorGrado[k]) gruposPorGrado[k] = [];
+      gruposPorGrado[k].push(g);
+    });
+
     materiasHtml = CAMPOS_NEM_SECUNDARIA.map(campo => {
       const subOpts = campo.contenidos.map(asig => {
         const uid = 'mat_' + asig.replace(/[^a-z0-9]/gi,'_');
-        // Chips de grupos — o aviso si no hay grupos creados
-        const gruposChips = ADM.grupos.length
-          ? ADM.grupos.map(g => `
-              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
-                font-weight:600;cursor:pointer;padding:4px 10px;
-                border:1.5px solid #e2e8f0;border-radius:99px;background:#f8fafc;">
-                <input type="checkbox" class="mat-grupo-check"
-                  data-grupo-id="${g.id}"
-                  data-grupo-nombre="${g.nombre||g.grado+String.fromCharCode(176)}"
-                  style="accent-color:${campo.color};">
-                ${g.nombre||g.grado+String.fromCharCode(176)} ${g.seccion||''}
-                <span style="color:#94a3b8;font-size:10px;">${g.turno||''}</span>
-              </label>`).join('')
-          : '<span style="font-size:11px;color:#f59e0b;font-weight:600;">⚠️ Crea grupos primero en la sección Grupos</span>';
+
+        // Chips agrupados por grado (1°: A B C D E / 2°: A B C...)
+        let gruposChips = '';
+        if (!ADM.grupos.length) {
+          gruposChips = `<span style="font-size:11px;color:#f59e0b;font-weight:600;">
+            ⚠️ Crea grupos primero en la sección Grupos</span>`;
+        } else {
+          gruposChips = Object.entries(gruposPorGrado)
+            .sort((a,b) => parseInt(a[0])-parseInt(b[0]))
+            .map(([grado, grupos]) => `
+              <div style="margin-bottom:6px;">
+                <div style="font-size:10px;color:#94a3b8;font-weight:700;
+                  margin-bottom:4px;">${grado}° GRADO</div>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                  ${grupos.map(g => {
+                    const nom = g.seccion || g.nombre || '';
+                    const turno = g.turno ? g.turno.slice(0,3).toUpperCase() : '';
+                    return `<label style="display:inline-flex;align-items:center;gap:5px;
+                      cursor:pointer;padding:5px 10px;border:1.5px solid #e2e8f0;
+                      border-radius:8px;background:#f8fafc;font-size:12px;font-weight:700;
+                      transition:.15s;user-select:none;"
+                      onmouseover="this.style.borderColor='${campo.color}';this.style.background='${campo.bg}'"
+                      onmouseout="if(!this.querySelector('input').checked){this.style.borderColor='#e2e8f0';this.style.background='#f8fafc'}">
+                      <input type="checkbox" class="mat-grupo-check"
+                        data-grupo-id="${g.id}"
+                        data-grupo-nombre="${g.nombre||g.grado+'°'+nom}"
+                        style="accent-color:${campo.color};width:13px;height:13px;"
+                        onchange="
+                          var lbl=this.closest('label');
+                          if(this.checked){lbl.style.borderColor='${campo.color}';lbl.style.background='${campo.bg}';lbl.style.color='${campo.color}';}
+                          else{lbl.style.borderColor='#e2e8f0';lbl.style.background='#f8fafc';lbl.style.color='';}
+                        ">
+                      <span>${nom}</span>
+                      <span style="font-size:9px;color:#94a3b8;font-weight:400;">${turno}</span>
+                    </label>`;
+                  }).join('')}
+                </div>
+              </div>`).join('');
+        }
 
         return `
-        <div style="margin:4px 0;padding:8px 10px;background:white;
-          border-radius:8px;border:1px solid #f1f5f9;display:flex;flex-direction:column;gap:6px;">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <div style="margin:3px 0;border-radius:8px;border:1px solid #f1f5f9;overflow:hidden;">
+          <label style="display:flex;align-items:center;gap:10px;padding:9px 12px;
+            cursor:pointer;background:#fafafa;">
             <input type="checkbox" id="chk_${uid}" class="mat-asig-check"
               data-materia="${asig}" data-campo="${campo.materias[0]}"
-              style="accent-color:${campo.color};width:15px;height:15px;flex-shrink:0;"
+              style="accent-color:${campo.color};width:16px;height:16px;flex-shrink:0;"
               onchange="admToggleGruposMateria('${uid}',this.checked)">
-            <span style="font-size:13px;font-weight:600;color:#0f172a;">${asig}</span>
+            <span style="font-size:13px;font-weight:700;color:#0f172a;flex:1;">${asig}</span>
+            <span style="font-size:10px;color:#94a3b8;" id="cnt_${uid}"></span>
           </label>
-          <div id="grupos_${uid}" style="display:none;padding-left:23px;">
-            <div style="font-size:10px;color:#64748b;margin-bottom:5px;font-weight:700;
-              text-transform:uppercase;letter-spacing:.4px;">Grupos donde imparte:</div>
-            <div style="display:flex;flex-wrap:wrap;gap:5px;">${gruposChips}</div>
+          <div id="grupos_${uid}" style="display:none;padding:10px 12px 12px;background:white;
+            border-top:1px solid #f1f5f9;">
+            <div style="font-size:10px;color:#64748b;margin-bottom:8px;font-weight:700;
+              text-transform:uppercase;letter-spacing:.5px;">Selecciona los grupos donde imparte:</div>
+            ${gruposChips}
           </div>
         </div>`;
       }).join('');
 
       return `
-      <div style="border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:8px;overflow:hidden;">
-        <div style="padding:10px 14px;background:${campo.bg};cursor:pointer;
-          display:flex;align-items:center;gap:10px;"
+      <div style="border:1.5px solid #e2e8f0;border-radius:12px;margin-bottom:8px;overflow:hidden;
+        box-shadow:0 1px 3px rgba(0,0,0,.05);">
+        <div style="padding:12px 16px;background:${campo.bg};cursor:pointer;
+          display:flex;align-items:center;gap:12px;"
           onclick="admToggleCampoSection('campo_${campo.id}')">
-          <span style="font-size:18px;">${campo.emoji}</span>
+          <span style="font-size:22px;">${campo.emoji}</span>
           <div style="flex:1;">
-            <div style="font-size:13px;font-weight:700;color:${campo.color};">${campo.nombre}</div>
-            <div style="font-size:10px;color:#64748b;">${campo.contenidos.join(' · ')}</div>
+            <div style="font-size:14px;font-weight:700;color:${campo.color};">${campo.nombre}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:1px;">${campo.contenidos.join(' · ')}</div>
           </div>
-          <span id="arrow_campo_${campo.id}" style="font-size:12px;color:#94a3b8;">▲</span>
+          <span id="arrow_campo_${campo.id}"
+            style="font-size:18px;color:${campo.color};font-weight:700;transition:.2s;">▲</span>
         </div>
-        <div id="campo_${campo.id}" style="display:block;padding:8px 14px 12px;">
+        <div id="campo_${campo.id}" style="display:block;padding:8px 12px 12px;background:white;">
           ${subOpts}
         </div>
       </div>`;
@@ -24278,6 +24315,9 @@ function admToggleGruposMateria(uid, checked) {
 
 
 ADM.guardarPersonal = async function() {
+  // Normalizar referencia a Supabase al inicio
+  const sb = window.sb || ADM.sb || null;
+
   const nombre       = document.getElementById('adm-p-nombre').value.trim();
   const apellido     = document.getElementById('adm-p-apellido').value.trim();
   const email        = document.getElementById('adm-p-email').value.trim().toLowerCase();
@@ -24340,17 +24380,15 @@ ADM.guardarPersonal = async function() {
   };
 
   try {
-    if (window.sb) {
+    if (sb) {
       // ── PASO 1: Crear/actualizar usuario via sb.rpc('upsert_usuario') ──
       let usuarioData = null;
       let usuarioId   = null;
 
       // Resolver UUID de escuela ANTES de crear usuario
-      // escuela_id DEBE ser UUID, escuela_cct es el CCT de texto
       let escuelaUuidFinal = ADM.escuelaId || null;
       if (!escuelaUuidFinal || !/^[0-9a-f-]{36}$/i.test(String(escuelaUuidFinal))) {
-        // No tenemos UUID válido → buscarlo por CCT
-        if (escuelaCct && window.sb) {
+        if (escuelaCct && sb) {
           const { data: escRow } = await sb.from('escuelas')
             .select('id').eq('cct', escuelaCct).maybeSingle();
           if (escRow?.id) {
@@ -24648,11 +24686,10 @@ ADM.guardarPersonal = async function() {
       }
 
     } else {
-      // Sin Supabase — modo local
-      const localId = 'local-' + Date.now();
-      const localDoc = { id: localId, nombre, apellido_p: apellido.split(' ')[0]||'', apellido_m: apellido.split(' ')[1]||'', email, rol, turno, activo: true };
-      ADM.docentes.push(localDoc);
-      ADM.toast(`✅ ${nombre} registrado localmente (sin conexión a BD)`);
+      // Sin Supabase — mostrar error claro en lugar de guardar localmente
+      ADM.toast('❌ Sin conexión a Supabase. Recarga la página e intenta de nuevo.', 'err');
+      console.error('[ADM] guardarPersonal: sb es null. window.sb=', window.sb, 'ADM.sb=', ADM.sb);
+      return;
     }
 
     ADM.renderDocentes();
