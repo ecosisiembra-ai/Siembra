@@ -18,9 +18,15 @@ const _URL_HUB = 'https://maoioxmnfzzwnuinesyt.supabase.co';
 const _KEY_HUB = 'sb_publishable_fNwG2bdRTbrV-JCF7of8hA_TDjSXplY';
 
 // URLs de los portales
-const _URL_PORTAL_ALUMNO  = 'https://siembra-nine.vercel.app/alumno.html';
-const _URL_PORTAL_PADRES  = 'https://siembra-nine.vercel.app/padres.html';
-const _URL_PORTAL_ADMIN   = 'https://siembra-nine.vercel.app/sa.html';
+const _URL_PORTAL_ALUMNO  = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? '/alumno.html'
+  : (location.origin + '/alumno.html');
+const _URL_PORTAL_PADRES  = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? '/padres.html'
+  : (location.origin + '/padres.html');
+const _URL_PORTAL_ADMIN   = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? '/sa.html'
+  : (location.origin + '/sa.html');
 
 const SUPABASE_URL = _instCfg?.url || _URL_HUB;
 const SUPABASE_KEY = _instCfg?.key || _KEY_HUB;
@@ -191,15 +197,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     await inviteProcessToken(_invTok);
     return;
   }
-  // ── 2. Limpiar sesión al cargar — el usuario siempre hace login ───────
+  // ── 2. Verificar sesión activa — redirigir si ya está autenticado ────
   try {
     if (sb) {
-      await sb.auth.signOut();
-      console.log('[SIEMBRA] Sesión limpiada. Se requiere login.');
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        const { data: perfil } = await sb.from('usuarios')
+          .select('*').eq('auth_id', currentUser.id).maybeSingle();
+        if (perfil) {
+          currentPerfil = perfil;
+          // Actualizar timestamp de actividad
+          try { sessionStorage.setItem('siembra_last_activity', Date.now().toString()); } catch(e) {}
+          await mostrarPortalSegunRol();
+          return;
+        }
+      }
     }
-  } catch(e) { console.warn('Error limpiando sesión:', e); }
+  } catch(e) { console.warn('[SIEMBRA] Error verificando sesión:', e); }
 
-  // Cargar estadísticas de la escuela para el panel de login
+  // Sin sesión activa — mostrar login
   _cargarStatsLogin();
 });
 
@@ -349,6 +366,9 @@ async function mostrarPortalSegunRol() {
   } else if (rol === 'padre') {
     document.getElementById('hub-login').style.display = 'none';
     document.getElementById('padre-portal').style.display = 'flex';
+    // padreInit arranca la UI y los listeners de Realtime
+    if (typeof padreInit === 'function') padreInit();
+    // pInit carga datos reales de Supabase (calificaciones, asistencia, vinculación)
     if (typeof pInit === 'function') pInit();
   } else if (rol === 'director') {
     document.getElementById('hub-login').style.display = 'none';
@@ -357,6 +377,7 @@ async function mostrarPortalSegunRol() {
   } else if (rol === 'ts') {
     document.getElementById('hub-login').style.display = 'none';
     document.getElementById('ts-portal').style.display = 'flex';
+    if (typeof tsPortalInit === 'function') tsPortalInit();
     if (typeof tsInit === 'function') tsInit();
   } else if (rol === 'subdirector') {
     // Subdirector: tiene su propio portal
@@ -369,12 +390,14 @@ async function mostrarPortalSegunRol() {
     document.getElementById('hub-login').style.display = 'none';
     document.getElementById('coord-portal').style.display = 'flex';
     window._modoCoordinador = true;
+    if (typeof coordPortalInit === 'function') coordPortalInit();
     if (typeof coordInit === 'function') coordInit();
   } else if (rol === 'prefecto') {
     // Prefecto: usa portal de trabajo social con módulo disciplina
     document.getElementById('hub-login').style.display = 'none';
     document.getElementById('ts-portal').style.display = 'flex';
     window._modoPrefecto = true;
+    if (typeof tsPortalInit === 'function') tsPortalInit();
     if (typeof tsInit === 'function') tsInit();
   } else if (rol === 'alumno') {
     // ── Portal del alumno: redirigir a siembra-alumno-v10.html ──
@@ -589,7 +612,8 @@ function pRenderCalificacionesDemo() {
 }
 
 function pRenderCalificaciones(promedios) {
-  const matList = document.getElementById('p-mat-list');
+  // p-mat-list no existe en el HTML — usar p-cals-lista que sí existe
+  const matList = document.getElementById('p-mat-list') || document.getElementById('p-cals-lista');
   if (!matList) return;
   const emos = {'Matemáticas':'➕','Lengua Materna':'📖','Ciencias Naturales':'🔬','Historia':'🏛️','Geografía':'🌎','Formación Cívica':'⚖️','Ed. Física':'⚽','Artes':'🎨'};
   const trim = window._padreTriActual || 1;
@@ -604,6 +628,31 @@ function pRenderCalificaciones(promedios) {
       <div class="p-mat-bar"><div class="p-mat-fill" style="width:${Math.max(0,pct)}%;background:${color};"></div></div>
     </div>`;
   }).join('');
+  // Actualizar también el comparativo trimestral si existe
+  const bimEl = document.getElementById('p-trim-chart');
+  if (bimEl) {
+    bimEl.innerHTML = MATERIAS_NEM.map(mat => {
+      const cal = promedios[mat]?.[trim] ?? null;
+      const pct = cal ? Math.round((cal/10)*100) : 0;
+      const color = !cal ? '#aaa' : cal>=9 ? '#22c55e' : cal>=7 ? '#3b82f6' : cal>=6 ? '#f59e0b' : '#ef4444';
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:90px;font-size:12px;color:var(--texto-2,#666);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${emos[mat]||'📚'} ${mat}</div>
+        <div style="flex:1;height:8px;background:#f0f0f0;border-radius:99px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:99px;transition:.5s;"></div>
+        </div>
+        <div style="width:30px;font-size:12px;font-weight:800;color:${color};text-align:right;">${cal ?? '—'}</div>
+      </div>`;
+    }).join('');
+  }
+  // Sincronizar PADRE_DATA.materias para que padreDash use datos reales
+  PADRE_DATA.materias = MATERIAS_NEM.map((mat,i) => ({
+    nombre: mat,
+    ico: emos[mat] || '📚',
+    cal: promedios[mat]?.[trim] ?? 0,
+    trim: [promedios[mat]?.[1]??0, promedios[mat]?.[2]??0, promedios[mat]?.[3]??0],
+    campo: '',
+    color: '#3b82f6',
+  }));
 }
 
 async function pCargarAsistencia(alumnoId) {
@@ -7441,7 +7490,7 @@ async function doLogin() {
               || document.querySelector('#login-screen input[type="email"], #login-screen input[type="text"]')?.value?.trim();
   const pass  = document.querySelector('#login-screen input[type="password"]')?.value?.trim();
   const btn   = document.querySelector('#login-screen .btn-login');
-  if (!email || !pass) { alert('Ingresa tu correo y contraseña'); return; }
+  if (!email || !pass) { hubToast('⚠️ Ingresa tu correo y contraseña', 'warn'); return; }
   if (btn) { btn.textContent = 'Entrando…'; btn.disabled = true; }
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
@@ -7451,7 +7500,8 @@ async function doLogin() {
     await cargarPerfilHub();
     mostrarPortalSegunRol();
   } catch(e) {
-    alert('❌ ' + (e.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos' : e.message));
+    const msg = e.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos' : e.message;
+    hubToast('❌ ' + msg, 'error');
     if (btn) { btn.textContent = 'Entrar'; btn.disabled = false; }
   }
 }
@@ -7572,6 +7622,15 @@ function cambiarNivel(nivel) {
     }
   }
 
+  // Actualizar título de calificaciones con el grupo activo tras cambio de nivel
+  const _gActNiv = (window._gruposDocente||[]).find(g=>g.id===window._grupoActivo);
+  const _gNomNiv = _gActNiv?.nombre || (_gActNiv ? `${_gActNiv.grado}° ${_gActNiv.letra}` : '—');
+  const calH2 = document.getElementById('cal-titulo-h2');
+  if (calH2) calH2.textContent = `Calificaciones · ${_gNomNiv}`;
+  if (document.getElementById('p-calificaciones')?.classList.contains('active')) {
+    document.getElementById('page-title').textContent = `Calificaciones · ${_gNomNiv}`;
+  }
+
   // Update calificaciones scale info for secundaria
   const escalaInfo = document.getElementById('cal-escala-info');
   if (escalaInfo) {
@@ -7625,8 +7684,34 @@ function dNav(page) {
   document.querySelectorAll('#doc-portal .page').forEach(p=>p.classList.remove('active'));
   const pg = document.getElementById('p-'+page);
   if(pg) pg.classList.add('active');
-  const titles = {dashboard:'Dashboard',calificaciones:'Calificaciones · 6° A',asistencia:'Asistencia del día',horario:'Horario semanal',planeaciones:'Planeaciones NEM',observaciones:'Observaciones por alumno',tareas:'Productos',entrevistas:'Entrevistas con padres','comentarios-dir':'Canal con dirección',boletas:'Generador de boletas',reportes:'Reportes SEP',mensajes:'Mensajes con padres',calendario:'Calendario escolar',salones:'Mis salones',etiquetas:'Alumnos y etiquetas',acomodo:'Acomodo del salón',fichas:'Fichas descriptivas',portafolio:'Portafolio de Evidencias'};
-  document.getElementById('page-title').textContent = titles[page]||page;
+  // ── Título dinámico: calificaciones usa el nombre real del grupo activo ──
+  const _grupoNomActivo = (function() {
+    const gid = window._grupoActivo;
+    if (!gid) return '—';
+    const g = (window._gruposDocente || []).find(g => g.id === gid);
+    return g?.nombre || g?.grado && g?.letra ? `${g.grado}° ${g.letra}` : '—';
+  })();
+  const titles = {
+    dashboard:'Dashboard',
+    calificaciones: `Calificaciones · ${_grupoNomActivo}`,
+    asistencia:'Asistencia del día',
+    horario:'Horario semanal',
+    planeaciones:'Planeaciones NEM',
+    observaciones:'Observaciones por alumno',
+    tareas:'Productos',
+    entrevistas:'Entrevistas con padres',
+    'comentarios-dir':'Canal con dirección',
+    boletas:'Generador de boletas',
+    reportes:'Reportes SEP',
+    mensajes:'Mensajes con padres',
+    calendario:'Calendario escolar',
+    salones:'Mis salones',
+    etiquetas:'Alumnos y etiquetas',
+    acomodo:'Acomodo del salón',
+    fichas:'Fichas descriptivas',
+    portafolio:'Portafolio de Evidencias',
+  };
+  document.getElementById('page-title').textContent = titles[page] || page;
   document.getElementById('notif-panel')?.classList.remove('open');
   if(page==='salones') renderSalonesDoc();
   if(page==='etiquetas') { poblarSelectSalones(); renderAlumnosDoc(); }
@@ -7636,6 +7721,12 @@ function dNav(page) {
   if(page==='tareas') { tareasInit(); rubricaRapidaInit(); }
   if(page==='entrevistas') { entrevistasInit(); }
   if(page==='comentarios-dir') { comentariosInternosInit(); }
+  // ── Inits que faltaban ──
+  if(page==='horario')    { if(typeof horarioCargarDB==='function') horarioCargarDB(); else if(typeof renderHorario==='function') renderHorario(); }
+  if(page==='calendario') { if(typeof renderCalendario==='function') renderCalendario(); }
+  if(page==='mensajes')   { if(typeof renderMensajes==='function') renderMensajes(); }
+  if(page==='reportes')   { if(typeof renderReportes==='function') renderReportes(); }
+  if(page==='tutoria')    { if(typeof tutoriaInit==='function') tutoriaInit(); }
   if(page==='acomodo') {
     poblarSelectSalones();
     // Auto-seleccionar primer salón si no hay activo
@@ -8566,7 +8657,33 @@ async function calGuardar() {
   }
 }
 function calExportar() {
-  hubToast('⬇ Exportando Excel con todos los trimestres…');
+  const mat  = calMatActual;
+  const trim = calTrimActual;
+  const als  = window._alumnosActivos || alumnos;
+  if (!als.length) { hubToast('⚠️ Sin alumnos para exportar', 'warn'); return; }
+
+  const aspectos = CAL_ASPECTOS[mat] || [];
+  const headers  = ['No.', 'Nombre', ...aspectos.map(a => a.nombre), 'Promedio'];
+  const rows     = als.map((a, ai) => {
+    const asps = aspectos.map((_, asi) => {
+      const val = CAL_DATA[mat]?.[trim]?.[ai]?.[asi];
+      return val !== undefined && val !== null ? val : '';
+    });
+    const prom = calPromPonderado(ai, mat, trim);
+    return [ai + 1, a.n || a.nombre || '—', ...asps, prom.toFixed(1)];
+  });
+
+  const csvLines = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csvLines], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `SIEMBRA_${mat.replace(/ /g,'_')}_T${trim}_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  hubToast('✅ CSV exportado correctamente', 'ok');
 }
 
 // ── Gráficas ──
@@ -14965,7 +15082,62 @@ function renderCalendario(){
 }
 function mesAnterior(){if(calMes===1){calMes=12;calAnio--;}else calMes--;renderCalendario();}
 function mesSiguiente(){if(calMes===12){calMes=1;calAnio++;}else calMes++;renderCalendario();}
-function nuevoEvento(){alert('Abriendo editor de eventos…');}
+function nuevoEvento(){
+  let modal = document.getElementById('modal-nuevo-evento');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'modal-nuevo-evento';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `<div style="background:white;border-radius:16px;padding:28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <h3 style="font-family:'Fraunces',serif;font-size:18px;margin-bottom:20px;color:#1c1c1a;">&#x1F4C5; Nuevo evento</h3>
+        <div style="margin-bottom:12px;">
+          <label style="display:block;font-size:11px;font-weight:700;color:#6b6b65;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Título</label>
+          <input id="ev-titulo" type="text" placeholder="Ej. Junta de padres" maxlength="60"
+            style="width:100%;padding:10px 12px;border:1.5px solid #e2e0d8;border-radius:8px;font-size:14px;font-family:inherit;outline:none;">
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+          <div style="flex:1;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#6b6b65;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Día</label>
+            <input id="ev-dia" type="number" min="1" max="31" placeholder="18"
+              style="width:100%;padding:10px 12px;border:1.5px solid #e2e0d8;border-radius:8px;font-size:14px;font-family:inherit;outline:none;">
+          </div>
+          <div style="flex:1;">
+            <label style="display:block;font-size:11px;font-weight:700;color:#6b6b65;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Tipo</label>
+            <select id="ev-tipo" style="width:100%;padding:10px 12px;border:1.5px solid #e2e0d8;border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:white;">
+              <option value="evento">Evento</option>
+              <option value="festivo">Día festivo</option>
+              <option value="examen">Examen</option>
+              <option value="aviso">Aviso</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button onclick="document.getElementById('modal-nuevo-evento').style.display='none'"
+            style="padding:9px 18px;border:1.5px solid #e2e0d8;border-radius:8px;background:white;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Cancelar</button>
+          <button onclick="_guardarEvento()"
+            style="padding:9px 18px;background:#1a6b4a;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Guardar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if(e.target===modal) modal.style.display='none'; });
+  }
+  document.getElementById('ev-titulo').value = '';
+  document.getElementById('ev-dia').value    = new Date().getDate();
+  document.getElementById('ev-tipo').value   = 'evento';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('ev-titulo').focus(), 80);
+}
+function _guardarEvento() {
+  const titulo = document.getElementById('ev-titulo')?.value.trim();
+  const dia    = parseInt(document.getElementById('ev-dia')?.value);
+  const tipo   = document.getElementById('ev-tipo')?.value || 'evento';
+  if (!titulo) { hubToast('&#x26A0;&#xFE0F; Escribe un título', 'warn'); return; }
+  if (!dia || dia < 1 || dia > 31) { hubToast('&#x26A0;&#xFE0F; Día inválido', 'warn'); return; }
+  if (typeof eventos !== 'undefined') eventos.push({ dia, texto: titulo, tipo });
+  if (typeof renderCalendario === 'function') renderCalendario();
+  document.getElementById('modal-nuevo-evento').style.display = 'none';
+  hubToast('&#x1F4C5; Evento "' + titulo + '" agregado', 'ok');
+}
 
 
 // ═══════════════════════════════════════════════
@@ -15035,7 +15207,8 @@ function dirNav(page) {
   closeSidebarOnMobile();
   document.querySelectorAll('#dir-portal .page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('#dir-portal .nav-btn').forEach(b=>b.classList.remove('active'));
-  (document.getElementById('dir-p-'+page)||document.getElementById('p-'+page)).classList.add('active');
+  const _dirPg = document.getElementById('dir-p-'+page) || document.getElementById('p-'+page);
+  if (_dirPg) _dirPg.classList.add('active');
   const btn = [...document.querySelectorAll('#dir-portal .nav-btn')].find(b=>b.getAttribute('onclick')===`dirNav('${page}')`);
   if(btn) btn.classList.add('active');
   const titles = {
@@ -15735,14 +15908,14 @@ function _abrirPortalPorRol(rol) {
     'docente':      ['doc-portal',      initApp],
     'director':     ['dir-portal',      dirInitAll],
     'admin':        ['admin-portal',    adminInit],
-    'padre':        ['padre-portal',    padreInit],
-    'ts':           ['ts-portal',       tsPortalInit],
+    'padre':        ['padre-portal',    () => { padreInit(); if(typeof pInit==='function') pInit(); }],
+    'ts':           ['ts-portal',       () => { tsPortalInit(); if(typeof tsInit==='function') tsInit(); }],
     'tutor':        ['doc-portal',      initApp],  // tutor es un docente con grupo_tutoria asignado
     'subdirector':  ['subdir-portal',   subdirInit],
-    'coordinador':  ['coord-portal',    coordPortalInit],
+    'coordinador':  ['coord-portal',    () => { coordPortalInit(); if(typeof coordInit==='function') coordInit(); }],
     'prefecto':     ['ts-portal',       () => { window._modoPrefecto = true; tsPortalInit(); }],
     'alumno':       [null, alumnoAbrirPortal],
-    'superadmin':   [null, () => { window.location.href = 'https://siembra-nine.vercel.app/sa.html'; }],
+    'superadmin':   [null, () => { window.location.href = _URL_PORTAL_ADMIN; }],
   };
   const entry = mapa[rol];
   if (!entry) {
@@ -15939,8 +16112,8 @@ function hubLogout() {
 
 // ── Timer de inactividad ─────────────────────────────────────────────────
 (function _setupInactivityTimer() {
-  const INACTIVITY_MS  = 5 * 60 * 1000; // 5 minutos sin actividad
-  const WARNING_MS     = 4 * 60 * 1000; // aviso al minuto 4
+  const INACTIVITY_MS  = 60 * 60 * 1000; // 60 minutos sin actividad
+  const WARNING_MS     = 55 * 60 * 1000; // aviso al minuto 55
   let warnShown = false;
 
   function _resetInactivityTimer() {
@@ -15954,7 +16127,7 @@ function hubLogout() {
       if (!currentUser) return;
       if (!warnShown) {
         warnShown = true;
-        hubToast('⚠️ Tu sesión cerrará en 1 minuto por inactividad.', 'warn');
+        hubToast('⚠️ Tu sesión cerrará en 5 minutos por inactividad.', 'warn');
       }
     }, WARNING_MS);
 
@@ -15979,7 +16152,7 @@ function hubToast(msg, type) {
   const t = document.getElementById('hub-toast');
   if (!t) return;
   t.textContent = msg;
-  t.style.background = type==='ok' ? '#0d5c2f' : (type==='err' ? '#c0392b' : '#0f1f3d');
+  t.style.background = type==='ok' ? '#0d5c2f' : type==='err' ? '#c0392b' : type==='warn' ? '#b45309' : '#0f1f3d';
   t.style.transform = 'translateY(0)'; t.style.opacity = '1';
   clearTimeout(window._ht);
   window._ht = setTimeout(() => { t.style.transform='translateY(60px)'; t.style.opacity='0'; }, 3000);
@@ -17518,7 +17691,29 @@ function padreChatRender() {
   cont.scrollTop = cont.scrollHeight;
 }
 
-function padreChatEnviar() {
+function padreCambiarTrim(t) {
+  window._padreTriActual = t;
+  // Actualizar estilos de botones
+  [1,2,3].forEach(i => {
+    const btn = document.getElementById('p-tbtn-' + i);
+    if (!btn) return;
+    if (i === t) {
+      btn.style.background = '#0d5c2f'; btn.style.color = 'white';
+      btn.style.borderColor = '#0d5c2f';
+    } else {
+      btn.style.background = 'white'; btn.style.color = '#64748b';
+      btn.style.borderColor = '#e2e8f0';
+    }
+  });
+  // Re-renderizar con datos reales si existen, si no con demo
+  if (window._promediosPadre) {
+    pRenderCalificaciones(window._promediosPadre);
+  } else {
+    padreCals();
+  }
+}
+
+
   const input = document.getElementById('p-chat-input');
   if (!input || !input.value.trim()) return;
   const msg = input.value.trim();
@@ -18616,7 +18811,17 @@ function pmapTooltip(e, idx) {
       <!-- ── CALIFICACIONES ── -->
       <div class="p-page" id="p-page-calificaciones">
         <div class="p-card p-mb">
-          <div class="p-section-title" style="margin-bottom:16px;">Calificaciones por materia</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <div class="p-section-title" style="margin:0;">Calificaciones por materia</div>
+            <div style="display:flex;gap:6px;">
+              <button id="p-tbtn-1" onclick="padreCambiarTrim(1)"
+                style="padding:6px 14px;border-radius:99px;border:1.5px solid #0d5c2f;background:#0d5c2f;color:white;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">T1</button>
+              <button id="p-tbtn-2" onclick="padreCambiarTrim(2)"
+                style="padding:6px 14px;border-radius:99px;border:1.5px solid #e2e8f0;background:white;color:#64748b;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">T2</button>
+              <button id="p-tbtn-3" onclick="padreCambiarTrim(3)"
+                style="padding:6px 14px;border-radius:99px;border:1.5px solid #e2e8f0;background:white;color:#64748b;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">T3</button>
+            </div>
+          </div>
           <div id="p-cals-lista"></div>
         </div>
         <div class="p-card">
@@ -18651,11 +18856,11 @@ function pmapTooltip(e, idx) {
           <div class="p-asist-grid" id="p-asist-dias"></div>
           <div style="margin-top:20px;display:flex;gap:16px;">
             <div style="flex:1;background:#dcfce7;border-radius:12px;padding:14px;text-align:center;">
-              <div style="font-size:24px;font-weight:900;color:#15803d;">22</div>
+              <div id="p-asist-p" style="font-size:24px;font-weight:900;color:#15803d;">22</div>
               <div style="font-size:12px;color:#15803d;">Días asistidos</div>
             </div>
             <div style="flex:1;background:#fee2e2;border-radius:12px;padding:14px;text-align:center;">
-              <div style="font-size:24px;font-weight:900;color:#ef4444;">2</div>
+              <div id="p-asist-a" style="font-size:24px;font-weight:900;color:#ef4444;">2</div>
               <div style="font-size:12px;color:#ef4444;">Faltas</div>
             </div>
             <div style="flex:1;background:#dbeafe;border-radius:12px;padding:14px;text-align:center;">
@@ -19340,7 +19545,7 @@ function planSwitchTab(tab) {
 function planCargarPDF(input) {
   const file = input.files[0];
   if(!file) return;
-  if(file.size > 10 * 1024 * 1024) { alert('El PDF es muy grande (máx 10 MB)'); return; }
+  if(file.size > 10 * 1024 * 1024) { hubToast('⚠️ El PDF es muy grande (máx 10 MB)', 'warn'); return; }
   const reader = new FileReader();
   reader.onload = function(e) {
     planPDFbase64 = e.target.result.split(',')[1];
