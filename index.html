@@ -24074,38 +24074,35 @@ ADM._abrirFormPersonal = function() {
     materiasHtml = CAMPOS_NEM_SECUNDARIA.map(campo => {
       const subOpts = campo.contenidos.map(asig => {
         const uid = 'mat_' + asig.replace(/[^a-z0-9]/gi,'_');
+        // Chips de grupos — o aviso si no hay grupos creados
+        const gruposChips = ADM.grupos.length
+          ? ADM.grupos.map(g => `
+              <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;
+                font-weight:600;cursor:pointer;padding:4px 10px;
+                border:1.5px solid #e2e8f0;border-radius:99px;background:#f8fafc;">
+                <input type="checkbox" class="mat-grupo-check"
+                  data-grupo-id="${g.id}"
+                  data-grupo-nombre="${g.nombre||g.grado+String.fromCharCode(176)}"
+                  style="accent-color:${campo.color};">
+                ${g.nombre||g.grado+String.fromCharCode(176)} ${g.seccion||''}
+                <span style="color:#94a3b8;font-size:10px;">${g.turno||''}</span>
+              </label>`).join('')
+          : '<span style="font-size:11px;color:#f59e0b;font-weight:600;">⚠️ Crea grupos primero en la sección Grupos</span>';
+
         return `
-        <div class="mat-asig-row" id="row_${uid}" style="display:none;
-          margin:6px 0 6px 28px;padding:10px 12px;background:white;
-          border-radius:8px;border:1.5px solid #e2e8f0;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div style="margin:4px 0;padding:8px 10px;background:white;
+          border-radius:8px;border:1px solid #f1f5f9;display:flex;flex-direction:column;gap:6px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
             <input type="checkbox" id="chk_${uid}" class="mat-asig-check"
               data-materia="${asig}" data-campo="${campo.materias[0]}"
-              style="accent-color:${campo.color};width:15px;height:15px;"
+              style="accent-color:${campo.color};width:15px;height:15px;flex-shrink:0;"
               onchange="admToggleGruposMateria('${uid}',this.checked)">
-            <label for="chk_${uid}"
-              style="font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;">
-              ${asig}
-            </label>
-          </div>
-          <div id="grupos_${uid}" style="display:none;">
-            <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600;">
-              Grupos donde imparte esta asignatura:
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;">
-              ${ADM.grupos.map(g => `
-                <label style="display:flex;align-items:center;gap:4px;font-size:11px;
-                  font-weight:600;cursor:pointer;padding:4px 10px;
-                  border:1.5px solid #e2e8f0;border-radius:99px;background:#f8fafc;
-                  transition:.15s;" class="grupo-chip">
-                  <input type="checkbox" class="mat-grupo-check"
-                    data-grupo-id="${g.id}"
-                    data-grupo-nombre="${g.nombre||g.grado+'°'}"
-                    style="accent-color:${campo.color};">
-                  ${g.nombre||g.grado+'°'} ${g.seccion||''}
-                  <span style="color:#94a3b8;font-size:10px;">${g.turno||''}</span>
-                </label>`).join('')}
-            </div>
+            <span style="font-size:13px;font-weight:600;color:#0f172a;">${asig}</span>
+          </label>
+          <div id="grupos_${uid}" style="display:none;padding-left:23px;">
+            <div style="font-size:10px;color:#64748b;margin-bottom:5px;font-weight:700;
+              text-transform:uppercase;letter-spacing:.4px;">Grupos donde imparte:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">${gruposChips}</div>
           </div>
         </div>`;
       }).join('');
@@ -24120,9 +24117,9 @@ ADM._abrirFormPersonal = function() {
             <div style="font-size:13px;font-weight:700;color:${campo.color};">${campo.nombre}</div>
             <div style="font-size:10px;color:#64748b;">${campo.contenidos.join(' · ')}</div>
           </div>
-          <span id="arrow_campo_${campo.id}" style="font-size:12px;color:#94a3b8;">▼</span>
+          <span id="arrow_campo_${campo.id}" style="font-size:12px;color:#94a3b8;">▲</span>
         </div>
-        <div id="campo_${campo.id}" style="display:none;padding:8px 14px 12px;">
+        <div id="campo_${campo.id}" style="display:block;padding:8px 14px 12px;">
           ${subOpts}
         </div>
       </div>`;
