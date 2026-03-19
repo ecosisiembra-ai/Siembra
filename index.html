@@ -23376,37 +23376,44 @@ ADM.init = async function() {
           ADM.currentPerfil = perfilFull;
           ADM.currentUser = session.user;
 
-          // ── Resolver escuela — múltiples estrategias ──
+          // ── Resolver escuela — PRIORIDAD: escuela_id UUID > escuela_cct > fallbacks ──
           let escResuelta = null;
 
-          // Estrategia 1: escuela_cct → buscar en escuelas por CCT
-          if (!escResuelta && perfilFull.escuela_cct) {
+          // Estrategia 1: escuela_id como UUID — fuente más confiable
+          if (!escResuelta && perfilFull.escuela_id) {
             const { data: esc } = await window.sb
-              .from('escuelas').select('id, nombre, cct, nivel, nivel_default').eq('cct', perfilFull.escuela_cct).maybeSingle();
+              .from('escuelas').select('id, nombre, cct, nivel, nivel_default')
+              .eq('id', perfilFull.escuela_id).maybeSingle();
             if (esc) escResuelta = esc;
           }
 
-          // Estrategia 2: escuela_id como UUID → buscar en escuelas por id
-          if (!escResuelta && perfilFull.escuela_id) {
+          // Estrategia 2: escuela_cct → solo si no tenemos escuela por UUID
+          // Si la escuela hallada por UUID no coincide con el CCT del perfil,
+          // preferir la de UUID (más específica y sin ambigüedad)
+          if (!escResuelta && perfilFull.escuela_cct) {
             const { data: esc } = await window.sb
-              .from('escuelas').select('id, nombre, cct, nivel, nivel_default').eq('id', perfilFull.escuela_id).maybeSingle();
+              .from('escuelas').select('id, nombre, cct, nivel, nivel_default')
+              .eq('cct', perfilFull.escuela_cct).maybeSingle();
             if (esc) escResuelta = esc;
           }
 
           // Estrategia 3: escuela_id podría ser un CCT (string) → buscar por cct
           if (!escResuelta && perfilFull.escuela_id) {
             const { data: esc } = await window.sb
-              .from('escuelas').select('id, nombre, cct, nivel, nivel_default').eq('cct', perfilFull.escuela_id).maybeSingle();
+              .from('escuelas').select('id, nombre, cct, nivel, nivel_default')
+              .eq('cct', perfilFull.escuela_id).maybeSingle();
             if (esc) escResuelta = esc;
           }
 
           // Estrategia 4: buscar en usuario_escuelas
           if (!escResuelta) {
             const { data: ue } = await window.sb
-              .from('usuario_escuelas').select('escuela_cct').eq('usuario_id', perfilFull.id).eq('activo', true).limit(1).maybeSingle();
+              .from('usuario_escuelas').select('escuela_cct')
+              .eq('usuario_id', perfilFull.id).eq('activo', true).limit(1).maybeSingle();
             if (ue?.escuela_cct) {
               const { data: esc } = await window.sb
-                .from('escuelas').select('id, nombre, cct, nivel, nivel_default').eq('cct', ue.escuela_cct).maybeSingle();
+                .from('escuelas').select('id, nombre, cct, nivel, nivel_default')
+                .eq('cct', ue.escuela_cct).maybeSingle();
               if (esc) escResuelta = esc;
             }
           }
@@ -23414,10 +23421,12 @@ ADM.init = async function() {
           // Estrategia 5: buscar por email del usuario en invitaciones → escuela
           if (!escResuelta && perfilFull.email) {
             const { data: inv } = await window.sb
-              .from('invitaciones').select('escuela_id').eq('email_destino', perfilFull.email).limit(1).maybeSingle();
+              .from('invitaciones').select('escuela_id')
+              .eq('email_destino', perfilFull.email).limit(1).maybeSingle();
             if (inv?.escuela_id) {
               const { data: esc } = await window.sb
-                .from('escuelas').select('id, nombre, cct, nivel, nivel_default').eq('id', inv.escuela_id).maybeSingle();
+                .from('escuelas').select('id, nombre, cct, nivel, nivel_default')
+                .eq('id', inv.escuela_id).maybeSingle();
               if (esc) escResuelta = esc;
             }
           }
@@ -23425,30 +23434,62 @@ ADM.init = async function() {
           // Estrategia 6: última opción — primera escuela activa
           if (!escResuelta) {
             const { data: esc } = await window.sb
-              .from('escuelas').select('id, nombre, cct, nivel, nivel_default').eq('activa', true).limit(1).maybeSingle();
+              .from('escuelas').select('id, nombre, cct, nivel, nivel_default')
+              .eq('activa', true).limit(1).maybeSingle();
             if (esc) escResuelta = esc;
           }
 
           // Aplicar la escuela resuelta
           if (escResuelta) {
-            ADM.escuelaId = escResuelta.id;
+            ADM.escuelaId  = escResuelta.id;
             ADM.escuelaCct = escResuelta.cct;
             ADM.escuelaNombre = escResuelta.nombre;
-            // Normalizar nivel a minúsculas
-            const nivelRaw = escResuelta.nivel || escResuelta.nivel_default || '';
-            ADM.escuelaNivel = nivelRaw.toLowerCase().trim() || 'secundaria';
-            window._admNivelActivo = ADM.escuelaNivel;
-            window._nivelActivo = ADM.escuelaNivel;
-            // Asegurar que el perfil tiene el CCT correcto
-            if (!perfilFull.escuela_cct || perfilFull.escuela_cct !== escResuelta.cct) {
+
+            // ── Resolver nivel con lógica clara ──
+            // Si la escuela tiene nivel específico (no 'ambos'), usarlo directamente
+            // Si es 'ambos', usar nivel_default de ESA escuela o lo que el admin eligió
+            let nivelFinal;
+            const nivelEsc = (escResuelta.nivel || '').toLowerCase().trim();
+
+            if (nivelEsc === 'ambos' || nivelEsc === 'primaria_y_secundaria') {
+              // Escuela mixta: respetar lo que el admin eligió en localStorage
+              // Si no eligió nada, usar nivel_default de la escuela
+              const savedAdm = localStorage.getItem('siembra_adm_nivel');
+              nivelFinal = savedAdm || escResuelta.nivel_default?.toLowerCase() || 'secundaria';
+            } else if (nivelEsc === 'primaria' || nivelEsc === 'secundaria') {
+              // Nivel único: forzar el nivel de la escuela, ignorar localStorage
+              nivelFinal = nivelEsc;
+              // Limpiar localStorage para que no pise el nivel correcto
+              try { localStorage.setItem('siembra_adm_nivel', nivelFinal); } catch(e) {}
+            } else {
+              // Fallback seguro: secundaria
+              nivelFinal = escResuelta.nivel_default?.toLowerCase() || 'secundaria';
+            }
+
+            ADM.escuelaNivel = nivelFinal;
+            window._admNivelActivo = nivelFinal;
+            window._nivelActivo = nivelFinal;
+
+            // Sincronizar CCT en el perfil si hay discrepancia
+            if (perfilFull.escuela_cct && perfilFull.escuela_cct !== escResuelta.cct) {
+              // El perfil tiene un CCT diferente al UUID resuelto — corregir en BD
               window.currentPerfil.escuela_cct = escResuelta.cct;
               ADM.currentPerfil.escuela_cct = escResuelta.cct;
-              await window.sb.from('usuarios').update({ 
-                escuela_cct: escResuelta.cct, 
-                escuela_id: escResuelta.id || escResuelta.cct 
+              await window.sb.from('usuarios').update({
+                escuela_cct: escResuelta.cct,
+                escuela_id:  escResuelta.id,
+              }).eq('auth_id', authId).catch(() => {});
+              console.log('[ADM] CCT corregido automáticamente:', perfilFull.escuela_cct, '→', escResuelta.cct);
+            } else if (!perfilFull.escuela_cct) {
+              window.currentPerfil.escuela_cct = escResuelta.cct;
+              ADM.currentPerfil.escuela_cct = escResuelta.cct;
+              await window.sb.from('usuarios').update({
+                escuela_cct: escResuelta.cct,
+                escuela_id:  escResuelta.id,
               }).eq('auth_id', authId).catch(() => {});
             }
-            console.log('[ADM] ✅ Escuela resuelta:', escResuelta.nombre, '| nivel:', escResuelta.nivel, '| nivel_default:', escResuelta.nivel_default, '| ADM.escuelaNivel:', ADM.escuelaNivel, '| CCT:', ADM.escuelaCct);
+
+            console.log('[ADM] ✅ Escuela:', escResuelta.nombre, '| nivel_esc:', nivelEsc, '| nivelFinal:', nivelFinal, '| CCT:', escResuelta.cct);
           } else {
             console.warn('[ADM] No se pudo resolver ninguna escuela para este usuario');
           }
