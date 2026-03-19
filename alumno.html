@@ -69,7 +69,7 @@ async function cargarCalificacionesReales() {
     const { data, error } = await sb.from('calificaciones')
       .select('materia, calificacion, trimestre, aspecto, ciclo')
       .eq('alumno_id', currentPerfil.id)
-      .eq('ciclo', '2025-2026')
+      .eq('ciclo', window.CICLO_ACTIVO || '2025-2026')
       .order('materia');
     if (!data?.length) return; // Mantener demo si no hay datos
 
