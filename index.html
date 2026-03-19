@@ -2511,7 +2511,7 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
 
         <div class="form-group">
           <label>Correo electrónico</label>
-          <input type="email" id="hub-email" placeholder="correo@escuela.edu.mx" onkeydown="if(event.key==='Enter')hubDoLogin()">
+          <input type="email" id="hub-email" placeholder="correo\u0040escuela.edu.mx" onkeydown="if(event.key==='Enter')hubDoLogin()">
         </div>
         <div class="form-group">
           <label>Contraseña</label>
@@ -2584,7 +2584,7 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
           <div class="form-group"><label>Nombre(s)</label><input type="text" id="reg-nombre" placeholder="María" style="width:100%;padding:10px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;"></div>
           <div class="form-group"><label>Apellidos</label><input type="text" id="reg-apellidos" placeholder="García López" style="width:100%;padding:10px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;"></div>
         </div>
-        <div class="form-group"><label>Correo electrónico</label><input type="email" id="reg-email" placeholder="correo@gmail.com" style="width:100%;padding:10px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;"></div>
+        <div class="form-group"><label>Correo electrónico</label><input type="email" id="reg-email" placeholder="correo&#64;gmail.com" style="width:100%;padding:10px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;"></div>
         <!-- TOKEN + CONTRASEÑA (siempre visibles para staff invitado — flujo unificado) -->
         <div id="reg-bloque-token" style="display:none;">
           <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:12px 14px;margin-bottom:12px;">
@@ -5917,7 +5917,7 @@ let _calRenderTablaOrig = null;
       </div>
       <div class="form-group">
         <label>Email del invitado <span style="font-weight:400;color:var(--gris-50);">(opcional — se pre-llena en el formulario)</span></label>
-        <input type="email" id="dir-inv-email" placeholder="docente@escuela.edu.mx" style="width:100%;padding:10px 12px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+        <input type="email" id="dir-inv-email" placeholder="docente\u0040escuela.edu.mx" style="width:100%;padding:10px 12px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
       </div>
       <div class="form-group">
         <label>Nombre del invitado <span style="font-weight:400;color:var(--gris-50);">(opcional)</span></label>
@@ -6807,7 +6807,7 @@ async function dirCargarInvitaciones() {
             <div class="adm-card-header" style="margin-bottom:14px;"><div class="adm-card-title">Datos del tutor / padre de familia</div></div>
             <div class="adm-form-row"><div class="adm-form-group"><label>Nombre completo</label><input type="text" id="nf-tutor-nom" placeholder="Carlos García Martínez"></div><div class="adm-form-group"><label>Parentesco</label><select id="nf-tutor-rel"><option>Padre</option><option>Madre</option><option>Abuelo/a</option><option>Tío/a</option><option>Tutor legal</option></select></div></div>
             <div class="adm-form-row"><div class="adm-form-group"><label>Teléfono principal</label><input type="tel" id="nf-tutor-tel" placeholder="+52 81 1234 5678"></div><div class="adm-form-group"><label>Teléfono de emergencia</label><input type="tel" id="nf-tutor-tel2" placeholder="+52 81 8765 4321"></div></div>
-            <div class="adm-form-group"><label>Correo electrónico</label><input type="email" id="nf-tutor-email" placeholder="carlos@gmail.com"></div>
+            <div class="adm-form-group"><label>Correo electrónico</label><input type="email" id="nf-tutor-email" placeholder="carlos&#64;gmail.com"></div>
             <div class="adm-form-group"><label>Domicilio (calle, número, colonia)</label><input type="text" id="nf-domicilio" placeholder="Calle Roble 123, Col. Pinos"></div>
             <div class="adm-form-row"><div class="adm-form-group"><label>Municipio</label><input type="text" id="nf-municipio" placeholder="Guadalupe"></div><div class="adm-form-group"><label>CP</label><input type="text" id="nf-cp" placeholder="67100" maxlength="5"></div></div>
             <div class="adm-form-row"><div class="adm-form-group"><label>Ocupación del tutor</label><input type="text" id="nf-ocupacion" placeholder="Empleado"></div><div class="adm-form-group"><label>Escolaridad del tutor</label><select id="nf-escolaridad"><option>Primaria</option><option>Secundaria</option><option>Preparatoria</option><option>Licenciatura</option><option>Posgrado</option><option>Sin estudios</option></select></div></div>
@@ -7248,7 +7248,7 @@ function inviteMostrarPantalla(inv) {
         </div>
         <div class="form-group">
           <label>Correo electrónico</label>
-          <input type="email" id="inv-email" value="${inv.email_destino || ''}" placeholder="correo@escuela.edu.mx" style="width:100%;padding:10px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+          <input type="email" id="inv-email" value="${inv.email_destino || ''}" placeholder="correo\u0040escuela.edu.mx" style="width:100%;padding:10px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
         </div>
         <div class="form-group">
           <label>Contraseña</label>
@@ -13064,12 +13064,12 @@ async function docAgregarEscuela() {
 // Alumnos con datos completos (demo)
 const TS_ALUMNOS_DIR = [
 
-  { nombre:'Sofía Ramírez Torres',   curp:'RATS100920MNLMRF01', grupo:'6° A', grado:'6°', nacimiento:'2010-09-20', domicilio:'Blvd. Díaz Ordaz 1200, Apt 4B', municipio:'San Nicolás', cp:'66450', tel_emerg:'81-5555-6666', tutor:'Laura Torres', parentesco:'Madre', tel_tutor:'81-5555-6666', correo_tutor:'ltorres@gmail.com', nee:false, notas:'' },
-  { nombre:'Luis Hernández Vega',    curp:'HEVL101115HNLRGN05', grupo:'6° A', grado:'6°', nacimiento:'2010-11-15', domicilio:'Calle 5 de Mayo 22, Col. Las Flores', municipio:'Guadalupe', cp:'67150', tel_emerg:'81-7777-8888', tutor:'Rosa Vega', parentesco:'Abuela', tel_tutor:'81-7777-8888', correo_tutor:'rvega@yahoo.com', nee:false, notas:'Vive con abuela materna' },
-  { nombre:'Valentina Cruz Salinas', curp:'CUSV110204MNLRLN09', grupo:'6° A', grado:'6°', nacimiento:'2011-02-04', domicilio:'Privada Las Palmas 15, Col. Residencial', municipio:'Apodaca', cp:'66600', tel_emerg:'81-9999-0000', tutor:'Jorge Cruz', parentesco:'Padre', tel_tutor:'81-9999-0000', correo_tutor:'jcruz@empresa.mx', nee:false, notas:'' },
-  { nombre:'Diego Morales Pérez',    curp:'MOPD100705HNLRRG02', grupo:'6° A', grado:'6°', nacimiento:'2010-07-05', domicilio:'Calle Reforma 456, Col. Industrial', municipio:'Guadalupe', cp:'67200', tel_emerg:'81-2222-3333', tutor:'Carmen Pérez', parentesco:'Madre', tel_tutor:'81-2222-3333', correo_tutor:'cperez@gmail.com', nee:true, notas:'Tiene apoyo USAER desde 4° grado' },
-  { nombre:'Isabella Torres Nava',   curp:'TONI110310MNLRRN03', grupo:'6° A', grado:'6°', nacimiento:'2011-03-10', domicilio:'Av. Colón 890, Col. Tecnológico', municipio:'Monterrey', cp:'64700', tel_emerg:'81-4444-5555', tutor:'Sandra Nava', parentesco:'Madre', tel_tutor:'81-4444-5555', correo_tutor:'snava@outlook.com', nee:false, notas:'' },
-  { nombre:'Mateo Vázquez Ortiz',    curp:'VAOM100622HNLZRT07', grupo:'6° A', grado:'6°', nacimiento:'2010-06-22', domicilio:'Priv. Hidalgo 34, Col. Santa Catarina', municipio:'Santa Catarina', cp:'66350', tel_emerg:'81-6666-7777', tutor:'Miguel Vázquez', parentesco:'Padre', tel_tutor:'81-6666-7777', correo_tutor:'mvazquez@gmail.com', nee:false, notas:'' },
+  { nombre:'Sofía Ramírez Torres',   curp:'RATS100920MNLMRF01', grupo:'6° A', grado:'6°', nacimiento:'2010-09-20', domicilio:'Blvd. Díaz Ordaz 1200, Apt 4B', municipio:'San Nicolás', cp:'66450', tel_emerg:'81-5555-6666', tutor:'Laura Torres', parentesco:'Madre', tel_tutor:'81-5555-6666', correo_tutor:'ltorres\u0040gmail.com', nee:false, notas:'' },
+  { nombre:'Luis Hernández Vega',    curp:'HEVL101115HNLRGN05', grupo:'6° A', grado:'6°', nacimiento:'2010-11-15', domicilio:'Calle 5 de Mayo 22, Col. Las Flores', municipio:'Guadalupe', cp:'67150', tel_emerg:'81-7777-8888', tutor:'Rosa Vega', parentesco:'Abuela', tel_tutor:'81-7777-8888', correo_tutor:'rvega\u0040yahoo.com', nee:false, notas:'Vive con abuela materna' },
+  { nombre:'Valentina Cruz Salinas', curp:'CUSV110204MNLRLN09', grupo:'6° A', grado:'6°', nacimiento:'2011-02-04', domicilio:'Privada Las Palmas 15, Col. Residencial', municipio:'Apodaca', cp:'66600', tel_emerg:'81-9999-0000', tutor:'Jorge Cruz', parentesco:'Padre', tel_tutor:'81-9999-0000', correo_tutor:'jcruz\u0040empresa.mx', nee:false, notas:'' },
+  { nombre:'Diego Morales Pérez',    curp:'MOPD100705HNLRRG02', grupo:'6° A', grado:'6°', nacimiento:'2010-07-05', domicilio:'Calle Reforma 456, Col. Industrial', municipio:'Guadalupe', cp:'67200', tel_emerg:'81-2222-3333', tutor:'Carmen Pérez', parentesco:'Madre', tel_tutor:'81-2222-3333', correo_tutor:'cperez\u0040gmail.com', nee:true, notas:'Tiene apoyo USAER desde 4° grado' },
+  { nombre:'Isabella Torres Nava',   curp:'TONI110310MNLRRN03', grupo:'6° A', grado:'6°', nacimiento:'2011-03-10', domicilio:'Av. Colón 890, Col. Tecnológico', municipio:'Monterrey', cp:'64700', tel_emerg:'81-4444-5555', tutor:'Sandra Nava', parentesco:'Madre', tel_tutor:'81-4444-5555', correo_tutor:'snava\u0040outlook.com', nee:false, notas:'' },
+  { nombre:'Mateo Vázquez Ortiz',    curp:'VAOM100622HNLZRT07', grupo:'6° A', grado:'6°', nacimiento:'2010-06-22', domicilio:'Priv. Hidalgo 34, Col. Santa Catarina', municipio:'Santa Catarina', cp:'66350', tel_emerg:'81-6666-7777', tutor:'Miguel Vázquez', parentesco:'Padre', tel_tutor:'81-6666-7777', correo_tutor:'mvazquez\u0040gmail.com', nee:false, notas:'' },
 ];
 
 // Directorio de familias
@@ -13082,14 +13082,14 @@ const TS_FAMILIAS_DIR = TS_ALUMNOS_DIR.map(a=>({
 
 // Directorio de instituciones
 const TS_INSTITUCIONES = [
-  { nombre:'USAER Núm. 12 — Guadalupe',          categoria:'USAER',             ico:'🏫', color:'#dbeafe', colorTxt:'#1d4ed8', responsable:'Lic. Karla Suárez',      tel:'81-1500-1200', correo:'usaer12.nl@sep.gob.mx', dir:'Av. Benito Juárez 450, Guadalupe', municipio:'Guadalupe', horario:'Lun–Vie 8–15h', notas:'Atiende alumnos con NEE del sector 02' },
-  { nombre:'DIF Municipal Guadalupe',              categoria:'DIF',               ico:'🏛️', color:'#fef3c7', colorTxt:'#92400e', responsable:'Lic. Manuel Flores',      tel:'81-1234-9000', correo:'dif@guadalupe.gob.mx', dir:'Palacio Municipal s/n, Guadalupe', municipio:'Guadalupe', horario:'Lun–Vie 9–16h', notas:'Atención a menores y familias en situación de vulnerabilidad. Solicitar cita.' },
-  { nombre:'Centro de Salud Mental IMSS UMF-7',   categoria:'Psiquiatría',        ico:'🏥', color:'#dcfce7', colorTxt:'#15803d', responsable:'Dr. Héctor Ríos',         tel:'800-623-2323', correo:'umf7.nl@imss.gob.mx', dir:'Av. Constitución 1200, Guadalupe', municipio:'Guadalupe', horario:'Lun–Vie 7–19h', notas:'Urgencias psiquiátricas pediátricas disponibles 24h' },
-  { nombre:'Psicólogo DGE — Sector 02',           categoria:'Psicología',         ico:'🧠', color:'#fdf4ff', colorTxt:'#7c3aed', responsable:'Mtro. Andrés Villarreal', tel:'81-8888-0012', correo:'psico.s02@nl.sep.gob.mx', dir:'Sector 02 SEP, Monterrey', municipio:'Monterrey', horario:'Lun–Vie 8–14h', notas:'Atiende por solicitud de zona escolar. Llenar formato SEP-PS-01.' },
-  { nombre:'SIPINNA Nuevo León',                   categoria:'SIPINNA',            ico:'🛡️', color:'#fff7ed', colorTxt:'#c2410c', responsable:'Lic. Fernanda Alvarado',  tel:'800-838-2585', correo:'sipinna@nl.gob.mx', dir:'Zaragoza 1300 Nte., Monterrey', municipio:'Monterrey', horario:'24 horas', notas:'Línea de emergencia para protección de menores. Disponible fines de semana.' },
+  { nombre:'USAER Núm. 12 — Guadalupe',          categoria:'USAER',             ico:'🏫', color:'#dbeafe', colorTxt:'#1d4ed8', responsable:'Lic. Karla Suárez',      tel:'81-1500-1200', correo:'usaer12.nl\u0040sep.gob.mx', dir:'Av. Benito Juárez 450, Guadalupe', municipio:'Guadalupe', horario:'Lun–Vie 8–15h', notas:'Atiende alumnos con NEE del sector 02' },
+  { nombre:'DIF Municipal Guadalupe',              categoria:'DIF',               ico:'🏛️', color:'#fef3c7', colorTxt:'#92400e', responsable:'Lic. Manuel Flores',      tel:'81-1234-9000', correo:'dif\u0040guadalupe.gob.mx', dir:'Palacio Municipal s/n, Guadalupe', municipio:'Guadalupe', horario:'Lun–Vie 9–16h', notas:'Atención a menores y familias en situación de vulnerabilidad. Solicitar cita.' },
+  { nombre:'Centro de Salud Mental IMSS UMF-7',   categoria:'Psiquiatría',        ico:'🏥', color:'#dcfce7', colorTxt:'#15803d', responsable:'Dr. Héctor Ríos',         tel:'800-623-2323', correo:'umf7.nl\u0040imss.gob.mx', dir:'Av. Constitución 1200, Guadalupe', municipio:'Guadalupe', horario:'Lun–Vie 7–19h', notas:'Urgencias psiquiátricas pediátricas disponibles 24h' },
+  { nombre:'Psicólogo DGE — Sector 02',           categoria:'Psicología',         ico:'🧠', color:'#fdf4ff', colorTxt:'#7c3aed', responsable:'Mtro. Andrés Villarreal', tel:'81-8888-0012', correo:'psico.s02\u0040nl.sep.gob.mx', dir:'Sector 02 SEP, Monterrey', municipio:'Monterrey', horario:'Lun–Vie 8–14h', notas:'Atiende por solicitud de zona escolar. Llenar formato SEP-PS-01.' },
+  { nombre:'SIPINNA Nuevo León',                   categoria:'SIPINNA',            ico:'🛡️', color:'#fff7ed', colorTxt:'#c2410c', responsable:'Lic. Fernanda Alvarado',  tel:'800-838-2585', correo:'sipinna\u0040nl.gob.mx', dir:'Zaragoza 1300 Nte., Monterrey', municipio:'Monterrey', horario:'24 horas', notas:'Línea de emergencia para protección de menores. Disponible fines de semana.' },
   { nombre:'Agencia del Ministerio Público',       categoria:'Ministerio Público', ico:'⚖️', color:'#fef2f2', colorTxt:'#b91c1c', responsable:'Agente del MP de guardia', tel:'81-2020-0304', correo:'', dir:'Av. Constitución 2060, Guadalupe', municipio:'Guadalupe', horario:'24 horas', notas:'Para denuncias de maltrato, abuso o delitos contra menores. Obligatorio en casos graves.' },
-  { nombre:'CIJ — Centro de Integración Juvenil', categoria:'Otro',               ico:'💊', color:'#f0fdf4', colorTxt:'#15803d', responsable:'Lic. Patricia Morales',    tel:'81-8347-6000', correo:'cij.mty@cij.gob.mx', dir:'Av. Pino Suárez 790, Monterrey', municipio:'Monterrey', horario:'Lun–Sáb 8–19h', notas:'Prevención y tratamiento de adicciones en niños, adolescentes y familias.' },
-  { nombre:'IMSS Delegación NL — Trabajo Social', categoria:'IMSS',               ico:'💊', color:'#ecfdf5', colorTxt:'#065f46', responsable:'T.S. Gabriela Castro',      tel:'800-623-2323', correo:'ts.nl@imss.gob.mx', dir:'Hidalgo 528 Pte., Monterrey', municipio:'Monterrey', horario:'Lun–Vie 8–16h', notas:'Apoyo en casos de violencia familiar, albergue, trabajo social clínico.' },
+  { nombre:'CIJ — Centro de Integración Juvenil', categoria:'Otro',               ico:'💊', color:'#f0fdf4', colorTxt:'#15803d', responsable:'Lic. Patricia Morales',    tel:'81-8347-6000', correo:'cij.mty\u0040cij.gob.mx', dir:'Av. Pino Suárez 790, Monterrey', municipio:'Monterrey', horario:'Lun–Sáb 8–19h', notas:'Prevención y tratamiento de adicciones en niños, adolescentes y familias.' },
+  { nombre:'IMSS Delegación NL — Trabajo Social', categoria:'IMSS',               ico:'💊', color:'#ecfdf5', colorTxt:'#065f46', responsable:'T.S. Gabriela Castro',      tel:'800-623-2323', correo:'ts.nl\u0040imss.gob.mx', dir:'Hidalgo 528 Pte., Monterrey', municipio:'Monterrey', horario:'Lun–Vie 8–16h', notas:'Apoyo en casos de violencia familiar, albergue, trabajo social clínico.' },
 ];
 
 let tsDirFiltroInst = '';
@@ -15037,10 +15037,10 @@ let emailHilos = [
     { out:true,  de:'Maestra Laura', t:'Buenos días. Ana ha mostrado avance, aunque sí presenta dificultad en fracciones. Le recomiendo que practiquen con ejercicios breves en casa, 15 minutos diarios. Tengo material que puedo enviarle. Con gusto la atiendo si desea una cita.', h:'Lun 3 Mar · 11:40 a.m.' },
     { out:false, de:'Mamá de Ana', t:'Muchas gracias Maestra, le agradecemos mucho su atención. ¿Cuándo podríamos vernos?', h:'Lun 3 Mar · 12:05 p.m.' },
   ]},
-  { id:2, alumnoIdx:5, nombre:'Papá de Luis Hernández', addr:'l.hernandez.padre@hotmail.com', asunto:'Citatorio — Faltas recurrentes', leido:false, msgs:[
+  { id:2, alumnoIdx:5, nombre:'Papá de Luis Hernández', addr:'l.hernandez.padre\u0040hotmail.com', asunto:'Citatorio — Faltas recurrentes', leido:false, msgs:[
     { out:true, de:'Maestra Laura', t:'Estimado padre de familia, por medio del presente le informo que el alumno Luis Hernández ha acumulado 12 inasistencias en el primer trimestre del ciclo 2025–2026. Le solicito comunicarse a la brevedad para acordar una reunión. Quedo en espera de su respuesta.', h:'Mié 5 Mar · 8:00 a.m.' },
   ]},
-  { id:3, alumnoIdx:2, nombre:'Tutora de María González', addr:'maria.g.tutora@outlook.com', asunto:'Reconocimiento — Desempeño sobresaliente', leido:true, msgs:[
+  { id:3, alumnoIdx:2, nombre:'Tutora de María González', addr:'maria.g.tutora\u0040outlook.com', asunto:'Reconocimiento — Desempeño sobresaliente', leido:true, msgs:[
     { out:true, de:'Maestra Laura', t:'Estimada tutora, me complace comunicarle que María González ha obtenido el promedio más alto del grupo en el segundo trimestre con 9.8. Su esfuerzo y dedicación son ejemplares. Felicitaciones a toda la familia.', h:'Vie 7 Mar · 10:00 a.m.' },
     { out:false, de:'Tutora de María', t:'¡Qué orgullo! Muchas gracias Maestra, le transmitiremos la noticia. María siempre habla muy bien de usted y de la escuela.', h:'Vie 7 Mar · 2:30 p.m.' },
   ]},
@@ -15863,15 +15863,15 @@ function recordar(id){showToast(`📧 Recordatorio enviado a ${docentes[id].nomb
 
 // ════ HUB ROUTER ════
 const HUB_ROLES = {
-  docente:     { email:'docente2@siembra.test',      hint:'Acceso demo — Docente' },
-  tutor:       { email:'tutor@siembra.test',         hint:'Acceso demo — Tutor de Grupo' },
-  director:    { email:'director@siembra.test',      hint:'Acceso demo — Director' },
-  subdirector: { email:'subdirector@siembra.test',   hint:'Acceso demo — Subdirector' },
-  coordinador: { email:'coordinador@siembra.test',   hint:'Acceso demo — Coordinador' },
-  prefecto:    { email:'prefecto@siembra.test',      hint:'Acceso demo — Prefecto' },
-  admin:       { email:'admin@siembra.test',         hint:'Acceso demo — Administración' },
-  padre:       { email:'familia@siembra.test',       hint:'Acceso demo — Familia' },
-  ts:          { email:'ts@siembra.test',            hint:'Acceso demo — Trabajo Social' },
+  docente:     { email:'docente2\u0040siembra.test',      hint:'Acceso demo — Docente' },
+  tutor:       { email:'tutor\u0040siembra.test',         hint:'Acceso demo — Tutor de Grupo' },
+  director:    { email:'director\u0040siembra.test',      hint:'Acceso demo — Director' },
+  subdirector: { email:'subdirector\u0040siembra.test',   hint:'Acceso demo — Subdirector' },
+  coordinador: { email:'coordinador\u0040siembra.test',   hint:'Acceso demo — Coordinador' },
+  prefecto:    { email:'prefecto\u0040siembra.test',      hint:'Acceso demo — Prefecto' },
+  admin:       { email:'admin\u0040siembra.test',         hint:'Acceso demo — Administración' },
+  padre:       { email:'familia\u0040siembra.test',       hint:'Acceso demo — Familia' },
+  ts:          { email:'ts\u0040siembra.test',            hint:'Acceso demo — Trabajo Social' },
 };
 let hubRole = null;
 
@@ -16716,11 +16716,11 @@ function _admTablaUsrRender(data) {
 
 function _admTablaUsrDemo() {
   const demo = [
-    {id:'d1',nombre:'Laura',apellido_p:'Martínez',email:'l.martinez@demo.edu',rol:'docente',activo:true,grupo_tutoria:'6°A',created_at:new Date().toISOString()},
-    {id:'d2',nombre:'Roberto',apellido_p:'Sánchez',email:'r.sanchez@demo.edu',rol:'director',activo:true,grupo_tutoria:null,created_at:new Date().toISOString()},
-    {id:'d3',nombre:'Ana',apellido_p:'Torres',email:'a.torres@demo.edu',rol:'ts',activo:true,grupo_tutoria:null,created_at:new Date().toISOString()},
-    {id:'d4',nombre:'Carlos',apellido_p:'Gómez',email:'c.gomez@demo.edu',rol:'prefecto',activo:true,grupo_tutoria:null,created_at:new Date().toISOString()},
-    {id:'d5',nombre:'María',apellido_p:'Flores',email:'m.flores@demo.edu',rol:'coordinador',activo:false,grupo_tutoria:null,created_at:new Date().toISOString()},
+    {id:'d1',nombre:'Laura',apellido_p:'Martínez',email:'l.martinez\u0040demo.edu',rol:'docente',activo:true,grupo_tutoria:'6°A',created_at:new Date().toISOString()},
+    {id:'d2',nombre:'Roberto',apellido_p:'Sánchez',email:'r.sanchez\u0040demo.edu',rol:'director',activo:true,grupo_tutoria:null,created_at:new Date().toISOString()},
+    {id:'d3',nombre:'Ana',apellido_p:'Torres',email:'a.torres\u0040demo.edu',rol:'ts',activo:true,grupo_tutoria:null,created_at:new Date().toISOString()},
+    {id:'d4',nombre:'Carlos',apellido_p:'Gómez',email:'c.gomez\u0040demo.edu',rol:'prefecto',activo:true,grupo_tutoria:null,created_at:new Date().toISOString()},
+    {id:'d5',nombre:'María',apellido_p:'Flores',email:'m.flores\u0040demo.edu',rol:'coordinador',activo:false,grupo_tutoria:null,created_at:new Date().toISOString()},
   ];
   return _admTablaUsrRender(demo);
 }
@@ -18946,7 +18946,7 @@ function pmapTooltip(e, idx) {
         </div>
         <div style="margin-bottom:14px;">
           <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Email del director/administrador</label>
-          <input id="sa-esc-email-dir" type="email" placeholder="director@escuela.edu.mx"
+          <input id="sa-esc-email-dir" type="email" placeholder="director\u0040escuela.edu.mx"
             style="width:100%;padding:9px 12px;background:#0f172a;border:1.5px solid #334155;border-radius:8px;color:white;font-family:inherit;font-size:13px;outline:none;">
           <div style="font-size:11px;color:#64748b;margin-top:4px;">Se enviará una invitación automáticamente a este correo.</div>
         </div>
@@ -18986,7 +18986,7 @@ function pmapTooltip(e, idx) {
         </div>
         <div style="margin-bottom:14px;">
           <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Email</label>
-          <input id="sa-inv-email" type="email" placeholder="director@escuela.edu.mx"
+          <input id="sa-inv-email" type="email" placeholder="director\u0040escuela.edu.mx"
             style="width:100%;padding:9px 12px;background:#0f172a;border:1.5px solid #334155;border-radius:8px;color:white;font-family:inherit;font-size:13px;outline:none;">
         </div>
         <div id="sa-inv-resultado" style="display:none;padding:12px;background:#0f172a;border:1px solid #22c55e;border-radius:8px;">
@@ -23895,7 +23895,7 @@ ADM.abrirModalPersonal = function() {
     </div>
     <div class="adm-form-group">
       <label>Correo electrónico</label>
-      <input type="email" id="adm-p-email" placeholder="usuario@escuela.edu.mx">
+      <input type="email" id="adm-p-email" placeholder="usuario\u0040escuela.edu.mx">
     </div>
     <div class="adm-form-row">
       <div class="adm-form-group">
@@ -25221,9 +25221,9 @@ ADM._demoGrupos = () => [
   { id:'g4', nombre:'6° A', grado:6, seccion:'A', turno:'matutino', nivel:'primaria', capacidad:35, ciclo:'2025-2026' },
 ];
 ADM._demoDocentes = () => [
-  { id:'d1', nombre:'Rosa', apellido:'Martínez Vega', email:'rosa@escuela.edu.mx', rol:'docente', turno:'matutino', activo:true },
-  { id:'d2', nombre:'Carlos', apellido:'López Reyes', email:'carlos@escuela.edu.mx', rol:'docente', turno:'matutino', activo:true },
-  { id:'d3', nombre:'Ana', apellido:'Torres Cruz', email:'ana.ts@escuela.edu.mx', rol:'ts', turno:'matutino', activo:true },
+  { id:'d1', nombre:'Rosa', apellido:'Martínez Vega', email:'rosa\u0040escuela.edu.mx', rol:'docente', turno:'matutino', activo:true },
+  { id:'d2', nombre:'Carlos', apellido:'López Reyes', email:'carlos\u0040escuela.edu.mx', rol:'docente', turno:'matutino', activo:true },
+  { id:'d3', nombre:'Ana', apellido:'Torres Cruz', email:'ana.ts\u0040escuela.edu.mx', rol:'ts', turno:'matutino', activo:true },
 ];
 ADM._demoAlumnos = () => [
   { id:'a1', nombre:'Diego', apellido:'García López', curp:'GALD140320HNLLRG01', codigo_vinculacion:'ALU-X1', alumnos_grupos:[{ grupo_id:'g2', grupos:{ nombre:'2° B', grado:2 } }] },
