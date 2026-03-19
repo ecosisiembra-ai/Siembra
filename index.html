@@ -2711,6 +2711,7 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
       <div class="nav-label">Principal</div>
       <button class="nav-btn active" onclick="dNav('dashboard')"><span class="ni">🏠</span> Dashboard</button>
       <button class="nav-btn" onclick="dNav('calificaciones')"><span class="ni">📊</span> Calificaciones</button>
+      <button class="nav-btn" onclick="dNav('examenes')"><span class="ni">📝</span> Exámenes</button>
       <button class="nav-btn" onclick="dNav('asistencia')"><span class="ni">✅</span> Asistencia</button>
       <button class="nav-btn" onclick="dNav('horario')"><span class="ni">🕐</span> Horario semanal</button>
       <div class="nav-label">Salones</div>
@@ -2849,6 +2850,45 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
           <div class="card">
             <div class="card-title">📅 Eventos próximos</div>
             <div id="eventos-proximos"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXÁMENES — módulo completo -->
+      <div class="page" id="p-examenes">
+        <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div>
+            <h2 style="font-family:'Fraunces',serif;font-size:22px;color:var(--verde-oscuro);margin:0;">Exámenes y evaluaciones</h2>
+            <p style="font-size:13px;color:var(--gris-50);margin:4px 0 0;">Crea exámenes, asigna calificaciones directas y analiza resultados</p>
+          </div>
+          <button onclick="examenesNuevo()" style="padding:10px 18px;background:var(--verde);color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">+ Nuevo examen</button>
+        </div>
+
+        <!-- Filtros rápidos -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <select id="ex-filtro-grupo" onchange="examenesRender()" style="padding:7px 12px;border:1.5px solid var(--gris-20);border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;background:white;">
+            <option value="">Todos los grupos</option>
+          </select>
+          <select id="ex-filtro-materia" onchange="examenesRender()" style="padding:7px 12px;border:1.5px solid var(--gris-20);border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;background:white;">
+            <option value="">Todas las materias</option>
+          </select>
+          <select id="ex-filtro-trim" onchange="examenesRender()" style="padding:7px 12px;border:1.5px solid var(--gris-20);border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;background:white;">
+            <option value="">Todos los trimestres</option>
+            <option value="1">Trimestre 1</option>
+            <option value="2">Trimestre 2</option>
+            <option value="3">Trimestre 3</option>
+          </select>
+        </div>
+
+        <!-- Stats rápidas -->
+        <div id="ex-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;"></div>
+
+        <!-- Lista de exámenes -->
+        <div id="ex-lista" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="text-align:center;padding:48px 20px;color:var(--gris-50);">
+            <div style="font-size:40px;margin-bottom:12px;">📝</div>
+            <div style="font-weight:700;color:var(--gris-80);margin-bottom:6px;">Sin exámenes registrados</div>
+            <div style="font-size:13px;">Crea tu primer examen con el botón "+ Nuevo examen"</div>
           </div>
         </div>
       </div>
@@ -7762,6 +7802,7 @@ function dNav(page) {
     acomodo:'Acomodo del salón',
     fichas:'Fichas descriptivas',
     portafolio:'Portafolio de Evidencias',
+    examenes:'Exámenes y evaluaciones',
   };
   document.getElementById('page-title').textContent = titles[page] || page;
   document.getElementById('notif-panel')?.classList.remove('open');
@@ -7773,6 +7814,7 @@ function dNav(page) {
   if(page==='tareas') { tareasInit(); rubricaRapidaInit(); }
   if(page==='entrevistas') { entrevistasInit(); }
   if(page==='comentarios-dir') { comentariosInternosInit(); }
+  if(page==='examenes') { examenesInit(); }
   // ── Inits que faltaban ──
   if(page==='horario')    { if(typeof horarioCargarDB==='function') horarioCargarDB(); else if(typeof renderHorario==='function') renderHorario(); }
   if(page==='calendario') { if(typeof renderCalendario==='function') renderCalendario(); }
@@ -8750,9 +8792,247 @@ async function calGuardar() {
     hubToast('❌ Error al guardar: ' + error.message, 'error');
   } else {
     hubToast('✅ Calificaciones guardadas en Supabase', 'ok');
+    // Auto-notificación de riesgo
+    calDetectarRiesgoYNotificar().catch(()=>{});
   }
 }
+
+// ══════════════════════════════════════════════════════
+// MÓDULO: EXÁMENES
+// ══════════════════════════════════════════════════════
+let _examenesData = [];
+
+async function examenesInit() {
+  const grupoSel = document.getElementById('ex-filtro-grupo');
+  const matSel   = document.getElementById('ex-filtro-materia');
+  if (grupoSel && window._gruposDocente?.length) {
+    grupoSel.innerHTML = '<option value="">Todos los grupos</option>' +
+      window._gruposDocente.map(g =>
+        `<option value="${g.id}">${g.nombre||g.grado+'°'} ${g.seccion||''}</option>`
+      ).join('');
+  }
+  if (matSel && window._materiasDocente?.length) {
+    matSel.innerHTML = '<option value="">Todas las materias</option>' +
+      window._materiasDocente.map(m => `<option value="${m}">${m}</option>`).join('');
+  }
+  await examenesCargar();
+}
+
+async function examenesCargar() {
+  if (!sb || !currentPerfil) return;
+  try {
+    const { data, error } = await sb.from('examenes_docente')
+      .select('*').eq('docente_id', currentPerfil.id)
+      .eq('ciclo', window.CICLO_ACTIVO)
+      .order('creado_en', { ascending: false });
+    if (error) throw error;
+    _examenesData = data || [];
+  } catch(e) {
+    console.warn('[examenes]', e.message);
+    _examenesData = [];
+  }
+  examenesRender();
+  examenesStats();
+}
+
+function examenesRender() {
+  const el = document.getElementById('ex-lista');
+  if (!el) return;
+  const filtGrupo = document.getElementById('ex-filtro-grupo')?.value || '';
+  const filtMat   = document.getElementById('ex-filtro-materia')?.value || '';
+  const filtTrim  = document.getElementById('ex-filtro-trim')?.value || '';
+  let lista = _examenesData;
+  if (filtGrupo) lista = lista.filter(e => e.grupo_id === filtGrupo);
+  if (filtMat)   lista = lista.filter(e => e.materia  === filtMat);
+  if (filtTrim)  lista = lista.filter(e => String(e.trimestre) === filtTrim);
+  if (!lista.length) {
+    el.innerHTML = '<div style="text-align:center;padding:48px 20px;color:#94a3b8;"><div style="font-size:40px;margin-bottom:12px;">📝</div><div style="font-weight:700;color:#0f172a;margin-bottom:6px;">Sin exámenes registrados</div><div style="font-size:13px;">Crea tu primer examen con el botón &quot;+ Nuevo examen&quot;</div></div>';
+    return;
+  }
+  el.innerHTML = lista.map(ex => {
+    const prom = ex.promedio_grupo ?? '—';
+    const aprobados = ex.total_aprobados ?? 0;
+    const total = ex.total_alumnos ?? 0;
+    const pct = total ? Math.round(aprobados/total*100) : 0;
+    const color = pct>=70?'#166534':pct>=50?'#92400e':'#991b1b';
+    const bg    = pct>=70?'#f0fdf4':pct>=50?'#fffbeb':'#fef2f2';
+    return '<div style="background:white;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">' +
+      '<div style="flex:1;min-width:200px;"><div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:3px;">'+ex.nombre+'</div>' +
+      '<div style="font-size:12px;color:#64748b;">'+(ex.materia||'—')+' · '+(ex.grupo_nombre||'—')+' · Trimestre '+(ex.trimestre||'—')+(ex.fecha_aplicacion?' · '+ex.fecha_aplicacion:'')+'</div></div>' +
+      '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">' +
+      '<div style="text-align:center;padding:8px 14px;background:'+bg+';border-radius:8px;"><div style="font-size:20px;font-weight:800;color:'+color+';">'+prom+'</div><div style="font-size:10px;color:#64748b;font-weight:600;">PROMEDIO</div></div>' +
+      '<div style="text-align:center;padding:8px 14px;background:#f8fafc;border-radius:8px;"><div style="font-size:20px;font-weight:800;color:#1e40af;">'+aprobados+'/'+total+'</div><div style="font-size:10px;color:#64748b;font-weight:600;">APROBADOS</div></div>' +
+      '<div style="display:flex;gap:6px;">' +
+      '<button onclick="examenesCapturar(\'' + ex.id + '\')" style="padding:7px 14px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✏️ Capturar notas</button>' +
+      '</div></div></div>';
+  }).join('');
+}
+
+function examenesStats() {
+  const el = document.getElementById('ex-stats');
+  if (!el || !_examenesData.length) { if(el) el.innerHTML=''; return; }
+  const total = _examenesData.length;
+  const withProm = _examenesData.filter(e=>e.promedio_grupo);
+  const promGlobal = withProm.length ? withProm.reduce((s,e)=>s+(e.promedio_grupo||0),0)/withProm.length : 0;
+  const enRiesgo = _examenesData.filter(e=>(e.promedio_grupo||10)<6).length;
+  el.innerHTML = [
+    {ico:'📝',val:total,lbl:'Exámenes',color:'#1e40af',bg:'#eff6ff'},
+    {ico:'📊',val:promGlobal.toFixed(1),lbl:'Promedio global',color:'#166534',bg:'#f0fdf4'},
+    {ico:'⚠️',val:enRiesgo,lbl:'Grupos en riesgo',color:'#b91c1c',bg:'#fef2f2'},
+  ].map(s=>'<div style="background:'+s.bg+';border-radius:10px;padding:14px 16px;text-align:center;"><div style="font-size:22px;">'+s.ico+'</div><div style="font-size:22px;font-weight:800;color:'+s.color+';">'+s.val+'</div><div style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;">'+s.lbl+'</div></div>').join('');
+}
+
+function examenesNuevo() {
+  const gruposOpts = (window._gruposDocente||[]).map(g=>'<option value="'+g.id+'">'+(g.nombre||g.grado+'° '+g.seccion||'')+'</option>').join('');
+  const matsOpts = (window._materiasDocente||[]).map(m=>'<option value="'+m+'">'+m+'</option>').join('');
+  const today = new Date().toISOString().split('T')[0];
+  const div = document.createElement('div');
+  div.id='ex-modal';
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  div.innerHTML='<div style="background:white;border-radius:16px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">' +
+    '<div style="font-family:Fraunces,serif;font-size:20px;font-weight:700;color:#0d5c2f;margin-bottom:20px;">📝 Nuevo examen</div>' +
+    '<div style="display:flex;flex-direction:column;gap:12px;">' +
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Nombre del examen *</label>' +
+    '<input id="ex-n-nombre" type="text" placeholder="Ej: Examen parcial 1" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Grupo *</label>' +
+    '<select id="ex-n-grupo" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="">Seleccionar…</option>'+gruposOpts+'</select></div>' +
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Materia *</label>' +
+    '<select id="ex-n-materia" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="">Seleccionar…</option>'+matsOpts+'</select></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">' +
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Trimestre</label>' +
+    '<select id="ex-n-trim" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;"><option value="1">T1</option><option value="2">T2</option><option value="3">T3</option></select></div>' +
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Valor (pts)</label>' +
+    '<input id="ex-n-valor" type="number" min="1" max="100" value="10" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div>' +
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Fecha</label>' +
+    '<input id="ex-n-fecha" type="date" value="'+today+'" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;box-sizing:border-box;"></div></div>' +
+    '<div><label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin-bottom:4px;">Temas evaluados</label>' +
+    '<textarea id="ex-n-desc" rows="2" placeholder="Ej: Fracciones, decimales…" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">' +
+    '<button onclick="document.getElementById('ex-modal').remove()" style="padding:10px 18px;background:#f1f5f9;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>' +
+    '<button onclick="examenesGuardarNuevo()" style="padding:10px 18px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Crear examen →</button>' +
+    '</div></div>';
+  document.body.appendChild(div);
+}
+
+async function examenesGuardarNuevo() {
+  const nombre  = document.getElementById('ex-n-nombre')?.value.trim();
+  const grupoId = document.getElementById('ex-n-grupo')?.value;
+  const materia = document.getElementById('ex-n-materia')?.value;
+  const trim    = parseInt(document.getElementById('ex-n-trim')?.value||'1');
+  const valor   = parseFloat(document.getElementById('ex-n-valor')?.value||'10');
+  const fecha   = document.getElementById('ex-n-fecha')?.value;
+  const desc    = document.getElementById('ex-n-desc')?.value.trim();
+  if (!nombre||!grupoId||!materia){hubToast('⚠️ Nombre, grupo y materia son obligatorios','warn');return;}
+  const grupoObj = (window._gruposDocente||[]).find(g=>g.id===grupoId);
+  try {
+    const {data,error} = await sb.from('examenes_docente').insert({
+      docente_id:currentPerfil.id,grupo_id:grupoId,grupo_nombre:grupoObj?.nombre||'',
+      materia,trimestre:trim,fecha_aplicacion:fecha||null,valor_maximo:valor,
+      nombre,descripcion:desc||null,ciclo:window.CICLO_ACTIVO,creado_en:new Date().toISOString()
+    }).select().single();
+    if(error) throw error;
+    hubToast('✅ Examen creado','ok');
+    document.getElementById('ex-modal')?.remove();
+    _examenesData.unshift(data);
+    examenesRender();
+    setTimeout(()=>examenesCapturar(data.id),300);
+  } catch(e){hubToast('❌ '+e.message,'err');console.error(e);}
+}
+
+async function examenesCapturar(examenId) {
+  const ex = _examenesData.find(e=>e.id===examenId);
+  if(!ex) return;
+  const alumnosDB = await calCargarAlumnosGrupo(ex.grupo_id);
+  let calMap = {};
+  try {
+    const {data:cals} = await sb.from('examenes_calificaciones').select('*').eq('examen_id',examenId);
+    (cals||[]).forEach(c=>calMap[c.alumno_id]=c);
+  } catch(e){}
+  const rows = alumnosDB.map((a,i)=>{
+    const prev=calMap[a.id];
+    return '<div style="display:grid;grid-template-columns:1fr 80px 1fr;align-items:center;gap:8px;padding:7px 10px;background:'+(i%2?'white':'#f8fafc')+';border-radius:6px;">' +
+      '<div style="font-size:13px;font-weight:600;">'+a.n+'</div>' +
+      '<input type="number" min="0" max="'+ex.valor_maximo+'" step="0.5" value="'+(prev?.calificacion??'')+'" placeholder="—" id="ecal_'+a.id+'" style="width:100%;padding:6px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-family:Sora,sans-serif;font-size:13px;text-align:center;">' +
+      '<input type="text" placeholder="Comentario…" value="'+(prev?.comentario||'')+'" id="ecmt_'+a.id+'" style="width:100%;padding:6px 8px;border:1.5px solid #e2e8f0;border-radius:6px;font-family:Sora,sans-serif;font-size:12px;"></div>';
+  }).join('');
+  const div=document.createElement('div');
+  div.id='ex-cap-modal';
+  div.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  div.innerHTML='<div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">' +
+    '<div><div style="font-family:Fraunces,serif;font-size:18px;font-weight:700;color:#0d5c2f;">'+ex.nombre+'</div>' +
+    '<div style="font-size:12px;color:#64748b;">'+ex.materia+' · '+ex.grupo_nombre+' · T'+ex.trimestre+' · Valor: '+ex.valor_maximo+' pts</div></div>' +
+    '<button onclick="document.getElementById('ex-cap-modal').remove()" style="background:#f1f5f9;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;">✕</button></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 80px 1fr;gap:6px;padding:6px 10px;background:#f0fdf4;border-radius:6px;margin-bottom:8px;">' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;">ALUMNO</div>' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;text-align:center;">CALIF.</div>' +
+    '<div style="font-size:11px;font-weight:700;color:#64748b;">COMENTARIO</div></div>' +
+    '<div style="display:flex;flex-direction:column;gap:3px;">'+rows+'</div>' +
+    '<div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end;">' +
+    '<button onclick="document.getElementById('ex-cap-modal').remove()" style="padding:10px 18px;background:#f1f5f9;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Cancelar</button>' +
+    '<button onclick="examenesGuardarCalif(''+examenId+'')" style="padding:10px 18px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-family:Sora,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar calificaciones</button>' +
+    '</div></div>';
+  document.body.appendChild(div);
+}
+
+async function examenesGuardarCalif(examenId) {
+  const ex = _examenesData.find(e=>e.id===examenId);
+  if(!ex) return;
+  const alumnosDB = await calCargarAlumnosGrupo(ex.grupo_id);
+  const rows=[]; let suma=0,count=0,aprobados=0;
+  alumnosDB.forEach(a=>{
+    const cal = document.getElementById('ecal_'+a.id)?.value;
+    const cmt = document.getElementById('ecmt_'+a.id)?.value.trim()||null;
+    if(cal!==''&&cal!==undefined){
+      const v=parseFloat(cal);
+      rows.push({examen_id:examenId,alumno_id:a.id,grupo_id:ex.grupo_id,docente_id:currentPerfil.id,calificacion:v,comentario:cmt,ciclo:window.CICLO_ACTIVO});
+      suma+=v; count++;
+      if(v>=(ex.valor_maximo*0.6)) aprobados++;
+    }
+  });
+  try {
+    if(rows.length){
+      const {error}=await sb.from('examenes_calificaciones').upsert(rows,{onConflict:'examen_id,alumno_id'});
+      if(error) throw error;
+    }
+    const prom=count?Math.round(suma/count*10)/10:null;
+    await sb.from('examenes_docente').update({promedio_grupo:prom,total_alumnos:alumnosDB.length,total_aprobados:aprobados}).eq('id',examenId);
+    const exIdx=_examenesData.findIndex(e=>e.id===examenId);
+    if(exIdx>=0) _examenesData[exIdx]={..._examenesData[exIdx],promedio_grupo:prom,total_alumnos:alumnosDB.length,total_aprobados:aprobados};
+    hubToast('✅ '+rows.length+' calificaciones guardadas','ok');
+    document.getElementById('ex-cap-modal')?.remove();
+    examenesRender(); examenesStats();
+    // Auto-notificar reprobados
+    const reprobados=rows.filter(r=>r.calificacion<(ex.valor_maximo*0.6));
+    if(reprobados.length){
+      const nombres=reprobados.map(r=>(alumnosDB.find(a=>a.id===r.alumno_id)?.n||'?')).join(', ');
+      try{await sb.from('alertas').insert({tipo:'reprobado_examen',origen:'docente',docente_id:currentPerfil.id,grupo_id:ex.grupo_id,materia:ex.materia,mensaje:'📝 Examen "'+ex.nombre+'" — '+reprobados.length+' alumno(s) reprobaron: '+nombres+'. Promedio: '+(prom||'—'),escuela_cct:currentPerfil.escuela_cct,ciclo:window.CICLO_ACTIVO,leido:false,creado_en:new Date().toISOString()});}
+      catch(e2){console.warn('[alertas]',e2.message);}
+    }
+  } catch(e){hubToast('❌ '+e.message,'err');}
+}
+
+async function calDetectarRiesgoYNotificar() {
+  if(!sb||!currentPerfil) return;
+  try {
+    const als=window._alumnosActivos||[];
+    const mat=calMatActual; const trim=calTrimActual;
+    if(!als.length) return;
+    const enRiesgo=als.map((_,ai)=>({ai,prom:calPromPonderado(ai,mat,trim)}))
+      .filter(r=>r.prom>0&&r.prom<6)
+      .map(r=>als[r.ai]?.n||'?');
+    if(!enRiesgo.length) return;
+    await sb.from('alertas').insert({tipo:'riesgo_academico',origen:'docente',docente_id:currentPerfil.id,grupo_id:window._grupoActivo,materia:mat,mensaje:'⚠️ Riesgo en '+mat+' T'+trim+': '+enRiesgo.join(', '),escuela_cct:currentPerfil.escuela_cct,ciclo:window.CICLO_ACTIVO,leido:false,creado_en:new Date().toISOString()});
+  } catch(e){console.warn('[riesgo]',e.message);}
+}
+
 function calExportar() {
+  const mat  = calMatActual;
+  const trim = calTrimActual;
+  const als  = window._alumnosActivos || alumnos;
   const mat  = calMatActual;
   const trim = calTrimActual;
   const als  = window._alumnosActivos || alumnos;
