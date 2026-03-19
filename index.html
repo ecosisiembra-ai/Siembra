@@ -24023,113 +24023,151 @@ ADM.abrirModalPersonal = function() {
       || window._escuelaCfg?.nivel_default
       || 'secundaria';
   }
-
-  // Si ADM.grupos está vacío, cargar primero y luego reabrir
-  if (!ADM.grupos.length && window.sb) {
+  // Asegurar que tenemos sb activo
+  if (!window.sb) {
+    ADM.toast('⚠️ Sin conexión a base de datos', 'warn');
+    return;
+  }
+  // Si ADM.grupos está vacío, cargar primero
+  if (!ADM.grupos.length) {
     ADM.cargarGrupos().then(() => ADM.abrirModalPersonal());
     return;
   }
 
-  const gruposHtml = ADM.grupos.length
-    ? ADM.grupos.map(g => '<label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">' +
-        '<input type="checkbox" id="adm-grp-' + g.id + '" value="' + g.id + '" style="accent-color:#0d5c2f;"> ' +
-        (g.nombre||g.grado+'°') + '</label>').join('')
-    : '<span style="font-size:12px;color:#94a3b8;">Sin grupos — crea grupos primero</span>';
+  const esSecundaria = ADM.escuelaNivel === 'secundaria';
+  const nivelLabel   = esSecundaria
+    ? 'Secundaria (Campos Formativos Fase 6)'
+    : 'Primaria (Asignaturas NEM)';
 
-  // Materias filtradas por nivel de la escuela
-  let materiasList = (ADM.materias || []).filter(m =>
-    !m.nivel || m.nivel === ADM.escuelaNivel || m.nivel === 'ambos'
-  );
-  if (!materiasList.length) {
-    materiasList = getMateriasByNivel(ADM.escuelaNivel).map((nombre, i) => ({ id: 'gen-' + i, nombre }));
-  }
-  // ── Generar sección de materias/campos formativos ──────────────────
+  // Opciones de grupos para los selects de cada materia
+  const grupoOptsHtml = ADM.grupos
+    .map(g => `<option value="${g.id}">${g.nombre||g.grado+'°'} ${g.seccion||''} ${g.turno?'('+g.turno+')':''}</option>`)
+    .join('');
+
+  // Año/ciclo
+  const anioActual = new Date().getFullYear();
+  const ciclosHtml = [anioActual+'-'+(anioActual+1), (anioActual-1)+'-'+anioActual]
+    .map((c,i)=>`<option value="${c}"${i===0?' selected':''}>${c}</option>`).join('');
+
+  // ── Bloque de materias con selector de grupo por cada una ──
   let materiasHtml = '';
-  if (ADM.escuelaNivel === 'secundaria') {
-    // SECUNDARIA: mostrar los 4 campos formativos con checkboxes
-    // y dentro de cada campo, las asignaturas que contiene
+  if (esSecundaria) {
     materiasHtml = CAMPOS_NEM_SECUNDARIA.map(campo => {
-      const campoNombre = campo.materias[0]; // ej. "Lenguajes"
-      const contenidos  = campo.contenidos || [];
-      const subOpts = contenidos.map(c =>
-        `<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#475569;cursor:pointer;padding:3px 6px;border-radius:5px;background:#f8fafc;">
-          <input type="checkbox" name="sub-mat" value="${campoNombre}::${c}"
-            style="accent-color:${campo.color};width:13px;height:13px;">
-          ${c}
-        </label>`
-      ).join('');
-      return `<div style="border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:0;">
-        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;
-          background:${campo.bg};border-bottom:1px solid #e2e8f0;">
-          <input type="checkbox" class="campo-formativo-check" value="${campoNombre}"
-            style="accent-color:${campo.color};width:16px;height:16px;flex-shrink:0;"
-            onchange="admToggleCampoFormativo(this)">
-          <div>
-            <div style="font-size:13px;font-weight:700;color:${campo.color};">
-              ${campo.emoji} ${campo.nombre}
+      const subOpts = campo.contenidos.map(asig => {
+        const uid = 'mat_' + asig.replace(/[^a-z0-9]/gi,'_');
+        return `
+        <div class="mat-asig-row" id="row_${uid}" style="display:none;
+          margin:6px 0 6px 28px;padding:10px 12px;background:white;
+          border-radius:8px;border:1.5px solid #e2e8f0;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <input type="checkbox" id="chk_${uid}" class="mat-asig-check"
+              data-materia="${asig}" data-campo="${campo.materias[0]}"
+              style="accent-color:${campo.color};width:15px;height:15px;"
+              onchange="admToggleGruposMateria('${uid}',this.checked)">
+            <label for="chk_${uid}"
+              style="font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;">
+              ${asig}
+            </label>
+          </div>
+          <div id="grupos_${uid}" style="display:none;">
+            <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600;">
+              Grupos donde imparte esta asignatura:
             </div>
-            <div style="font-size:10px;color:#64748b;margin-top:1px;">
-              ${contenidos.join(' · ')}
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              ${ADM.grupos.map(g => `
+                <label style="display:flex;align-items:center;gap:4px;font-size:11px;
+                  font-weight:600;cursor:pointer;padding:4px 10px;
+                  border:1.5px solid #e2e8f0;border-radius:99px;background:#f8fafc;
+                  transition:.15s;" class="grupo-chip">
+                  <input type="checkbox" class="mat-grupo-check"
+                    data-grupo-id="${g.id}"
+                    data-grupo-nombre="${g.nombre||g.grado+'°'}"
+                    style="accent-color:${campo.color};">
+                  ${g.nombre||g.grado+'°'} ${g.seccion||''}
+                  <span style="color:#94a3b8;font-size:10px;">${g.turno||''}</span>
+                </label>`).join('')}
             </div>
           </div>
-        </label>
-        <div class="sub-materias-wrap" style="display:none;padding:10px 14px;
-          background:white;display:flex;flex-wrap:wrap;gap:6px;">
+        </div>`;
+      }).join('');
+
+      return `
+      <div style="border:1.5px solid #e2e8f0;border-radius:10px;margin-bottom:8px;overflow:hidden;">
+        <div style="padding:10px 14px;background:${campo.bg};cursor:pointer;
+          display:flex;align-items:center;gap:10px;"
+          onclick="admToggleCampoSection('campo_${campo.id}')">
+          <span style="font-size:18px;">${campo.emoji}</span>
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:700;color:${campo.color};">${campo.nombre}</div>
+            <div style="font-size:10px;color:#64748b;">${campo.contenidos.join(' · ')}</div>
+          </div>
+          <span id="arrow_campo_${campo.id}" style="font-size:12px;color:#94a3b8;">▼</span>
+        </div>
+        <div id="campo_${campo.id}" style="display:none;padding:8px 14px 12px;">
           ${subOpts}
         </div>
       </div>`;
     }).join('');
   } else {
-    // PRIMARIA: asignaturas agrupadas por campo formativo
-    const porCampo = {};
-    materiasList.forEach(m => {
-      const campo = m.campo_formativo || 'Otras';
-      if (!porCampo[campo]) porCampo[campo] = [];
-      porCampo[campo].push(m);
-    });
-    materiasHtml = Object.entries(porCampo).map(([campo, mats]) =>
-      `<div style="margin-bottom:8px;">
-        <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;
-          letter-spacing:.5px;margin-bottom:5px;padding:0 2px;">${campo}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;">
-          ${mats.map(m =>
-            `<label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;
-              cursor:pointer;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;">
-              <input type="checkbox" value="${m.nombre||m.id}" style="accent-color:#0d5c2f;">
-              ${m.nombre||'?'}
-            </label>`
-          ).join('')}
+    // PRIMARIA: asignaturas con selector de grupos
+    const materias = (ADM.materias||[]).filter(m => !m.nivel || m.nivel === ADM.escuelaNivel || m.nivel === 'ambos');
+    const matList  = materias.length ? materias : getMateriasByNivel(ADM.escuelaNivel).map((n,i)=>({id:'g'+i,nombre:n}));
+    materiasHtml = matList.map(m => {
+      const uid = 'mat_' + (m.nombre||m.id).replace(/[^a-z0-9]/gi,'_');
+      return `
+      <div class="mat-asig-row" id="row_${uid}" style="margin-bottom:6px;
+        border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+        <div style="padding:8px 12px;background:#f8fafc;display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="chk_${uid}" class="mat-asig-check"
+            data-materia="${m.nombre||m.id}" data-campo=""
+            style="accent-color:#0d5c2f;width:15px;height:15px;"
+            onchange="admToggleGruposMateria('${uid}',this.checked)">
+          <label for="chk_${uid}" style="font-size:13px;font-weight:600;cursor:pointer;">
+            ${m.nombre||m.id}
+          </label>
         </div>
-      </div>`
-    ).join('') || `<span style="font-size:12px;color:#94a3b8;">Sin materias — agrega en la sección Materias</span>`;
+        <div id="grupos_${uid}" style="display:none;padding:8px 12px;background:white;">
+          <div style="font-size:11px;color:#64748b;margin-bottom:5px;font-weight:600;">
+            Grupos donde imparte:
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${ADM.grupos.map(g => `
+              <label style="display:flex;align-items:center;gap:4px;font-size:11px;
+                font-weight:600;cursor:pointer;padding:4px 10px;
+                border:1.5px solid #e2e8f0;border-radius:99px;background:#f8fafc;">
+                <input type="checkbox" class="mat-grupo-check"
+                  data-grupo-id="${g.id}"
+                  data-grupo-nombre="${g.nombre||g.grado+'°'}"
+                  style="accent-color:#0d5c2f;">
+                ${g.nombre||g.grado+'°'} ${g.seccion||''}
+                <span style="color:#94a3b8;font-size:10px;">${g.turno||''}</span>
+              </label>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
   }
 
-  const nivelLabel = ADM.escuelaNivel === 'secundaria'
-    ? 'Secundaria (Campos Formativos Fase 6)'
-    : 'Primaria (Asignaturas NEM)';
-
   const alumnosHtml = ADM.alumnos.length
-    ? ADM.alumnos.map(a => '<option value="' + a.id + '">' + (a.nombre+' '+(a.apellido||a.apellido_p||'')).trim() + '</option>').join('')
+    ? ADM.alumnos.map(a => `<option value="${a.id}">${(a.nombre+' '+(a.apellido||a.apellido_p||'')).trim()}</option>`).join('')
     : '<option value="">Sin alumnos registrados</option>';
 
-  const gruposTutoriaHtml = ADM.grupos.map(g =>
-    '<option value="' + g.id + '">' + (g.nombre||g.grado+'° '+(g.seccion||'A')) + '</option>'
-  ).join('');
-
-  // Ciclos disponibles
-  const anioActual = new Date().getFullYear();
-  const ciclosHtml = [anioActual+'-'+(anioActual+1), (anioActual-1)+'-'+anioActual]
-    .map((c,i) => '<option value="'+c+'"'+(i===0?' selected':'')+'>'+c+'</option>').join('');
+  const gruposTutoriaHtml = ADM.grupos
+    .map(g => `<option value="${g.id}">${g.nombre||g.grado+'° '+(g.seccion||'A')}</option>`)
+    .join('');
 
   ADM.abrirModal('adm-modal-personal',
-    '\u2795 Alta de personal escolar',
-    `<div style="background:#f0fdf4;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#166534;display:flex;align-items:center;gap:8px;">
-      <span style="font-size:16px;">\u{1f4e7}</span>
+    '➕ Alta de personal escolar',
+    `<div style="background:#f0fdf4;border-radius:10px;padding:10px 14px;margin-bottom:16px;
+      font-size:12px;color:#166534;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:16px;">📧</span>
       <span>Se enviará un correo de invitación automáticamente para que el usuario cree su contraseña.</span>
     </div>
     <div class="adm-form-row">
-      <div class="adm-form-group"><label>Nombre(s)</label><input type="text" id="adm-p-nombre" placeholder="María"></div>
-      <div class="adm-form-group"><label>Apellido(s)</label><input type="text" id="adm-p-apellido" placeholder="García López"></div>
+      <div class="adm-form-group"><label>Nombre(s)</label>
+        <input type="text" id="adm-p-nombre" placeholder="María"></div>
+      <div class="adm-form-group"><label>Apellido(s)</label>
+        <input type="text" id="adm-p-apellido" placeholder="García López"></div>
     </div>
     <div class="adm-form-group">
       <label>Correo electrónico</label>
@@ -24172,28 +24210,27 @@ ADM.abrirModalPersonal = function() {
     </div>
     <div class="adm-form-group" id="campo-grupo-tutoria">
       <label>Grupo tutoría</label>
-      <select id="adm-p-grupo-tutoria"><option value="">— Sin tutoría —</option>${gruposTutoriaHtml}</select>
+      <select id="adm-p-grupo-tutoria">
+        <option value="">— Sin tutoría —</option>${gruposTutoriaHtml}
+      </select>
     </div>
     <div id="adm-p-grupos-wrap">
       <div class="adm-form-group">
-        <label>Grupos que atiende</label>
-        <div id="adm-p-grupos-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">${gruposHtml}</div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Selecciona todos los grupos donde imparte clases</div>
-      </div>
-      <div class="adm-form-group">
-        <label>${ADM.escuelaNivel === 'secundaria' ? 'Campos Formativos que atiende' : 'Materias que imparte'} <span style="font-weight:400;color:#94a3b8;text-transform:none;letter-spacing:0;">(${nivelLabel})</span></label>
-        <div id="adm-p-materias-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">${materiasHtml}</div>
-        <div style="margin-top:8px;display:flex;gap:8px;">
-          <input type="text" id="adm-p-materia-extra" placeholder="Otra materia…" style="flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:12px;outline:none;">
-          <button type="button" onclick="admAgregarMateriaExtra()" style="padding:7px 12px;background:#f0fdf4;border:1.5px solid #86efac;color:#166634;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">+ Agregar</button>
+        <label>${esSecundaria ? 'Campos Formativos y asignaturas que imparte' : 'Materias que imparte'}
+          <span style="font-weight:400;color:#94a3b8;font-size:11px;">(${nivelLabel})</span>
+        </label>
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;">
+          Selecciona la materia y luego los grupos donde la imparte
         </div>
+        <div id="adm-p-materias-checks">${materiasHtml}</div>
       </div>
     </div>
     <div id="adm-p-familia-wrap" style="display:none;">
       <div class="adm-form-group">
         <label>Alumno que tutora</label>
-        <select id="adm-p-familia-alumno"><option value="">Seleccionar alumno…</option>${alumnosHtml}</select>
-        <div style="font-size:11px;color:#64748b;margin-top:3px;">Se vinculará automáticamente a este alumno</div>
+        <select id="adm-p-familia-alumno">
+          <option value="">Seleccionar alumno…</option>${alumnosHtml}
+        </select>
       </div>
     </div>`,
     'ADM.guardarPersonal()',
@@ -24201,6 +24238,27 @@ ADM.abrirModalPersonal = function() {
   );
   setTimeout(() => admToggleRolFields('docente'), 80);
 };
+
+// ── Toggle campo formativo (expandir/colapsar) ────────────────────────
+function admToggleCampoSection(id) {
+  const el    = document.getElementById(id);
+  const arrow = document.getElementById('arrow_' + id);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display    = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▼' : '▲';
+}
+
+// ── Toggle grupos de una materia al seleccionarla ─────────────────────
+function admToggleGruposMateria(uid, checked) {
+  const gruposWrap = document.getElementById('grupos_' + uid);
+  if (!gruposWrap) return;
+  gruposWrap.style.display = checked ? 'block' : 'none';
+  if (!checked) {
+    // Desmarcar todos los grupos al desmarcar la materia
+    gruposWrap.querySelectorAll('.mat-grupo-check').forEach(cb => cb.checked = false);
+  }
+}
 
 
 ADM.guardarPersonal = async function() {
@@ -24217,34 +24275,27 @@ ADM.guardarPersonal = async function() {
     document.querySelectorAll('#adm-p-grupos-checks input[type=checkbox]:checked')
   ).map(el => el.value).filter(Boolean);
 
-  // Recoger materias seleccionadas
-  // Para secundaria: leer sub-materias (campo::asignatura) y también el campo completo
-  // Para primaria: leer checkboxes normales
-  let materiasSeleccionadas = [];
-  if (ADM.escuelaNivel === 'secundaria') {
-    // Sub-materias específicas seleccionadas (ej. "Lenguajes::Matemáticas")
-    const subMats = Array.from(
-      document.querySelectorAll('#adm-p-materias-checks input[name="sub-mat"]:checked')
-    ).map(el => el.value).filter(Boolean);
-
-    // Campos formativos completos seleccionados (sin sub-selección)
-    const camposCheck = Array.from(
-      document.querySelectorAll('#adm-p-materias-checks .campo-formativo-check:checked')
-    ).map(el => el.value).filter(Boolean);
-
-    if (subMats.length) {
-      // Guardar como "CampoFormativo::Asignatura" para asignación precisa
-      materiasSeleccionadas = subMats;
-    } else {
-      // Si solo marcaron el campo sin sub-seleccionar, guardar el campo completo
-      materiasSeleccionadas = camposCheck;
+  // ── Recoger asignaciones materia+grupos del nuevo modal ──────────────
+  // Estructura: [{ materia, campo, grupoIds: [id1, id2...] }]
+  const asignacionesNuevas = [];
+  document.querySelectorAll('#adm-p-materias-checks .mat-asig-check:checked').forEach(chkMat => {
+    const materia = chkMat.dataset.materia;
+    const campo   = chkMat.dataset.campo || null;
+    const uid     = chkMat.id.replace('chk_', '');
+    // Grupos seleccionados para esta materia
+    const gruposWrap = document.getElementById('grupos_' + uid);
+    const grupoIds = gruposWrap
+      ? Array.from(gruposWrap.querySelectorAll('.mat-grupo-check:checked'))
+          .map(cb => cb.dataset.grupoId).filter(Boolean)
+      : [];
+    if (materia) {
+      asignacionesNuevas.push({ materia, campo, grupoIds });
     }
-  } else {
-    // Primaria: checkboxes normales
-    materiasSeleccionadas = Array.from(
-      document.querySelectorAll('#adm-p-materias-checks input[type=checkbox]:checked')
-    ).map(el => el.value).filter(Boolean);
-  }
+  });
+
+  // Para compatibilidad con el código anterior que usa materiasSeleccionadas y gruposSeleccionados
+  const materiasSeleccionadas = asignacionesNuevas.map(a => a.materia);
+  // gruposSeleccionados ya está definido arriba (de #adm-p-grupos-checks), mantenemos por compatibilidad
   // Obtener escuela — múltiples fuentes en orden de prioridad
   let escuelaCct = ADM.escuelaCct 
     || ADM.currentPerfil?.escuela_cct 
@@ -24378,20 +24429,62 @@ ADM.guardarPersonal = async function() {
       if (grupoTutoria && usuarioId) {
         await sb.from('grupos').update({ docente_guia: usuarioId }).eq('id', grupoTutoria);
       }
-      // 3b. Guardar asignaciones de grupos y materias en docente_grupos
-      if (usuarioId && (gruposSeleccionados.length || materiasSeleccionadas.length)) {
-        const combos = [];
-        const grupos4insert = gruposSeleccionados.length ? gruposSeleccionados : [null];
-        const mats4insert  = materiasSeleccionadas.length ? materiasSeleccionadas : ['—'];
-        for (const gId of grupos4insert) {
-          for (const mat of mats4insert) {
-            combos.push({ docente_id: usuarioId, grupo_id: gId || null, materia: mat, ciclo: cicloForm, activo:true });
+
+      // 3b. Guardar asignaciones materia+grupos usando la nueva estructura
+      if (usuarioId && asignacionesNuevas.length) {
+        const rows = [];
+        for (const asig of asignacionesNuevas) {
+          if (!asig.materia) continue;
+          if (asig.grupoIds.length) {
+            // Crear una fila por cada grupo seleccionado para esta materia
+            for (const grupoId of asig.grupoIds) {
+              const grupoObj = ADM.grupos.find(g => g.id === grupoId);
+              rows.push({
+                docente_id:      usuarioId,
+                grupo_id:        grupoId,
+                materia:         asig.materia,
+                campo_formativo: asig.campo || null,
+                ciclo:           cicloForm,
+                turno:           grupoObj?.turno || null,
+                nivel:           grupoObj?.nivel || ADM.escuelaNivel || null,
+                activo:          true,
+              });
+            }
+          } else {
+            // Sin grupo específico → asignación general
+            rows.push({
+              docente_id:      usuarioId,
+              grupo_id:        null,
+              materia:         asig.materia,
+              campo_formativo: asig.campo || null,
+              ciclo:           cicloForm,
+              turno:           null,
+              nivel:           ADM.escuelaNivel || null,
+              activo:          true,
+            });
+          }
+        }
+        if (rows.length) {
+          try {
+            const { error: dgErr } = await sb.from('docente_grupos')
+              .upsert(rows, { onConflict: 'docente_id,grupo_id,materia,ciclo' });
+            if (dgErr) console.warn('[ADM] docente_grupos insert:', dgErr.message);
+            else console.log('[ADM] ✅ Asignaciones guardadas:', rows.length);
+          } catch(e2) { console.warn('[ADM] docente_grupos insert:', e2.message); }
+        }
+      } else if (usuarioId && gruposSeleccionados.length && materiasSeleccionadas.length) {
+        // Fallback: estructura antigua si el modal no generó asignacionesNuevas
+        const rows = [];
+        for (const gId of gruposSeleccionados) {
+          for (const mat of materiasSeleccionadas) {
+            rows.push({ docente_id: usuarioId, grupo_id: gId, materia: mat, ciclo: cicloForm, activo: true });
           }
         }
         try {
-          await sb.from('docente_grupos').upsert(combos, { onConflict:'docente_id,grupo_id,materia,ciclo' });
-        } catch(e2) { console.warn('[ADM] docente_grupos insert:', e2.message); }
+          await sb.from('docente_grupos').upsert(rows, { onConflict: 'docente_id,grupo_id,materia,ciclo' });
+        } catch(e2) { console.warn('[ADM] docente_grupos fallback:', e2.message); }
       }
+
       // 3c. Si es padre de familia, vincular con el alumno
       if (rol === 'padre' && familiaAlumnoId && usuarioId) {
         try {
