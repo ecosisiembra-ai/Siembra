@@ -23669,10 +23669,12 @@ ADM.navTo = function(page) {
 // ═══════════════════════════════════════════════════════
 
 ADM.cargarGrupos = async function() {
-  const cct = window.currentPerfil?.escuela_cct || ADM.escuelaCct;
-  if (!window.sb || !cct) {
+  const cct   = window.currentPerfil?.escuela_cct || ADM.escuelaCct;
+  const sbRef = window.sb || ADM.sb;
+  if (!sbRef || !cct) {
     ADM.grupos = []; return;
   }
+  const sb = sbRef; // alias local
   try {
     const nivel = ADM.escuelaNivel || window._admNivelActivo;
     const filtrarNivel = (ADM.escuelaNivel === 'primaria_y_secundaria' || ADM.escuelaNivel === 'ambos') && nivel;
@@ -24023,16 +24025,33 @@ ADM.abrirModalPersonal = function() {
       || window._escuelaCfg?.nivel_default
       || 'secundaria';
   }
-  // Asegurar que tenemos sb activo
-  if (!window.sb) {
-    ADM.toast('⚠️ Sin conexión a base de datos', 'warn');
+
+  // Verificar conexión — usar sb global (siempre disponible si Supabase cargó)
+  const sbRef = window.sb || ADM.sb;
+  if (!sbRef) {
+    ADM.toast('⚠️ Sin conexión a Supabase. Recarga la página.', 'warn');
     return;
   }
-  // Si ADM.grupos está vacío, cargar primero
+
+  // Si no hay grupos, cargar y reabrir (solo una vez para evitar loop)
   if (!ADM.grupos.length) {
-    ADM.cargarGrupos().then(() => ADM.abrirModalPersonal());
+    ADM.toast('⏳ Cargando grupos…');
+    ADM.cargarGrupos().then(() => {
+      if (ADM.grupos.length) {
+        ADM.abrirModalPersonal();
+      } else {
+        // Sin grupos: abrir el modal igual pero mostrando aviso
+        ADM._abrirFormPersonal();
+      }
+    });
     return;
   }
+
+  ADM._abrirFormPersonal();
+};
+
+// Función interna que renderiza el modal (separada para evitar el loop)
+ADM._abrirFormPersonal = function() {
 
   const esSecundaria = ADM.escuelaNivel === 'secundaria';
   const nivelLabel   = esSecundaria
@@ -24237,7 +24256,7 @@ ADM.abrirModalPersonal = function() {
     'Dar de alta y enviar invitación'
   );
   setTimeout(() => admToggleRolFields('docente'), 80);
-};
+}; // end ADM._abrirFormPersonal
 
 // ── Toggle campo formativo (expandir/colapsar) ────────────────────────
 function admToggleCampoSection(id) {
