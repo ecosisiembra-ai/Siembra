@@ -1248,11 +1248,18 @@ function navTo(page) {
   if (navBtn) navBtn.classList.add('active');
   if (pg) pg.classList.add('active');
   paginaActual = page;
+  if (page === 'dashboard')    renderDashboard();
   if (page === 'escuelas')     renderTablaEscuelas(escuelasData);
   if (page === 'usuarios')     renderTablaUsuarios(usuariosData);
-  if (page === 'invitaciones') renderTablaInvitaciones(invitacionesData);
+  if (page === 'invitaciones') { renderTablaInvitaciones(invitacionesData); poblarSelectores(); }
   if (page === 'actividad')    cargarActividad();
   if (page === 'sql')          renderSQL();
+  if (page === 'config') {
+    const savedUrl = localStorage.getItem('sa_url');
+    const savedKey = localStorage.getItem('sa_key');
+    if (savedUrl && document.getElementById('cfg-url')) document.getElementById('cfg-url').value = savedUrl;
+    if (savedKey && document.getElementById('cfg-key')) document.getElementById('cfg-key').value = savedKey;
+  }
 }
 
 // ── CARGA DE DATOS ──
