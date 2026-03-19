@@ -1940,7 +1940,7 @@ html, body {
       <div class="qr-code-box">
         <canvas id="qr-canvas" width="120" height="120"></canvas>
       </div>
-      <button class="btn-qr" onclick="toast('📱 QR generado y listo para escanear')">Mostrar QR</button>
+      <button class="btn-qr" onclick="navTo('perfil'); toast('📱 Tu QR de asistencia está listo')">Mostrar QR</button>
     </div>
 
     <div class="fade-in fade-in-4">
@@ -2668,13 +2668,20 @@ const galeria = ['🎭','⚽','🎨','🌱','🏆','📚','🎪','🌳','🎶'];
 function navTo(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
+  const pg = document.getElementById('page-' + page);
+  if (pg) pg.classList.add('active');
   const nb = document.getElementById('nav-' + page);
   if (nb) nb.classList.add('active');
   window.scrollTo(0, 0);
-  if (page === 'practicar') initPracticar();
-  if (page === 'insignias') renderInsigniasPage();
-  if (page === 'biblioteca') initBiblioteca();
+  // ── Inits por sección ──
+  if (page === 'inicio')      { renderJardin(); renderLogrosScroll(); }
+  if (page === 'materias')    { renderMaterias(); renderProgresoBimestral(); }
+  if (page === 'asistencia')  { renderHistorialAsistencia(); }
+  if (page === 'noticias')    { renderNoticias(); }
+  if (page === 'perfil')      { renderLogrosTodos(); if(typeof dibujarQR==='function') dibujarQR(); }
+  if (page === 'practicar')   { initPracticar(); }
+  if (page === 'insignias')   { renderInsigniasPage(); }
+  if (page === 'biblioteca')  { initBiblioteca(); }
 }
 
 // ══════════════════════════════════════════
@@ -2728,7 +2735,7 @@ async function doLogin() {
 }
 
 async function doLogout() {
-  await sb.auth.signOut();
+  try { if (sb) await sb.auth.signOut(); } catch(e) {}
   currentUser = null; currentPerfil = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
