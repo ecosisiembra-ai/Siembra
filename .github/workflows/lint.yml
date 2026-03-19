@@ -1,0 +1,52 @@
+name: Validar JavaScript
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Extraer y validar scripts en HTML
+        run: |
+          node -e "
+          const fs = require('fs');
+          const vm = require('vm');
+
+          const files = ['index.html', 'alumno.html', 'padres.html', 'sa.html'];
+          let hasError = false;
+
+          files.forEach(file => {
+            if (!fs.existsSync(file)) {
+              console.log(file + ': no encontrado, omitiendo');
+              return;
+            }
+            const content = fs.readFileSync(file, 'utf8');
+            const regex = /<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/gi;
+            let match;
+            let i = 0;
+            while ((match = regex.exec(content)) !== null) {
+              i++;
+              const code = match[1];
+              if (!code.trim()) continue;
+              try {
+                new vm.Script(code);
+              } catch(e) {
+                console.error('❌ ' + file + ' (bloque #' + i + '): ' + e.message);
+                hasError = true;
+              }
+            }
+            if (!hasError) console.log('✅ ' + file + ': OK');
+          });
+
+          if (hasError) process.exit(1);
+          "
