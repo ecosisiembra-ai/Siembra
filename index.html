@@ -34,7 +34,7 @@ const SUPABASE_KEY = _instCfg?.key || _KEY_HUB;
 // Guardar cfg para que alumno y familia la hereden via localStorage
 (function _syncCfgUnificada() {
   try {
-    const cfg = _instCfg || { url: SUPABASE_URL, key: SUPABASE_KEY, nombre: 'Escuela Demo', cct: '19EPR0001A', nivel_default: 'primaria' };
+    const cfg = _instCfg || { url: SUPABASE_URL, key: SUPABASE_KEY, nombre: 'Escuela Demo', cct: '19EPR0001A', nivel_default: 'secundaria' };
     if (!localStorage.getItem('siembra_supabase_url')) {
       localStorage.setItem('siembra_supabase_url', cfg.url);
       localStorage.setItem('siembra_supabase_key', cfg.key);
@@ -42,7 +42,7 @@ const SUPABASE_KEY = _instCfg?.key || _KEY_HUB;
   } catch(e) {}
 })();
 
-window._escuelaCfg = _instCfg || { url: SUPABASE_URL, key: SUPABASE_KEY, nombre: 'Escuela Demo', cct: '19EPR0001A', nivel_default: 'primaria' };
+window._escuelaCfg = _instCfg || { url: SUPABASE_URL, key: SUPABASE_KEY, nombre: 'Escuela Demo', cct: '19EPR0001A', nivel_default: 'secundaria' };
 // ── La API key ya no vive en el cliente — vive en el Edge Function (servidor) ──
 let sb = null;
 try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase no disponible'); }
@@ -7310,8 +7310,18 @@ async function inviteCrearCuenta() {
   try {
     const nombreCompleto = `${nombre} ${apells}`.trim();
     const rol       = inv?.rol || 'docente';
-    const escuelaId = inv?.escuela_id || inv?.escuelas?.id || null;
-    const escuelaCct = inv?.escuela_id || inv?.escuelas?.cct || null;
+
+    // Resolver escuela: el invite ahora guarda el UUID real en escuela_id
+    // Si escuela_id parece un UUID (tiene guiones), usarlo como UUID
+    // Si parece un CCT (sin guiones), es el CCT
+    const invEscuelaId  = inv?.escuela_id || null;
+    const isUuid = invEscuelaId && /^[0-9a-f-]{36}$/i.test(invEscuelaId);
+    const escuelaId  = isUuid ? invEscuelaId : (inv?.escuelas?.id || null);
+    const escuelaCct = isUuid ? (inv?.escuelas?.cct || inv?.escuela_cct || null)
+                               : (invEscuelaId || inv?.escuelas?.cct || null);
+    // Nivel de la escuela — viene del invite o de la escuela resuelta
+    const escuelaNivel = inv?.escuela_nivel || inv?.escuelas?.nivel_default
+      || inv?.escuelas?.nivel || null;
     const token     = window._inviteToken;
 
     // 1. Intentar login primero — si ya existe la cuenta (creada por admin vía inviteUserByEmail)
@@ -7767,8 +7777,34 @@ async function initApp() {
           grupos: [],
         })).filter(e => e.cct);
         ESCUELA_ACTIVA = USUARIO_ESCUELAS[0];
+        // ── CRÍTICO: sincronizar nivel con la escuela real ──────────
+        if (ESCUELA_ACTIVA?.nivel) {
+          const nivelEsc = ESCUELA_ACTIVA.nivel === 'primaria_y_secundaria'
+            ? (ESCUELA_ACTIVA.nivel_default || 'secundaria')
+            : ESCUELA_ACTIVA.nivel;
+          window._nivelActivo = nivelEsc;
+          try { localStorage.setItem('siembra_nivel', nivelEsc); } catch(e) {}
+        }
         const nomEl = document.getElementById('doc-escuela-nombre');
         if (nomEl) nomEl.textContent = ESCUELA_ACTIVA.nombre || ESCUELA_ACTIVA.cct;
+      } else if (currentPerfil?.escuela_cct) {
+        // Fallback: sin usuario_escuelas → buscar escuela por CCT del perfil
+        try {
+          const { data: escFallback } = await sb.from('escuelas')
+            .select('id, cct, nombre, nivel, nivel_default, turno')
+            .eq('cct', currentPerfil.escuela_cct).maybeSingle();
+          if (escFallback) {
+            ESCUELA_ACTIVA = escFallback;
+            USUARIO_ESCUELAS = [escFallback];
+            const nivelEsc = escFallback.nivel === 'primaria_y_secundaria'
+              ? (escFallback.nivel_default || 'secundaria')
+              : escFallback.nivel;
+            window._nivelActivo = nivelEsc;
+            try { localStorage.setItem('siembra_nivel', nivelEsc); } catch(e) {}
+            const nomEl = document.getElementById('doc-escuela-nombre');
+            if (nomEl) nomEl.textContent = escFallback.nombre || escFallback.cct;
+          }
+        } catch(e2) { console.warn('[initApp] escuela fallback:', e2.message); }
       }
 
       // Actualizar banner de bienvenida
@@ -22578,8 +22614,12 @@ window._admNivelActivo = localStorage.getItem('siembra_adm_nivel') || null;
  * Recarga grupos, alumnos y materias filtrados por ese nivel.
  */
 async function admCambiarNivel(nivel) {
+  // Sincronizar AMBAS variables para que todo el sistema use el nivel correcto
   window._admNivelActivo = nivel;
+  window._nivelActivo    = nivel;  // ← esto es lo que lee el Proxy MATERIAS_NEM
+  ADM.escuelaNivel       = nivel;
   try { localStorage.setItem('siembra_adm_nivel', nivel); } catch(e) {}
+  try { localStorage.setItem('siembra_nivel', nivel); } catch(e) {}
 
   // Update button styles
   const btnPri = document.getElementById('adm-nivel-btn-pri');
@@ -23938,9 +23978,21 @@ ADM.abrirModalPersonal = function() {
     materiasList = getMateriasByNivel(ADM.escuelaNivel).map((nombre, i) => ({ id: 'gen-' + i, nombre }));
   }
   const materiasHtml = materiasList.length
-    ? materiasList.map(m => '<label style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;cursor:pointer;padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">' +
-        '<input type="checkbox" value="' + (m.nombre||m.id) + '" style="accent-color:#0d5c2f;"> ' + (m.nombre||'?') + '</label>').join('')
-    : '<span style="font-size:12px;color:#94a3b8;">Sin materias — agrega en la sección Materias</span>';
+    ? materiasList.map(m => {
+        // Para secundaria: mostrar contenidos del campo como ayuda visual
+        const esSecundaria = ADM.escuelaNivel === 'secundaria';
+        const campoInfo = esSecundaria
+          ? (CAMPOS_NEM_SECUNDARIA.find(c => c.materias.includes(m.nombre||m.id)) || null)
+          : null;
+        const contenidosTxt = campoInfo
+          ? '<div style="font-size:10px;color:#64748b;margin-top:2px;font-weight:400;">' + campoInfo.contenidos.join(' · ') + '</div>'
+          : '';
+        const emoji = campoInfo ? campoInfo.emoji + ' ' : '';
+        return '<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;font-weight:600;cursor:pointer;padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;flex-direction:row;">' +
+          '<input type="checkbox" value="' + (m.nombre||m.id) + '" style="accent-color:#0d5c2f;margin-top:2px;flex-shrink:0;">' +
+          '<div>' + emoji + (m.nombre||'?') + contenidosTxt + '</div></label>';
+      }).join('')
+    : `<span style="font-size:12px;color:#94a3b8;">Sin ${ADM.escuelaNivel === 'secundaria' ? 'campos formativos' : 'materias'} — agrega en la sección Materias</span>`;
 
   const nivelLabel = ADM.escuelaNivel === 'secundaria'
     ? 'Secundaria (Campos Formativos Fase 6)'
@@ -24019,7 +24071,7 @@ ADM.abrirModalPersonal = function() {
         <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Selecciona todos los grupos donde imparte clases</div>
       </div>
       <div class="adm-form-group">
-        <label>Materias que imparte <span style="font-weight:400;color:#94a3b8;text-transform:none;letter-spacing:0;">(${nivelLabel})</span></label>
+        <label>${ADM.escuelaNivel === 'secundaria' ? 'Campos Formativos que atiende' : 'Materias que imparte'} <span style="font-weight:400;color:#94a3b8;text-transform:none;letter-spacing:0;">(${nivelLabel})</span></label>
         <div id="adm-p-materias-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">${materiasHtml}</div>
         <div style="margin-top:8px;display:flex;gap:8px;">
           <input type="text" id="adm-p-materia-extra" placeholder="Otra materia…" style="flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:12px;outline:none;">
@@ -25802,7 +25854,8 @@ async function saCrearEscuela() {
   const nivelRaw  = document.getElementById('sa-esc-nivel').value;
   // Normalize — DB stores as 'primaria', 'secundaria', or 'primaria_y_secundaria'
   const nivel     = nivelRaw;
-  const nivel_default = nivelRaw === 'primaria_y_secundaria' ? 'primaria' : nivelRaw;
+  // Para escuelas mixtas, secundaria como default (el admin puede cambiar con el switcher)
+  const nivel_default = nivelRaw === 'primaria_y_secundaria' ? 'secundaria' : nivelRaw;
   const turno     = document.getElementById('sa-esc-turno')?.value || 'Matutino';
   const zona      = document.getElementById('sa-esc-zona')?.value.trim() || '';
   const emailDir  = document.getElementById('sa-esc-email-dir').value.trim().toLowerCase();
@@ -25814,16 +25867,24 @@ async function saCrearEscuela() {
 
   try {
     if (sb) {
-      // 1. Insertar escuela con todos los campos
-      const { error: escErr } = await sb.from('escuelas').insert({
+      // 1. Insertar escuela y recuperar el UUID generado
+      const { data: escInserted, error: escErr } = await sb.from('escuelas').insert({
         nombre, cct, municipio, estado, nivel, turno,
         nivel_default,
         zona_escolar: zona || null,
         activo: true,
         ciclo_actual: '2025-2026',
         creado_en: new Date().toISOString(),
-      });
+      }).select('id, cct, nivel, nivel_default').single();
       if (escErr && !escErr.message.includes('duplicate')) throw escErr;
+
+      // Obtener el UUID real de la escuela (sea nueva o ya existente)
+      let escuelaUuid = escInserted?.id || null;
+      if (!escuelaUuid) {
+        const { data: escExist } = await sb.from('escuelas')
+          .select('id').eq('cct', cct).maybeSingle();
+        escuelaUuid = escExist?.id || null;
+      }
     }
 
     // 2. Enviar invitación real al admin/director via Edge Function
@@ -25842,8 +25903,10 @@ async function saCrearEscuela() {
           body: JSON.stringify({
             email:          emailDir,
             rol:            'admin',
-            escuela_id:     cct,
+            escuela_id:     escuelaUuid || cct,  // UUID real, no el CCT
+            escuela_cct:    cct,
             escuela_nombre: nombre,
+            escuela_nivel:  nivel,
             invited_by:     currentUser?.email || 'SuperAdmin SIEMBRA',
           }),
         });
