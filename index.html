@@ -47,6 +47,21 @@ window._escuelaCfg = _instCfg || { url: SUPABASE_URL, key: SUPABASE_KEY, nombre:
 let sb = null;
 try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase no disponible'); }
 
+// ── Ciclo escolar activo — cargado desde config_global, no hardcodeado ──
+window.CICLO_ACTIVO = '2025-2026'; // fallback mientras carga
+async function cargarCicloActivo() {
+  if (!sb) return;
+  try {
+    const { data } = await sb.from('config_global')
+      .select('valor').eq('clave', 'ciclo_activo').maybeSingle();
+    if (data?.valor) {
+      window.CICLO_ACTIVO = data.valor;
+      console.log('[SIEMBRA] Ciclo activo:', window.CICLO_ACTIVO);
+    }
+  } catch(e) { /* usar fallback '2025-2026' */ }
+}
+cargarCicloActivo(); // cargar al arrancar, sin bloquear
+
 // ── Función central de IA — reemplaza todas las llamadas directas a Anthropic ──
 async function callAI({ feature, prompt, system, context, stream = false }) {
   const { data: { session } } = await sb.auth.getSession();
@@ -59,7 +74,7 @@ async function callAI({ feature, prompt, system, context, stream = false }) {
       feature, prompt, system, context,
       escuela_id:  window.currentPerfil?.escuela_cct || window._escuelaCfg?.cct,
       nivel:       window._nivelActivo || 'secundaria',
-      ciclo:       '2025-2026',
+      ciclo: window.CICLO_ACTIVO,
       stream,
     }),
   });
@@ -600,7 +615,7 @@ async function pSetAlumno(alumno) {
 async function pCargarCalificaciones(alumnoId) {
   const { data } = await sb.from('calificaciones')
     .select('materia, trimestre, aspecto, calificacion')
-    .eq('alumno_id', alumnoId).eq('ciclo', '2025-2026');
+    .eq('alumno_id', alumnoId).eq('ciclo', window.CICLO_ACTIVO);
   if (!data) return;
   const promedios = {};
   MATERIAS_NEM.forEach(m => { promedios[m] = { 1:null,2:null,3:null }; });
@@ -5635,7 +5650,7 @@ async function horarioGuardarDB() {
           hora_idx,
           materia:    materia || '',
           grupo_label: grupo || '',
-          ciclo:      '2025-2026',
+          ciclo: window.CICLO_ACTIVO,
         });
       });
     });
@@ -5643,7 +5658,7 @@ async function horarioGuardarDB() {
     await sb.from('horarios_docente')
       .delete()
       .eq('docente_id', docenteId)
-      .eq('ciclo', '2025-2026');
+      .eq('ciclo', window.CICLO_ACTIVO);
     if (rows.length) {
       const { error } = await sb.from('horarios_docente').insert(rows);
       if (error) throw error;
@@ -5671,7 +5686,7 @@ async function horarioCargarDB() {
     const { data, error } = await sb.from('horarios_docente')
       .select('dia_semana, hora_idx, materia, grupo_label')
       .eq('docente_id', currentPerfil.id)
-      .eq('ciclo', '2025-2026');
+      .eq('ciclo', window.CICLO_ACTIVO);
     if (error || !data?.length) return;
     // Reconstruir horarioData
     diasSemana.forEach(d => { horarioData[d] = Array(horas.length).fill(''); });
@@ -5724,7 +5739,7 @@ async function tareasCargarDB() {
                tareas_entregas(alumno_id, estado)`)
       .eq('docente_id', currentPerfil.id)
       .eq('grupo_id', grupoId)
-      .eq('ciclo', '2025-2026')
+      .eq('ciclo', window.CICLO_ACTIVO)
       .order('created_at', { ascending: false });
 
     if (error || !tareasDB?.length) return;
@@ -5766,7 +5781,7 @@ async function tareasGuardarDB(tarea) {
         titulo:       tarea.titulo,
         materia:      tarea.materia,
         fecha_entrega: null,
-        ciclo:        '2025-2026',
+        ciclo: window.CICLO_ACTIVO,
       }, { onConflict: 'id' })
       .select('id').single();
 
@@ -5849,7 +5864,7 @@ async function calCargarObs(grupoId) {
   try {
     const { data } = await sb.from('cal_observaciones_cualitativas')
       .select('alumno_id, materia, trimestre, observacion')
-      .eq('grupo_id', grupoId).eq('ciclo', '2025-2026');
+      .eq('grupo_id', grupoId).eq('ciclo', window.CICLO_ACTIVO);
     if (!data?.length) return;
     const alumnosList = window._alumnosActivos || alumnos;
     data.forEach(r => {
@@ -5882,7 +5897,7 @@ async function calGuardarObs(ai, mat, trim, texto) {
       materia:     mat,
       trimestre:   trim,
       observacion: texto,
-      ciclo:       '2025-2026',
+      ciclo: window.CICLO_ACTIVO,
       updated_at:  new Date().toISOString(),
     }, { onConflict: 'alumno_id,grupo_id,materia,trimestre,ciclo' });
   } catch(e) { console.warn('[calObs] save:', e.message); }
@@ -7124,6 +7139,7 @@ async function inviteProcessToken(token) {
 
   try {
     hubToast('🔑 Verificando invitación…');
+    console.log('[invite] Buscando token:', token.slice(0,12) + '...');
     // Primero buscar la invitación SIN join a escuelas (por si escuela_id no es UUID válido)
     let inv = null;
     let escuelaData = null;
@@ -7131,7 +7147,7 @@ async function inviteProcessToken(token) {
     // Intentar con join primero
     const { data: invJoin, error: errJoin } = await sb
       .from('invitaciones')
-      .select('*, escuelas(id, nombre, cct, municipio, estado, nivel_default)')
+      .select('*, escuelas(id, nombre, cct, municipio, estado, nivel, nivel_default)')
       .eq('token', token)
       .maybeSingle();
     
@@ -7176,9 +7192,11 @@ async function inviteProcessToken(token) {
     }
 
     if (!inv) {
+      console.error('[invite] Token no encontrado en BD:', token.slice(0,12) + '...');
       inviteMostrarError('Token inválido. Pide una nueva invitación a tu administrador.');
       return;
     }
+    console.log('[invite] Token encontrado → estado:', inv.estado, '| escuela_cct:', inv.escuela_cct, '| rol:', inv.rol);
     if (inv.estado === 'usado') {
       // Token used — check if user can just log in
       inviteMostrarTokenUsado(inv);
@@ -8462,7 +8480,7 @@ async function calCargarCalificacionesDB(grupoId) {
   const { data, error } = await sb.from('calificaciones')
     .select('*')
     .eq('grupo_id', grupoId)
-    .eq('ciclo', '2025-2026')
+    .eq('ciclo', window.CICLO_ACTIVO)
     .in('alumno_id', alumnoIds);
 
   if (error || !data) return;
@@ -8704,7 +8722,7 @@ async function calGuardar() {
           trimestre:    trim,
           aspecto:      asp.nombre,
           calificacion: parseFloat(cal),
-          ciclo:        '2025-2026',
+          ciclo: window.CICLO_ACTIVO,
           actualizado_en: new Date().toISOString()
         });
       }
@@ -9783,7 +9801,7 @@ TSR.verAlumno = async function(alumnoId) {
     if (sb) {
       const [calRes, asRes, incRes, xpRes] = await Promise.all([
         sb.from('calificaciones').select('materia,calificacion,trimestre,ciclo')
-          .eq('alumno_id', alumnoId).eq('ciclo','2025-2026').order('materia'),
+          .eq('alumno_id', alumnoId).eq('ciclo', window.CICLO_ACTIVO).order('materia'),
         sb.from('asistencia').select('fecha,estado')
           .eq('alumno_id', alumnoId)
           .gte('fecha', new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0])
@@ -10000,7 +10018,7 @@ TSR.abrirAnalisisIA = async function(alumnoId, nombre, incidenciaId) {
     if (sb) {
       const { data: cals } = await sb.from('calificaciones')
         .select('materia,calificacion').eq('alumno_id', alumnoId)
-        .eq('ciclo','2025-2026');
+        .eq('ciclo', window.CICLO_ACTIVO);
       if (cals?.length) {
         const prom = cals.reduce((s,c)=>s+(parseFloat(c.calificacion)||0),0)/cals.length;
         const bajas = cals.filter(c => parseFloat(c.calificacion)<7).map(c=>c.materia);
@@ -11677,7 +11695,7 @@ async function ctGuardarTarea() {
         docente_id: currentPerfil.id, grupo_id: grupoId,
         titulo, materia, tipo, instrucciones,
         criterios: criteriosChk, fecha_entrega: fecha,
-        ciclo: '2025-2026', created_at: new Date().toISOString(),
+        ciclo: window.CICLO_ACTIVO, created_at: new Date().toISOString(),
       }).select('id').single();
       if (!error && data) nueva.id = data.id;
     } catch(e) { console.warn('[ctGuardarTarea]', e.message); }
@@ -14674,7 +14692,7 @@ async function tutoriaInit() {
     try {
       const { count } = await sb.from('alumnos_grupos')
         .select('*', { count: 'exact', head: true })
-        .eq('grupo', grupo).eq('ciclo', '2025-2026');
+        .eq('grupo', grupo).eq('ciclo', window.CICLO_ACTIVO);
       if (count !== null) statAlumnos.textContent = count;
     } catch(e) { /* demo: deja el valor por defecto */ }
   }
@@ -14948,7 +14966,7 @@ async function bltCambiarAlumno() {
       if (alumnoRec) {
         const { data: cals } = await sb.from('calificaciones')
           .select('materia,trimestre,calificacion')
-          .eq('alumno_id', alumnoRec.id).eq('ciclo', '2025-2026');
+          .eq('alumno_id', alumnoRec.id).eq('ciclo', window.CICLO_ACTIVO);
         if (cals) {
           const mapa = {};
           cals.forEach(c => {
@@ -15008,7 +15026,7 @@ async function exportarBoletaPDF() {
     // Nombre del archivo
     const alumno   = document.getElementById('blt-alumno-sel')?.value || 'alumno';
     const trim     = document.getElementById('blt-trimestre-sel')?.value || '2';
-    const ciclo    = (document.getElementById('blt-ciclo')?.value || '2025-2026').replace('–', '-');
+    const ciclo    = (document.getElementById('blt-ciclo')?.value || window.CICLO_ACTIVO).replace('–', '-');
     const filename = `Boleta_NEM_${alumno.replace(/\s+/g,'_')}_T${trim}_${ciclo}.pdf`;
 
     pdf.save(filename);
@@ -15078,7 +15096,7 @@ async function bltGenerarTodas() {
     bltActualizar();
 
     const trim  = document.getElementById('blt-trimestre-sel')?.value || '2';
-    const ciclo = (document.getElementById('blt-ciclo')?.value || '2025-2026').replace('–','-');
+    const ciclo = (document.getElementById('blt-ciclo')?.value || window.CICLO_ACTIVO).replace('–','-');
     pdf.save(`Boletas_NEM_Grupo_T${trim}_${ciclo}.pdf`);
     if(typeof toast==='function') toast(`✅ PDF con ${alumnos.length} boletas generado`);
   } catch(e) {
@@ -16345,7 +16363,7 @@ async function coordRenderPlaneaciones() {
     const { data } = await sb.from('planeaciones')
       .select('*, usuarios!docente_id(nombre, apellido_p)')
       .in('docente_id', docenteIds)
-      .eq('ciclo', '2025-2026')
+      .eq('ciclo', window.CICLO_ACTIVO)
       .order('updated_at', { ascending: false })
       .limit(20);
     if (!data?.length) return;
@@ -16875,7 +16893,7 @@ async function admCrearGrupo() {
         nombre, grado: parseInt(grado), grupo: letra, nivel,
         escuela_id: currentPerfil.escuela_id,
         docente_titular_id: docenteId || null,
-        ciclo: '2025-2026', activo: true,
+        ciclo: window.CICLO_ACTIVO, activo: true,
         created_at: new Date().toISOString(),
       }).select('id').single();
       if (error) throw error;
@@ -16999,7 +17017,7 @@ async function admCrearAlumno() {
       if (grupoId && usr?.id) {
         await sb.from('alumnos_grupos').insert({
           alumno_id: usr.id, grupo_id: grupoId,
-          ciclo: '2025-2026', activo: true,
+          ciclo: window.CICLO_ACTIVO, activo: true,
         });
         // 3. Crear perfil de alumno (XP, racha)
         await sb.from('perfil_alumno').insert({
@@ -17167,7 +17185,7 @@ async function admImportarCSV() {
         if (grupoId && usr?.id) {
           await sb.from('alumnos_grupos').insert({
             alumno_id: usr.id, grupo_id: grupoId,
-            ciclo: '2025-2026', activo: true,
+            ciclo: window.CICLO_ACTIVO, activo: true,
           }).catch(()=>{});
           await sb.from('perfil_alumno').insert({ alumno_id: usr.id, xp:0, racha:0, nivel:1 }).catch(()=>{});
         }
@@ -17259,7 +17277,7 @@ async function sepCalificaciones() {
     if (sb && currentPerfil?.escuela_id) {
       const { data } = await sb.from('calificaciones')
         .select('materia,trimestre,aspecto,calificacion, usuarios!alumno_id(nombre,apellido_p), grupos!grupo_id(nombre)')
-        .eq('ciclo','2025-2026');
+        .eq('ciclo', window.CICLO_ACTIVO);
       rows = (data || []).map(r => ({
         alumno: `${r.usuarios?.nombre||''} ${r.usuarios?.apellido_p||''}`.trim(),
         grupo: r.grupos?.nombre || '',
@@ -17300,7 +17318,7 @@ async function sepReporteEstadistica() {
       { concepto: 'Total alumnos inscritos', valor: totalAlumnos },
       { concepto: 'Total grupos activos', valor: totalGrupos },
       { concepto: 'Total docentes', valor: totalDocentes },
-      { concepto: 'Ciclo escolar', valor: '2025-2026' },
+      { concepto: 'Ciclo escolar', valor: window.CICLO_ACTIVO },
       { concepto: 'Fecha de generación', valor: new Date().toLocaleDateString('es-MX') },
     ];
     _csvDownload(`estadistica_escolar_${new Date().toISOString().split('T')[0]}.csv`, rows, ['concepto','valor']);
@@ -17327,11 +17345,11 @@ async function sepFormato911() {
           grupo: r.grupos?.nombre || '',
           nivel: r.grupos?.nivel || 'primaria',
           turno: 'MATUTINO',
-          ciclo: '2025-2026',
+          ciclo: window.CICLO_ACTIVO,
         });
       });
     } else {
-      alumnos.forEach(a => rows.push({ cct:'19EPR0001A', nombre_alumno:a.n, curp:'', sexo:'', fecha_nac:'', grado:6, grupo:'6° A', nivel:'primaria', turno:'MATUTINO', ciclo:'2025-2026' }));
+      alumnos.forEach(a => rows.push({ cct:'19EPR0001A', nombre_alumno:a.n, curp:'', sexo:'', fecha_nac:'', grado:6, grupo:'6° A', nivel:'primaria', turno:'MATUTINO', ciclo: window.CICLO_ACTIVO }));
     }
     _csvDownload(`formato_911_${new Date().toISOString().split('T')[0]}.csv`, rows,
       ['cct','nombre_alumno','curp','sexo','fecha_nac','grado','grupo','nivel','turno','ciclo']);
@@ -17411,7 +17429,7 @@ async function sepGenerarActas() {
         .select('alumno_id, materia, aspecto, calificacion, usuarios!alumno_id(nombre,apellido_p)')
         .eq('grupo_id', window._grupoActivo)
         .eq('trimestre', trim)
-        .eq('ciclo', '2025-2026');
+        .eq('ciclo', window.CICLO_ACTIVO);
 
       // Agrupar por alumno y calcular promedio
       const porAlumno = {};
@@ -17423,7 +17441,7 @@ async function sepGenerarActas() {
       });
 
       Object.values(porAlumno).forEach(al => {
-        const row = { alumno: al.nombre, trimestre: trim, ciclo: '2025-2026' };
+        const row = { alumno: al.nombre, trimestre: trim, ciclo: window.CICLO_ACTIVO };
         let suma = 0, cnt = 0;
         MATERIAS_NEM.forEach(mat => {
           const cals = al.materias[mat] || [];
@@ -17437,7 +17455,7 @@ async function sepGenerarActas() {
     } else {
       // Demo
       lista.forEach(a => {
-        const row = { alumno: a.n || '—', trimestre: trim, ciclo: '2025-2026' };
+        const row = { alumno: a.n || '—', trimestre: trim, ciclo: window.CICLO_ACTIVO };
         MATERIAS_NEM.forEach(mat => { row[mat.substring(0,15)] = (7 + Math.random()*3).toFixed(1); });
         row.promedio_general = (7.5 + Math.random()*2).toFixed(1);
         rows.push(row);
@@ -19588,7 +19606,7 @@ function renderSalonesDoc(){
     ? window._gruposDocente.map(g => ({
         id: g.id, nombre: g.nombre, grado: g.grado||'—',
         escuela: currentPerfil?.escuela_nombre || g.escuela_nombre || 'Mi escuela',
-        turno: 'Matutino', ciclo: '2025-2026',
+        turno: 'Matutino', ciclo: window.CICLO_ACTIVO,
         nivel: g.nivel || 'primaria'
       }))
     : docSalones);
@@ -20194,7 +20212,7 @@ async function obsGuardar() {
         materia:    materia || 'General',
         trimestre:  trim,
         observacion: texto,
-        ciclo:      '2025-2026',
+        ciclo: window.CICLO_ACTIVO,
         updated_at: new Date().toISOString(),
       });
 
@@ -21624,7 +21642,7 @@ async function nem911Guardar() {
     };
   });
   const payload = {
-    ciclo: '2025-2026',
+    ciclo: window.CICLO_ACTIVO,
     periodo: document.getElementById('nem911-periodo')?.value,
     matricula,
     doc_fg:   parseInt(document.getElementById('nem911-doc-fg')?.value)||0,
@@ -21814,7 +21832,7 @@ function nemPemcEliminar(idx) {
 async function nemPemcGuardar() {
   try {
     if (window.sb && window.currentPerfil?.escuela_cct) {
-      await sb.from('pemc').upsert({ ciclo:'2025-2026', acciones: window._nemData.pemc, escuela_cct: window.currentPerfil.escuela_cct }, { onConflict:'ciclo,escuela_cct' });
+      await sb.from('pemc').upsert({ ciclo: window.CICLO_ACTIVO, acciones: window._nemData.pemc, escuela_cct: window.currentPerfil.escuela_cct }, { onConflict:'ciclo,escuela_cct' });
     }
     hubToast('✅ PEMC guardado', 'ok');
   } catch(e) { hubToast('✅ PEMC guardado localmente', 'ok'); }
@@ -21876,7 +21894,7 @@ async function nemCteGuardarSesion() {
     acuerdos:  document.getElementById('cte-acuerdos')?.value.trim(),
     asistentes:parseInt(document.getElementById('cte-asistentes')?.value)||0,
     ausentes:  parseInt(document.getElementById('cte-ausentes')?.value)||0,
-    ciclo:     '2025-2026',
+    ciclo: window.CICLO_ACTIVO,
     guardado:  new Date().toISOString(),
   };
   const idx = window._nemData.cte.findIndex(x => x.numero === _cteSesionActual);
@@ -21967,7 +21985,7 @@ async function nemBoletaGuardar() {
   const alumnoId = document.getElementById('nem-boleta-alumno')?.value;
   const periodo  = document.getElementById('nem-boleta-periodo')?.value;
   if (!alumnoId) { hubToast('⚠️ Selecciona un alumno', 'warn'); return; }
-  const payload = { alumno_id: alumnoId, periodo, ciclo:'2025-2026', escuela_cct: window.currentPerfil?.escuela_cct };
+  const payload = { alumno_id: alumnoId, periodo, ciclo: window.CICLO_ACTIVO, escuela_cct: window.currentPerfil?.escuela_cct };
   BOLETA_CAMPOS.forEach(c => {
     payload[c.id+'_nivel'] = document.getElementById('boleta-'+c.id+'-nivel')?.value || '';
     payload[c.id+'_obs']   = document.getElementById('boleta-'+c.id+'-obs')?.value.trim() || '';
@@ -22221,7 +22239,7 @@ function admDescargarPadron() {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   const cct   = window.currentPerfil?.escuela_cct || 'escuela';
-  const ciclo = '2025-2026';
+  const ciclo = window.CICLO_ACTIVO;
   a.href     = url;
   a.download = `padron_${cct}_${ciclo}.csv`;
   document.body.appendChild(a);
@@ -22938,7 +22956,7 @@ async function coordGuardarVisita(docenteId, tipo, obs, compromisos) {
     compromisos:    compromisos || '',
     fecha:          new Date().toISOString().split('T')[0],
     escuela_cct:    cct,
-    ciclo:          '2025-2026',
+    ciclo: window.CICLO_ACTIVO,
   };
   try {
     if (window.sb) await sb.from('observaciones').insert(payload);
@@ -22990,7 +23008,7 @@ async function cargarCalificaciones(grupoId) {
     const { data } = await sb.from('calificaciones')
       .select('*, usuarios!alumno_id(id, nombre, apellido_p, apellido_m)')
       .eq('grupo_id', grupoId)
-      .eq('ciclo', '2025-2026')
+      .eq('ciclo', window.CICLO_ACTIVO)
       .order('created_at', { ascending: false });
     return data || [];
   } catch(e) {
@@ -23011,7 +23029,7 @@ async function guardarCalificacion(alumnoId, grupoId, materia, periodo, valor, t
       valor:       valor,
       tipo:        tipo || 'bimestral',
       docente_id:  user?.id || currentUser?.id,
-      ciclo:       '2025-2026',
+      ciclo: window.CICLO_ACTIVO,
       updated_at:  new Date().toISOString(),
     }, { onConflict: 'alumno_id,grupo_id,materia,periodo,ciclo' });
     hubToast('✅ Calificación guardada', 'ok');
@@ -23023,7 +23041,7 @@ async function cargarHorarioDocente(docenteId) {
   try {
     const { data } = await sb.from('horarios_docente')
       .select('*, grupos!grupo_id(nombre,grado)')
-      .eq('docente_id', docenteId).eq('ciclo','2025-2026');
+      .eq('docente_id', docenteId).eq('ciclo', window.CICLO_ACTIVO);
     return data || [];
   } catch(e) { return []; }
 }
@@ -23043,7 +23061,7 @@ async function guardarPlaneacion(grupoId, materia, semana, campos) {
       grupo_id:     grupoId,
       materia:      materia,
       semana:       semana,
-      ciclo:        '2025-2026',
+      ciclo: window.CICLO_ACTIVO,
       ...campos,
       updated_at:   new Date().toISOString(),
     }, { onConflict: 'docente_id,grupo_id,materia,semana,ciclo' });
@@ -23064,7 +23082,7 @@ async function pCargarCalificacionesReal(alumnoId) {
     const { data } = await sb.from('calificaciones')
       .select('materia, periodo, valor, tipo')
       .eq('alumno_id', alumnoId)
-      .eq('ciclo', '2025-2026')
+      .eq('ciclo', window.CICLO_ACTIVO)
       .order('periodo');
     return data || [];
   } catch(e) { return null; }
@@ -23704,7 +23722,7 @@ ADM.cargarDocentes = async function() {
               grupo_id: a.grupo_id,
               grupo:    a.grupos?.nombre || 'Todos los grupos',
               turno:    a.grupos?.turno  || null,
-              ciclo:    a.ciclo          || '2025-2026',
+              ciclo:    a.ciclo          || window.CICLO_ACTIVO,
             });
           });
         }
@@ -23848,7 +23866,7 @@ ADM.renderGrupos = function() {
       <div class="adm-card-header">
         <div>
           <div class="adm-card-title">${g.nombre || g.grado + '° ' + (g.seccion||'A')}</div>
-          <div class="adm-card-sub">${g.turno||'matutino'} · Ciclo ${g.ciclo||'2025-2026'} · ${g.nivel||'primaria'}</div>
+          <div class="adm-card-sub">${g.turno||'matutino'} · Ciclo ${g.ciclo||window.CICLO_ACTIVO} · ${g.nivel||'primaria'}</div>
           <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">${docentesHtml}</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
@@ -23913,7 +23931,7 @@ ADM.guardarGrupo = async function(grupoId = '') {
   const nombre  = `${grado}° ${seccion}`;
   const payload = {
     nombre, grado, seccion, turno, nivel,
-    capacidad: cap, ciclo: '2025-2026', activo: true,
+    capacidad: cap, ciclo: window.CICLO_ACTIVO, activo: true,
     escuela_id:  window.currentPerfil?.escuela_cct || null,
     escuela_cct: window.currentPerfil?.escuela_cct || null,
   };
@@ -24191,7 +24209,7 @@ ADM.guardarPersonal = async function() {
   const email        = document.getElementById('adm-p-email').value.trim().toLowerCase();
   const rol          = document.getElementById('adm-p-rol').value;
   const turno        = document.getElementById('adm-p-turno')?.value || 'matutino';
-  const cicloForm    = document.getElementById('adm-p-ciclo')?.value || '2025-2026';
+  const cicloForm    = document.getElementById('adm-p-ciclo')?.value || window.CICLO_ACTIVO;
   const grupoTutoria   = document.getElementById('adm-p-grupo-tutoria')?.value || null;
   const familiaAlumnoId= document.getElementById('adm-p-familia-alumno')?.value || null;
   // Recoger grupos seleccionados
@@ -24259,6 +24277,22 @@ ADM.guardarPersonal = async function() {
       // ── PASO 1: Crear/actualizar usuario via sb.rpc('upsert_usuario') ──
       let usuarioData = null;
       let usuarioId   = null;
+
+      // Resolver UUID de escuela ANTES de crear usuario
+      // escuela_id DEBE ser UUID, escuela_cct es el CCT de texto
+      let escuelaUuidFinal = ADM.escuelaId || null;
+      if (!escuelaUuidFinal || !/^[0-9a-f-]{36}$/i.test(String(escuelaUuidFinal))) {
+        // No tenemos UUID válido → buscarlo por CCT
+        if (escuelaCct && window.sb) {
+          const { data: escRow } = await sb.from('escuelas')
+            .select('id').eq('cct', escuelaCct).maybeSingle();
+          if (escRow?.id) {
+            escuelaUuidFinal = escRow.id;
+            ADM.escuelaId = escRow.id;
+          }
+        }
+      }
+
       try {
         const { data: rpcResult, error: rpcErr } = await sb.rpc('upsert_usuario', {
           p_auth_id:    null,
@@ -24267,11 +24301,10 @@ ADM.guardarPersonal = async function() {
           p_apellido_p: apellido.split(' ')[0] || '',
           p_apellido_m: apellido.split(' ').slice(1).join(' ') || '',
           p_rol:        rol,
-          p_escuela_id: escuelaCct,
-          p_escuela_cct:escuelaCct,
+          p_escuela_id: escuelaUuidFinal || '',   // UUID real
+          p_escuela_cct: escuelaCct || '',         // CCT texto
         });
         if (rpcErr) throw rpcErr;
-        // rpc puede devolver el id o el registro completo
         if (rpcResult && typeof rpcResult === 'object' && rpcResult.id) {
           usuarioData = rpcResult;
           usuarioId = rpcResult.id;
@@ -24279,23 +24312,30 @@ ADM.guardarPersonal = async function() {
           usuarioId = rpcResult;
         }
       } catch(rpcE) {
-        console.warn('[ADM] upsert_usuario rpc failed, falling back to direct insert:', rpcE.message);
-        // Fallback: insert directo
+        console.warn('[ADM] upsert_usuario rpc failed, fallback directo:', rpcE.message);
+        // Fallback: insert directo con tipos correctos
         const insertPayload = {
-          nombre, apellido_p: apellido.split(' ')[0] || '', apellido_m: apellido.split(' ').slice(1).join(' ') || '',
+          nombre,
+          apellido_p:  apellido.split(' ')[0] || '',
+          apellido_m:  apellido.split(' ').slice(1).join(' ') || '',
           email, rol, activo: true, turno,
-          escuela_cct: escuelaCct, escuela_id: escuelaCct,
-          created_at: new Date().toISOString(),
+          escuela_cct: escuelaCct || null,
+          escuela_id:  escuelaUuidFinal || null,  // UUID, nunca CCT
+          created_at:  new Date().toISOString(),
         };
         const { data: insertedData, error: insertErr } = await sb.from('usuarios')
           .insert(insertPayload).select().single();
         if (insertErr) {
           if (insertErr.message?.toLowerCase().includes('duplicate') || insertErr.code === '23505') {
-            const { data: existingData } = await sb.from('usuarios').select('*').eq('email', email).single();
+            const { data: existingData } = await sb.from('usuarios')
+              .select('*').eq('email', email).single();
             usuarioData = existingData;
             if (existingData?.id) {
-              await sb.from('usuarios').update({ escuela_cct: escuelaCct, escuela_id: escuelaCct, rol, activo: true })
-                .eq('id', existingData.id);
+              await sb.from('usuarios').update({
+                escuela_cct: escuelaCct || null,
+                escuela_id:  escuelaUuidFinal || null,
+                rol, activo: true
+              }).eq('id', existingData.id);
             }
             ADM.toast(`ℹ️ ${nombre} ya existía — cuenta actualizada`, 'ok');
           } else {
@@ -24508,6 +24548,12 @@ ADM.guardarPersonal = async function() {
 
     ADM.renderDocentes();
     ADM.renderDashboard();
+    // Recargar desde BD para confirmar que el dato persistió correctamente
+    setTimeout(async () => {
+      await ADM.cargarDocentes();
+      ADM.renderDocentes();
+      ADM.renderAsignaciones();
+    }, 800);
   } catch(e) { ADM.toast('❌ ' + e.message, 'err'); }
 };
 
@@ -24619,7 +24665,7 @@ ADM.agregarMateria = async function(docenteId) {
   let materiaRaw = document.getElementById('adm-mat-sel')?.value;
   if (materiaRaw === '__nueva__') materiaRaw = document.getElementById('adm-mat-nueva')?.value.trim();
   const grupoId   = document.getElementById('adm-mat-grupo-sel')?.value || null;
-  const ciclo     = document.getElementById('adm-mat-ciclo-sel')?.value || '2025-2026';
+  const ciclo     = document.getElementById('adm-mat-ciclo-sel')?.value || window.CICLO_ACTIVO;
   if (!materiaRaw) { ADM.toast('⚠️ Selecciona una materia', 'warn'); return; }
 
   // Para secundaria el formato es "CampoFormativo::Asignatura"
@@ -24863,7 +24909,7 @@ ADM.guardarAlumno = async function() {
       if (grupoId) {
         await sb.from('alumnos_grupos').insert({
           alumno_id: alumnoId, grupo_id: grupoId,
-          ciclo: '2025-2026', activo: true,
+          ciclo: window.CICLO_ACTIVO, activo: true,
         });
       }
 
@@ -24926,11 +24972,11 @@ ADM.guardarAsignacionGrupo = async function(alumnoId) {
       await sb.from('alumnos_grupos')
         .update({ activo: false })
         .eq('alumno_id', alumnoId)
-        .eq('ciclo', '2025-2026');
+        .eq('ciclo', window.CICLO_ACTIVO);
       // Nueva asignación
       await sb.from('alumnos_grupos').insert({
         alumno_id: alumnoId, grupo_id: grupoId,
-        ciclo: '2025-2026', activo: true,
+        ciclo: window.CICLO_ACTIVO, activo: true,
       });
       await ADM.cargarAlumnos();
     }
@@ -25165,7 +25211,7 @@ ADM.confirmarImportarCSV = async function() {
           if (grupo) {
             await sb.from('alumnos_grupos').insert({
               alumno_id: data.id, grupo_id: grupo.id,
-              ciclo: '2025-2026', activo: true,
+              ciclo: window.CICLO_ACTIVO, activo: true,
             }).catch(() => {});
           }
         }
@@ -25375,53 +25421,83 @@ ADM.renderAsignaciones = function() {
     el.innerHTML = `<div class="adm-empty" style="padding:48px 20px;text-align:center;">
       <div style="font-size:48px;margin-bottom:12px;">🗂</div>
       <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;">Sin docentes registrados</div>
-      <div style="font-size:13px;color:#94a3b8;margin-bottom:16px;">Da de alta docentes primero en la sección Personal</div>
       <button onclick="ADM.navTo('docentes')" style="padding:10px 20px;background:linear-gradient(135deg,#0d5c2f,#157a40);color:white;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">Ir a Personal →</button>
     </div>`;
     return;
   }
 
-  const rolIcon  = { docente:'👨‍🏫', coordinador:'📋', ts:'🧠', prefecto:'👮', subdirector:'🏫', tutor:'🎓' };
   const avatarColors = ['#0d5c2f','#1e40af','#7c3aed','#c2410c','#a16207','#047857'];
   const initials = n => n.split(' ').map(p=>p[0]||'').join('').toUpperCase().slice(0,2)||'?';
 
   el.innerHTML = ADM.docentes.map((d, i) => {
-    const nombre = ((d.nombre||'') + ' ' + (d.apellido||d.apellido_p||'')).trim();
-    const asigns = window._admAsignaciones?.[d.id] || [];
-    const color = avatarColors[i % avatarColors.length];
+    const nombre  = ((d.nombre||'') + ' ' + (d.apellido||d.apellido_p||'')).trim();
+    const asigns  = window._admAsignaciones?.[d.id] || [];
+    const color   = avatarColors[i % avatarColors.length];
 
-    const asignsHtml = asigns.length
-      ? asigns.map(a => `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #f1f5f9;">
-          <span style="font-size:14px;">📚</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:700;color:#0f172a;">${a.materia}</div>
-            <div style="font-size:11px;color:#64748b;">${a.grupo || 'Todos los grupos'}</div>
-          </div>
-          <button onclick="ADM.quitarAsignacion('${d.id}','${a.id}')" style="background:none;border:none;cursor:pointer;color:#ef4444;font-size:14px;padding:2px 6px;" title="Quitar asignación">✕</button>
-        </div>`).join('')
-      : '<div style="padding:10px 12px;font-size:12px;color:#94a3b8;font-style:italic;">Sin materias ni grupos asignados</div>';
+    // Agrupar asignaciones por materia para mostrar en qué grupos la imparte
+    // Un docente puede impartir la misma materia en varios grupos
+    const porMateria = {};
+    asigns.forEach(a => {
+      const mat = a.materia || '—';
+      if (!porMateria[mat]) porMateria[mat] = [];
+      porMateria[mat].push(a);
+    });
+
+    const asignsHtml = Object.keys(porMateria).length
+      ? Object.entries(porMateria).map(([mat, rows]) => {
+          const gruposChips = rows.map(r =>
+            `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;
+              border:1px solid #bbf7d0;border-radius:99px;padding:2px 10px;font-size:11px;
+              font-weight:600;color:#166534;">
+              ${r.grupo || 'Todos'}
+              ${r.turno ? `<span style="color:#64748b;">· ${r.turno}</span>` : ''}
+              ${r.ciclo ? `<span style="color:#94a3b8;font-weight:400;">${r.ciclo}</span>` : ''}
+              <button onclick="ADM.quitarMateria('${d.id}','${r.id}')"
+                style="background:none;border:none;cursor:pointer;color:#ef4444;
+                font-size:12px;line-height:1;padding:0 0 0 4px;margin:0;">✕</button>
+            </span>`
+          ).join('');
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;
+            border-bottom:1px solid #f1f5f9;">
+            <div style="min-width:180px;font-size:13px;font-weight:700;color:#0f172a;
+              padding-top:3px;">📚 ${mat}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">${gruposChips}</div>
+          </div>`;
+        }).join('')
+      : `<div style="padding:10px 0;font-size:12px;color:#94a3b8;font-style:italic;">
+          Sin materias asignadas — usa "+ Agregar" para asignar
+        </div>`;
 
     return `
     <div class="adm-card" style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid #f1f5f9;margin-bottom:10px;cursor:pointer;" onclick="this.parentElement.querySelector('.adm-asign-body').style.display=this.parentElement.querySelector('.adm-asign-body').style.display==='none'?'block':'none'">
-        <div style="width:42px;height:42px;border-radius:12px;background:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:white;flex-shrink:0;">${initials(nombre)}</div>
+      <div style="display:flex;align-items:center;gap:12px;padding-bottom:12px;
+        border-bottom:1px solid #f1f5f9;margin-bottom:10px;cursor:pointer;"
+        onclick="this.parentElement.querySelector('.adm-asign-body').style.display=
+          this.parentElement.querySelector('.adm-asign-body').style.display==='none'?'block':'none'">
+        <div style="width:42px;height:42px;border-radius:12px;background:${color};
+          display:flex;align-items:center;justify-content:center;
+          font-size:14px;font-weight:800;color:white;flex-shrink:0;">${initials(nombre)}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:700;color:#0f172a;">${nombre}</div>
-          <div style="font-size:12px;color:#64748b;">${d.email||'—'} · ${rolIcon[d.rol]||'👤'} ${d.rol||'docente'}</div>
+          <div style="font-size:12px;color:#64748b;">${d.email||'—'} · ${d.rol||'docente'}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="adm-badge ${asigns.length ? 'adm-badge-green' : ''}" style="${!asigns.length?'background:#fee2e2;color:#b91c1c;':''}">
-            ${asigns.length ? `📚 ${asigns.length} asignación${asigns.length>1?'es':''}` : '⚠️ Sin asignar'}
+          <span style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;
+            background:${asigns.length ? '#dcfce7' : '#fee2e2'};
+            color:${asigns.length ? '#166534' : '#b91c1c'};">
+            ${asigns.length
+              ? `${Object.keys(porMateria).length} materia${Object.keys(porMateria).length>1?'s':''} · ${asigns.length} grupo${asigns.length>1?'s':''}`
+              : '⚠️ Sin asignar'}
           </span>
           <span style="font-size:12px;color:#94a3b8;">▼</span>
         </div>
       </div>
       <div class="adm-asign-body" style="display:none;">
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
-          ${asignsHtml}
-        </div>
-        <button onclick="ADM.abrirAsignarMaterias('${d.id}','${nombre}')" style="padding:8px 14px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;">+ Agregar materia/grupo</button>
+        <div style="margin-bottom:12px;">${asignsHtml}</div>
+        <button onclick="ADM.abrirAsignarMaterias('${d.id}','${nombre}')"
+          style="padding:8px 14px;background:#f0fdf4;border:1.5px solid #86efac;
+          color:#166534;border-radius:8px;font-family:inherit;font-size:12px;
+          font-weight:700;cursor:pointer;">+ Agregar materia / grupo</button>
       </div>
     </div>`;
   }).join('');
@@ -25469,7 +25545,7 @@ ADM.guardarNuevaAsignacion = async function() {
     if (window.sb) {
       const { error } = await sb.from('docente_grupos').upsert({
         docente_id: docenteId, grupo_id: grupoId,
-        materia, ciclo: '2025-2026', activo: true,
+        materia, ciclo: window.CICLO_ACTIVO, activo: true,
       }, { onConflict: 'docente_id,grupo_id,materia,ciclo' });
       if (error) throw error;
     }
@@ -25562,10 +25638,10 @@ ADM._generarCodigoCorto = function() {
 // ═══════════════════════════════════════════════════════
 
 ADM._demoGrupos = () => [
-  { id:'g1', nombre:'1° A', grado:1, seccion:'A', turno:'matutino', nivel:'primaria', capacidad:35, ciclo:'2025-2026' },
-  { id:'g2', nombre:'2° B', grado:2, seccion:'B', turno:'matutino', nivel:'primaria', capacidad:35, ciclo:'2025-2026' },
-  { id:'g3', nombre:'3° A', grado:3, seccion:'A', turno:'matutino', nivel:'primaria', capacidad:35, ciclo:'2025-2026' },
-  { id:'g4', nombre:'6° A', grado:6, seccion:'A', turno:'matutino', nivel:'primaria', capacidad:35, ciclo:'2025-2026' },
+  { id:'g1', nombre:'1° A', grado:1, seccion:'A', turno:'matutino', nivel:'primaria', capacidad:35, ciclo: window.CICLO_ACTIVO },
+  { id:'g2', nombre:'2° B', grado:2, seccion:'B', turno:'matutino', nivel:'primaria', capacidad:35, ciclo: window.CICLO_ACTIVO },
+  { id:'g3', nombre:'3° A', grado:3, seccion:'A', turno:'matutino', nivel:'primaria', capacidad:35, ciclo: window.CICLO_ACTIVO },
+  { id:'g4', nombre:'6° A', grado:6, seccion:'A', turno:'matutino', nivel:'primaria', capacidad:35, ciclo: window.CICLO_ACTIVO },
 ];
 ADM._demoDocentes = () => [
   { id:'d1', nombre:'Rosa', apellido:'Martínez Vega', email:'rosa&#64;escuela.edu.mx', rol:'docente', turno:'matutino', activo:true },
@@ -26078,7 +26154,7 @@ async function saCrearEscuela() {
         nivel_default,
         zona_escolar: zona || null,
         activo: true,
-        ciclo_actual: '2025-2026',
+        ciclo_actual: window.CICLO_ACTIVO,
         creado_en: new Date().toISOString(),
       }).select('id, cct, nivel, nivel_default').single();
       if (escErr && !escErr.message.includes('duplicate')) throw escErr;
