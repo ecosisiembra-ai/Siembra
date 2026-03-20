@@ -315,12 +315,15 @@ async function cargarGruposDocente(escuelaCctFiltro) {
       .eq('activo', true);
     if (error) throw error;
     if (!data) return [];
-    // Agrupar por grupo — filtrar por escuela activa
+    // Agrupar por grupo — filtrar por escuela activa y nivel del docente
+    const nivelActivo = window._nivelActivo || currentPerfil.nivel || null;
     const gruposMap = {};
     data.forEach(r => {
       if (!r.grupos) return;
-      // Si hay filtro de escuela, solo incluir grupos de esa escuela
+      // Filtrar por escuela
       if (cctFiltro && r.grupos.escuela_cct && r.grupos.escuela_cct !== cctFiltro) return;
+      // Filtrar por nivel del docente (evita que docente de secundaria vea grupos de primaria)
+      if (nivelActivo && r.grupos.nivel && r.grupos.nivel !== nivelActivo) return;
       const gid = r.grupos.id;
       if (!gruposMap[gid]) {
         gruposMap[gid] = { ...r.grupos, materias: [], ciclo: r.ciclo };
@@ -2770,8 +2773,8 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
     </nav>
     <div class="sidebar-user">
       <div class="user-info">
-        <div class="user-avatar">ML</div>
-        <div><div class="user-name">Maestra Laura</div><div class="user-role">Docente · 6° A</div></div>
+        <div class="user-avatar" id="sidebar-doc-avatar">?</div>
+        <div><div class="user-name" id="sidebar-doc-name">—</div><div class="user-role" id="sidebar-doc-role">Docente</div></div>
         <button onclick="hubLogout()" style="margin-left:auto;background:rgba(255,255,255,0.1);border:none;color:rgba(255,255,255,0.6);width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;" title="Cerrar sesión">⏏</button>
       </div>
     </div>
@@ -7944,6 +7947,11 @@ async function initApp() {
       const hora = new Date().getHours();
       const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
       const nombreDoc = `${currentPerfil.nombre||''} ${currentPerfil.apellido_p||currentPerfil.apellido||''}`.trim();
+      // Actualizar sidebar con nombre real (aunque no tenga grupos)
+      const _snEl = document.querySelector('#doc-portal .user-name');
+      const _saEl = document.getElementById('sidebar-doc-avatar');
+      if (_snEl && nombreDoc) _snEl.textContent = nombreDoc;
+      if (_saEl && nombreDoc) _saEl.textContent = nombreDoc.split(' ').map(p=>p[0]||'').join('').toUpperCase().slice(0,2);
       const bienEl = document.getElementById('dash-bienvenida');
       const escInfo = document.getElementById('dash-escuela-info');
       if (bienEl) bienEl.textContent = `${saludo}, ${nombreDoc || 'Docente'} 👋`;
@@ -7963,8 +7971,10 @@ async function initApp() {
         const nombreDocente = `${currentPerfil.nombre||''} ${currentPerfil.apellido_p||currentPerfil.apellido||''}`.trim();
         const nameEl = document.querySelector('#doc-portal .user-name');
         const roleEl = document.querySelector('#doc-portal .user-role');
+        const avatarEl = document.getElementById('sidebar-doc-avatar');
         if (nameEl) nameEl.textContent = nombreDocente || 'Docente';
         if (roleEl) roleEl.textContent = `Docente · ${g.nombre}`;
+        if (avatarEl) avatarEl.textContent = (nombreDocente||'D').split(' ').map(p=>p[0]||'').join('').toUpperCase().slice(0,2);
 
         // 3. Actualizar título en módulo calificaciones
         const calTit = document.getElementById('cal-titulo-h2');
@@ -8607,10 +8617,12 @@ async function calCargarCalificacionesDB(grupoId) {
 function calRenderMatTabs() {
   const wrap = document.getElementById('cal-mat-tabs');
   if (!wrap) return;
-  // Usar SOLO las materias asignadas al docente si están disponibles
+  // Usar SOLO las materias asignadas al docente
   const mats = (window._materiasDocente?.length)
     ? window._materiasDocente
-    : MATERIAS_NEM;
+    : (window._nivelActivo === 'secundaria'
+        ? (window.CAMPOS_NEM_SECUNDARIA?.flatMap(c=>c.contenidos) || MATERIAS_NEM)
+        : MATERIAS_NEM);
   // Si calMatActual no está en la lista, resetear a la primera
   if (mats.length && !mats.includes(calMatActual)) calMatActual = mats[0];
   wrap.innerHTML = mats.map(m => `
