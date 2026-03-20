@@ -2760,8 +2760,6 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
       <button class="nav-btn" onclick="dNav('salones')"><span class="ni">🏫</span> Mis salones</button>
       <button class="nav-btn" onclick="dNav('acomodo')"><span class="ni">🪑</span> Acomodo del salón</button>
       <button class="nav-btn" onclick="dNav('etiquetas')"><span class="ni">🏷️</span> Alumnos y etiquetas</button>
-      <button class="nav-btn" onclick="dNav('fichas')"><span class="ni">🗂️</span> Fichas descriptivas</button>
-
       <div class="nav-label">Planeación</div>
       <button class="nav-btn" onclick="dNav('planeaciones')"><span class="ni">📚</span> Planeaciones NEM</button>
       <button class="nav-btn" onclick="dNav('observaciones')"><span class="ni">📝</span> Obs · XP · Alerta TS</button>
@@ -2769,7 +2767,6 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
       <button class="nav-btn" onclick="dNav('entrevistas')"><span class="ni">🗓️</span> Entrevistas padres</button>
       <button class="nav-btn" onclick="dNav('comentarios-dir')"><span class="ni">💬</span> Canal con dirección</button>
       <div class="nav-label">Reportes</div>
-      <button class="nav-btn" onclick="dNav('boletas')"><span class="ni">📄</span> Boletas</button>
       <button class="nav-btn" onclick="dNav('reportes')"><span class="ni">📋</span> Reportes SEP</button>
       <div class="nav-label">Comunicación</div>
       <button class="nav-btn" onclick="dNav('mensajes')" id="nav-btn-mensajes"><span class="ni">✉️</span> <span id="nav-label-mensajes">Mensajes</span></button>
@@ -8506,6 +8503,10 @@ async function calInit() {
     _calInitDemo();
   }
 
+  // Sincronizar calMatActual con materias del docente antes de renderizar
+  const matsDisp = window._materiasDocente?.length ? window._materiasDocente : null;
+  if (matsDisp && !matsDisp.includes(calMatActual)) calMatActual = matsDisp[0];
+
   calRenderMatTabs();
   calRenderTabla();
   calRenderStats();
@@ -11222,6 +11223,33 @@ function tareasInit() {
   TAREAS_DATA = JSON.parse(localStorage.getItem('siembra_tareas')||'[]');
   CT_TAREAS = TAREAS_DATA;
   ctInit();
+  // Cargar actividades reales desde DB si hay conexión
+  if (sb && window._grupoActivo) {
+    ctCargarActividadesDB(window._grupoActivo);
+  }
+}
+
+async function ctCargarActividadesDB(grupoId) {
+  if (!sb || !grupoId || !currentPerfil) return;
+  try {
+    const { data, error } = await sb.from('actividades_docente')
+      .select('*')
+      .eq('grupo_id', grupoId)
+      .eq('docente_id', currentPerfil.id)
+      .order('created_at', { ascending: false });
+    if (error || !data) return;
+    if (data.length) {
+      CT_ACTIVIDADES_GRUPO[grupoId] = data.map(a => ({
+        id: a.id,
+        titulo: a.titulo || a.nombre,
+        subtitulo: a.subtitulo || a.tipo || '',
+        materia: a.materia || '',
+        tipo_eval: a.tipo_eval || 'carita',
+        rubrica: a.rubrica || null,
+      }));
+      ctSeleccionarGrupo(grupoId);
+    }
+  } catch(e) { console.warn('[ctCargarActividadesDB]', e.message); }
 }
 
 function ctInit() {
@@ -11548,13 +11576,17 @@ async function ctSeleccionarGrupo(grupoId) {
     [{ id:'g1', nombre:'2° K' },{ id:'g2', nombre:'6° A' },{ id:'g3', nombre:'3° B' }].find(g => g.id === grupoId);
   if (tituloEl) tituloEl.textContent = grupo ? (grupo.nombre || `${grupo.grado}° ${grupo.grupo}`) : 'Grupo';
 
-  // Load students
+  // Load students — primero intentar desde DB, luego desde caché, nunca demo si hay grupo real
   let alumnosGrupo = [];
   if (sb && grupoId && !grupoId.startsWith('g')) {
     try { alumnosGrupo = await calCargarAlumnosGrupo(grupoId); } catch(e) {}
   }
-  if (!alumnosGrupo.length) {
-    // Demo students with realistic names
+  // Si no trajo de DB, usar los ya cargados en _alumnosActivos (evita demo si hay sesión real)
+  if (!alumnosGrupo.length && window._alumnosActivos?.length && !window._alumnosActivos[0]?.id?.startsWith('d')) {
+    alumnosGrupo = window._alumnosActivos;
+  }
+  // Solo usar demo si no hay sesión activa (modo prueba sin Supabase)
+  if (!alumnosGrupo.length && (!sb || !currentPerfil)) {
     alumnosGrupo = [
       {n:'ALVARADO LOZANO, LEONARDO DANIEL',id:'d1'},{n:'BOCANEGRA HERNANDEZ, DEVANY ARLETH',id:'d2'},
       {n:'CAMPUZANO GOMEZ, BELLA JOCABET',id:'d3'},{n:'COLUNGA BARRIOS, CARLOS MATEO',id:'d4'},
@@ -11565,9 +11597,8 @@ async function ctSeleccionarGrupo(grupoId) {
       {n:'GRAJALES GONZALEZ, KRISTEL GUADALUPE',id:'d13'},{n:'GUZMAN BUSTOS, JESUS EDUARDO',id:'d14'},
       {n:'GUZMAN GARCIA, VALERIA ALEJANDRA',id:'d15'},
     ];
-    // Also store as window for rubrica modal
-    window._alumnosActivos = alumnosGrupo;
   }
+  if (alumnosGrupo.length) window._alumnosActivos = alumnosGrupo;
   if (countEl) countEl.textContent = `${alumnosGrupo.length} alumnos`;
 
   // Get or create demo activities with pre-filled scores
