@@ -322,8 +322,13 @@ async function cargarGruposDocente(escuelaCctFiltro) {
       if (!r.grupos) return;
       // Filtrar por escuela
       if (cctFiltro && r.grupos.escuela_cct && r.grupos.escuela_cct !== cctFiltro) return;
-      // Filtrar por nivel del docente (evita que docente de secundaria vea grupos de primaria)
-      if (nivelActivo && r.grupos.nivel && r.grupos.nivel !== nivelActivo) return;
+      // Filtrar por nivel del docente — si el docente tiene nivel "ambos" o null, ve todos los grupos
+      const docenteNivel = currentPerfil.nivel || nivelActivo;
+      const nivelPermite = !docenteNivel
+        || docenteNivel === 'ambos'
+        || !r.grupos.nivel
+        || r.grupos.nivel === docenteNivel;
+      if (!nivelPermite) return;
       const gid = r.grupos.id;
       if (!gruposMap[gid]) {
         gruposMap[gid] = { ...r.grupos, materias: [], ciclo: r.ciclo };
@@ -7967,6 +7972,12 @@ async function initApp() {
         window._grupoActivo   = gruposDB[0].id;
         const g = gruposDB[0];
 
+        // Sincronizar nivel con el grupo real (crítico para docentes con nivel "ambos")
+        if (g.nivel && (currentPerfil.nivel === 'ambos' || !currentPerfil.nivel)) {
+          window._nivelActivo = g.nivel;
+          try { localStorage.setItem('siembra_nivel', g.nivel); } catch(e) {}
+        }
+
         // 2. Actualizar nombre del docente y grupo en topbar
         const nombreDocente = `${currentPerfil.nombre||''} ${currentPerfil.apellido_p||currentPerfil.apellido||''}`.trim();
         const nameEl = document.querySelector('#doc-portal .user-name');
@@ -8089,6 +8100,12 @@ async function docCambiarGrupo(grupoId) {
   if (!grupoId || !sb) return;
   window._grupoActivo = grupoId;
   const g = window._gruposDocente?.find(x => x.id === grupoId);
+
+  // Sincronizar nivel con el grupo seleccionado (para docentes con nivel "ambos")
+  if (g?.nivel && (currentPerfil?.nivel === 'ambos' || !currentPerfil?.nivel)) {
+    window._nivelActivo = g.nivel;
+    try { localStorage.setItem('siembra_nivel', g.nivel); } catch(e) {}
+  }
 
   // Actualizar UI
   const roleEl = document.querySelector('#doc-portal .user-role');
