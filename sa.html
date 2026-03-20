@@ -1178,12 +1178,9 @@ let invitacionesData = [];
 
 // ── LOGIN ──
 function entrarDemo() {
-  currentAdmin = { email: 'demo@siembra.mx', id: 'demo' };
-  escuelasData   = _demoEscuelas();
-  usuariosData   = _demoUsuarios();
-  invitacionesData = _demoInvitaciones();
-  abrirApp();
+  toast('Modo demo desactivado. Usa tu cuenta de superadmin.', 'err');
 }
+
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pass  = document.getElementById('login-pass').value;
@@ -1271,39 +1268,47 @@ async function cargarTodo() {
 
 async function cargarEscuelas() {
   if (!sb) { 
-    escuelasData = _demoEscuelas(); 
-    renderTablaEscuelas(escuelasData);
+    escuelasData = [];
+    renderTablaEscuelas([]);
     return; 
   }
   try {
     const { data, error } = await sb.from('escuelas').select('id, cct, nombre, nivel, municipio, estado, zona_escolar, turno, ciclo_actual, activa, creado_en').order('creado_en', { ascending: false });
     if (error) throw error;
     escuelasData = data || [];
-    renderTablaEscuelas(escuelasData); // re-render with real UUIDs
+    renderTablaEscuelas(escuelasData);
   } catch(e) {
     console.warn('[SA] escuelas:', e.message);
-    escuelasData = _demoEscuelas();
-    renderTablaEscuelas(escuelasData);
+    escuelasData = [];
+    renderTablaEscuelas([]);
   }
 }
 
 async function cargarUsuarios() {
-  if (!sb) { usuariosData = _demoUsuarios(); return; }
+  if (!sb) { usuariosData = []; renderTablaUsuarios([]); return; }
   try {
     const { data, error } = await sb.from('usuarios')
-      .select('id, nombre, email, rol, activo, escuela_id, created_at, escuelas(nombre)')
+      .select('id, nombre, apellido_p, email, rol, activo, escuela_id, escuela_cct, created_at')
+      .neq('rol', 'superadmin')
       .order('created_at', { ascending: false })
       .limit(500);
     if (error) throw error;
-    usuariosData = data || [];
+
+    // Enriquecer con nombre de escuela desde escuelasData
+    usuariosData = (data || []).map(u => {
+      const esc = escuelasData.find(e => e.id === u.escuela_id || e.cct === u.escuela_cct);
+      return { ...u, escuelas: esc ? { nombre: esc.nombre } : null };
+    });
+    renderTablaUsuarios(usuariosData);
   } catch(e) {
     console.warn('[SA] usuarios:', e.message);
-    usuariosData = _demoUsuarios();
+    usuariosData = [];
+    renderTablaUsuarios([]);
   }
 }
 
 async function cargarInvitaciones() {
-  if (!sb) { invitacionesData = _demoInvitaciones(); return; }
+  if (!sb) { invitacionesData = []; return; }
   try {
     const { data, error } = await sb.from('invitaciones')
       .select('*, escuelas(nombre)')
@@ -1313,7 +1318,7 @@ async function cargarInvitaciones() {
     invitacionesData = data || [];
   } catch(e) {
     console.warn('[SA] invitaciones:', e.message);
-    invitacionesData = _demoInvitaciones();
+    invitacionesData = [];
   }
 }
 
