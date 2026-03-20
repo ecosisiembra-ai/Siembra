@@ -304,24 +304,34 @@ async function cargarAlumnosGrupo(grupoId) {
   return data?.map(r => r.usuarios) || [];
 }
 
-async function cargarGruposDocente() {
+async function cargarGruposDocente(escuelaCctFiltro) {
   if (!currentPerfil) return [];
-  const { data } = await sb.from('docente_grupos')
-    .select('id, grupo_id, materia, ciclo, grupos(id, nombre, grado, seccion, nivel, turno, escuela_cct)')
-    .eq('docente_id', currentPerfil.id)
-    .eq('activo', true);
-  if (!data) return [];
-  // Agrupar por grupo — un docente puede impartir varias materias en el mismo grupo
-  const gruposMap = {};
-  data.forEach(r => {
-    if (!r.grupos) return;
-    const gid = r.grupos.id;
-    if (!gruposMap[gid]) {
-      gruposMap[gid] = { ...r.grupos, materias: [], ciclo: r.ciclo };
-    }
-    if (r.materia) gruposMap[gid].materias.push(r.materia);
-  });
-  return Object.values(gruposMap);
+  // Usar la escuela activa si no se especifica una
+  const cctFiltro = escuelaCctFiltro || ESCUELA_ACTIVA?.cct || currentPerfil.escuela_cct;
+  try {
+    const { data, error } = await sb.from('docente_grupos')
+      .select('id, grupo_id, materia, ciclo, grupos(id, nombre, grado, seccion, nivel, turno, escuela_cct)')
+      .eq('docente_id', currentPerfil.id)
+      .eq('activo', true);
+    if (error) throw error;
+    if (!data) return [];
+    // Agrupar por grupo — filtrar por escuela activa
+    const gruposMap = {};
+    data.forEach(r => {
+      if (!r.grupos) return;
+      // Si hay filtro de escuela, solo incluir grupos de esa escuela
+      if (cctFiltro && r.grupos.escuela_cct && r.grupos.escuela_cct !== cctFiltro) return;
+      const gid = r.grupos.id;
+      if (!gruposMap[gid]) {
+        gruposMap[gid] = { ...r.grupos, materias: [], ciclo: r.ciclo };
+      }
+      if (r.materia) gruposMap[gid].materias.push(r.materia);
+    });
+    return Object.values(gruposMap);
+  } catch(e) {
+    console.warn('[cargarGruposDocente]', e.message);
+    return [];
+  }
 }
 
 async function cargarLibrosDB() {
@@ -7904,6 +7914,11 @@ async function initApp() {
         }
         const nomEl = document.getElementById('doc-escuela-nombre');
         if (nomEl) nomEl.textContent = ESCUELA_ACTIVA.nombre || ESCUELA_ACTIVA.cct;
+        // Show/hide multi-school switcher
+        const switcher = document.getElementById('doc-escuela-switcher');
+        if (switcher) switcher.title = USUARIO_ESCUELAS.length > 1
+          ? `${USUARIO_ESCUELAS.length} escuelas — clic para cambiar`
+          : ESCUELA_ACTIVA.nombre;
       } else if (currentPerfil?.escuela_cct) {
         // Fallback: sin usuario_escuelas → buscar escuela por CCT del perfil
         try {
@@ -7927,7 +7942,7 @@ async function initApp() {
       // Actualizar banner de bienvenida
       const hora = new Date().getHours();
       const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches';
-      const nombreDoc = `${currentPerfil.nombre||''} ${currentPerfil.apellido_p||''}`.trim();
+      const nombreDoc = `${currentPerfil.nombre||''} ${currentPerfil.apellido_p||currentPerfil.apellido||''}`.trim();
       const bienEl = document.getElementById('dash-bienvenida');
       const escInfo = document.getElementById('dash-escuela-info');
       if (bienEl) bienEl.textContent = `${saludo}, ${nombreDoc || 'Docente'} 👋`;
@@ -7944,7 +7959,7 @@ async function initApp() {
         const g = gruposDB[0];
 
         // 2. Actualizar nombre del docente y grupo en topbar
-        const nombreDocente = `${currentPerfil.nombre||''} ${currentPerfil.apellido_p||''}`.trim();
+        const nombreDocente = `${currentPerfil.nombre||''} ${currentPerfil.apellido_p||currentPerfil.apellido||''}`.trim();
         const nameEl = document.querySelector('#doc-portal .user-name');
         const roleEl = document.querySelector('#doc-portal .user-role');
         if (nameEl) nameEl.textContent = nombreDocente || 'Docente';
@@ -13462,18 +13477,58 @@ function renderEscuelaSel() {
       <div style="flex:1;">
         <div style="font-size:13px;font-weight:700;">${e.nombre}</div>
         <div style="font-size:11px;color:#64748b;">${e.municipio} · Zona ${e.zona} · ${e.turno}</div>
-        <div style="font-size:11px;color:#94a3b8;">${e.grupos.join(', ')} · CCT ${e.cct}</div>
+        <div style="font-size:11px;color:#94a3b8;">CCT: ${e.cct}${e.nivel ? ' · ' + e.nivel : ''}</div>
       </div>
       ${ESCUELA_ACTIVA.cct===e.cct?'<span style="font-size:10px;font-weight:800;background:var(--verde-light);color:var(--verde);padding:2px 8px;border-radius:99px;">Activa</span>':''}
     </div>`).join('');
 }
 
-function docCambiarEscuela(idx) {
+async function docCambiarEscuela(idx) {
   ESCUELA_ACTIVA = USUARIO_ESCUELAS[idx];
-  const nombre = document.getElementById('doc-escuela-nombre');
-  if(nombre) nombre.textContent = ESCUELA_ACTIVA.nombre.replace('Esc. Primaria ','');
+  const nombreEl = document.getElementById('doc-escuela-nombre');
+  if(nombreEl) nombreEl.textContent = ESCUELA_ACTIVA.nombre;
   document.getElementById('modal-escuela-sel')?.classList.remove('open');
-  hubToast(`🏫 Cambiado a: ${ESCUELA_ACTIVA.nombre}`, 'ok');
+  hubToast(`⏳ Cambiando a ${ESCUELA_ACTIVA.nombre}…`);
+
+  // Actualizar nivel según la escuela seleccionada
+  if (ESCUELA_ACTIVA.nivel) {
+    const nivelEsc = ESCUELA_ACTIVA.nivel === 'primaria_y_secundaria'
+      ? (ESCUELA_ACTIVA.nivel_default || 'secundaria')
+      : ESCUELA_ACTIVA.nivel;
+    window._nivelActivo = nivelEsc;
+    try { localStorage.setItem('siembra_nivel', nivelEsc); } catch(e) {}
+  }
+
+  // Recargar grupos de la nueva escuela
+  const gruposDB = await cargarGruposDocente(ESCUELA_ACTIVA.cct);
+  if (gruposDB.length) {
+    window._gruposDocente = gruposDB;
+    window._grupoActivo   = gruposDB[0].id;
+    const g = gruposDB[0];
+    // Actualizar sidebar
+    const nameEl = document.querySelector('#doc-portal .user-name');
+    const roleEl = document.querySelector('#doc-portal .user-role');
+    const nombreDoc = `${currentPerfil.nombre||''} ${currentPerfil.apellido_p||currentPerfil.apellido||''}`.trim();
+    if (nameEl) nameEl.textContent = nombreDoc || 'Docente';
+    if (roleEl) roleEl.textContent = `Docente · ${g.nombre}`;
+    // Recargar alumnos del primer grupo
+    const alumnosDB = await calCargarAlumnosGrupo(g.id);
+    if (alumnosDB.length) {
+      window._alumnosActivos = alumnosDB;
+      alumnos.length = 0;
+      alumnosDB.forEach(a => alumnos.push(a));
+    }
+    // Actualizar selector de grupos si hay más de uno
+    if (gruposDB.length > 1) _docRenderSelectorGrupos(gruposDB);
+    dRenderDash();
+    hubToast(`✅ ${ESCUELA_ACTIVA.nombre} · ${gruposDB.length} grupo(s)`, 'ok');
+  } else {
+    window._gruposDocente = [];
+    window._grupoActivo = null;
+    window._alumnosActivos = [];
+    alumnos.length = 0;
+    hubToast(`🏫 ${ESCUELA_ACTIVA.nombre} — sin grupos asignados`, 'warn');
+  }
 }
 
 async function docAgregarEscuela() {
