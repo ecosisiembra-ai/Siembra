@@ -16353,14 +16353,13 @@ function hubDoDemo() {
 
 // ── Login real con Supabase ───────────────────────────────────────────
 async function hubDoLoginReal() {
+  const errEl = document.getElementById('hub-error');
   if (!hubRole) {
-    const errEl = document.getElementById('hub-error');
     if (errEl) { errEl.textContent = '👆 Primero selecciona un rol.'; errEl.style.display = 'block'; }
     return;
   }
   const email = (document.getElementById('hub-email')?.value || '').trim();
   const pass  = document.getElementById('hub-pass')?.value || '';
-  const errEl = document.getElementById('hub-error');
   if (errEl) errEl.style.display = 'none';
   if (!email) { if(errEl){errEl.textContent='Ingresa tu correo electrónico.';errEl.style.display='block';} return; }
   if (!pass)  { if(errEl){errEl.textContent='Ingresa tu contraseña.';errEl.style.display='block';} return; }
