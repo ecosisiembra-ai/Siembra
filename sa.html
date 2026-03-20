@@ -1288,16 +1288,16 @@ async function cargarUsuarios() {
   if (!sb) { usuariosData = []; renderTablaUsuarios([]); return; }
   try {
     const { data, error } = await sb.from('usuarios')
-      .select('id, nombre, apellido_p, email, rol, activo, escuela_id, escuela_cct, created_at')
+      .select('id, nombre, apellido_p, email, rol, activo, escuela_id, escuela_cct, updated_at')
       .neq('rol', 'superadmin')
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
       .limit(500);
     if (error) throw error;
 
     // Enriquecer con nombre de escuela desde escuelasData
     usuariosData = (data || []).map(u => {
       const esc = escuelasData.find(e => e.id === u.escuela_id || e.cct === u.escuela_cct);
-      return { ...u, escuelas: esc ? { nombre: esc.nombre } : null };
+      return { ...u, created_at: u.updated_at, escuelas: esc ? { nombre: esc.nombre } : null };
     });
     renderTablaUsuarios(usuariosData);
   } catch(e) {
@@ -1486,7 +1486,11 @@ function renderTablaInvitaciones(data) {
 }
 
 // ── CREAR ESCUELA ──
+let _creandoEscuela = false;
 async function crearEscuela() {
+  if (_creandoEscuela) return;
+  _creandoEscuela = true;
+
   const nombre    = document.getElementById('ne-nombre').value.trim();
   const cct       = document.getElementById('ne-cct').value.trim().toUpperCase();
   const municipio = document.getElementById('ne-municipio').value.trim();
@@ -1497,8 +1501,8 @@ async function crearEscuela() {
   const dirEmail  = document.getElementById('ne-dir-email').value.trim().toLowerCase();
   const dirRol    = document.getElementById('ne-dir-rol').value;
 
-  if (!nombre || !cct) { toast('Ingresa nombre y CCT de la escuela', 'err'); return; }
-  if (!dirEmail)        { toast('Ingresa el email del director/a', 'err'); return; }
+  if (!nombre || !cct) { toast('Ingresa nombre y CCT de la escuela', 'err'); _creandoEscuela = false; return; }
+  if (!dirEmail)        { toast('Ingresa el email del director/a', 'err'); _creandoEscuela = false; return; }
 
   const btn = document.getElementById('ne-btn');
   btn.disabled = true; btn.textContent = 'Creando…';
@@ -1608,6 +1612,7 @@ async function crearEscuela() {
   } catch(e) {
     toast('Error: ' + e.message, 'err');
   } finally {
+    _creandoEscuela = false;
     btn.disabled = false; btn.textContent = 'Crear escuela y generar invitación →';
   }
 }
