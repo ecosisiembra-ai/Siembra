@@ -6634,8 +6634,7 @@ async function dirCargarInvitaciones() {
         <button id="adm-nav-grupos"     class="adm-nav-btn" onclick="ADM.navTo('grupos')"><span style="font-size:15px;">🏫</span> Grupos</button>
         <button id="adm-nav-docentes"   class="adm-nav-btn" onclick="ADM.navTo('docentes')"><span style="font-size:15px;">👨‍🏫</span> Personal</button>
         <button id="adm-nav-alumnos"    class="adm-nav-btn" onclick="ADM.navTo('alumnos')"><span style="font-size:15px;">👨‍🎓</span> Padrón escolar</button>
-        <button id="adm-nav-materias"   class="adm-nav-btn" onclick="ADM.navTo('materias')"><span style="font-size:15px;">📚</span> Materias</button>
-        <button id="adm-nav-asignaciones" class="adm-nav-btn" onclick="ADM.navTo('asignaciones')"><span style="font-size:15px;">🗂</span> Asignaciones</button>
+        <button id="adm-nav-asignaciones" class="adm-nav-btn" onclick="ADM.navTo('asignaciones')"><span style="font-size:15px;">📚</span> Materias y asignaciones</button>
         <div style="height:1px;background:rgba(255,255,255,.08);margin:12px 4px;"></div>
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;padding:2px 10px;margin-bottom:6px;">Herramientas</div>
         <button id="adm-nav-importar"   class="adm-nav-btn" onclick="ADM.navTo('importar')"><span style="font-size:15px;">⬆️</span> Importar CSV</button>
@@ -6764,19 +6763,33 @@ async function dirCargarInvitaciones() {
         </div>
         <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;"><div id="adm-alumnos-list" style="overflow-x:auto;"></div></div>
       </div>
-      <div class="adm-page" id="adm-p-materias" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
-          <div><h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d5c2f;">Catálogo de materias</h2><div style="font-size:13px;color:#64748b;">Materias disponibles para asignar a docentes</div></div>
-          <button onclick="ADM.abrirModalMateria()" style="padding:10px 18px;background:#0d5c2f;color:white;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">+ Nueva materia</button>
-        </div>
-        <div id="adm-materias-cat-list"></div>
-      </div>
       <div class="adm-page" id="adm-p-asignaciones" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;">
-          <div><h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d1a0f;font-weight:700;">Asignación de materias</h2><div style="font-size:13px;color:#64748b;margin-top:2px;">Qué docente imparte qué materia en qué grupo</div></div>
-          <button onclick="ADM.abrirModalNuevaAsignacion()" style="padding:10px 20px;background:linear-gradient(135deg,#0d5c2f,#157a40);color:white;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(13,92,47,.3);transition:.2s;" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">+ Nueva asignación</button>
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d1a0f;font-weight:700;">📚 Asignación de materias</h2>
+            <div style="font-size:13px;color:#64748b;">Catálogo de materias y asignación docente por grupo</div>
+          </div>
         </div>
-        <div id="adm-asignaciones-list"></div>
+        <!-- Tabs -->
+        <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:20px;">
+          <button id="adm-asig-tab-catalogo" onclick="admAsigTab('catalogo')" style="padding:10px 20px;border:none;background:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#0d5c2f;border-bottom:2px solid #0d5c2f;margin-bottom:-2px;cursor:pointer;">📖 Catálogo</button>
+          <button id="adm-asig-tab-asig" onclick="admAsigTab('asig')" style="padding:10px 20px;border:none;background:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">🗂 Asignaciones</button>
+        </div>
+        <!-- Tab: Catálogo -->
+        <div id="adm-asig-panel-catalogo">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+            <button onclick="ADM.abrirModalMateria()" style="padding:10px 18px;background:#0d5c2f;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">+ Nueva materia</button>
+          </div>
+          <div id="adm-materias-cat-list"></div>
+        </div>
+        <!-- Tab: Asignaciones -->
+        <div id="adm-asig-panel-asig" style="display:none;">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+            <button onclick="ADM.abrirModalNuevaAsignacion()" style="padding:10px 20px;background:linear-gradient(135deg,#0d5c2f,#157a40);color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">+ Nueva asignación</button>
+          </div>
+          <div id="adm-asignaciones-list"></div>
+        </div>
       </div>
       <div class="adm-page" id="adm-p-importar" style="display:none;">
         <div style="margin-bottom:22px;"><h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d1a0f;font-weight:700;">Importar alumnos por CSV</h2><div style="font-size:13px;color:#64748b;margin-top:2px;">Sube la lista completa desde Excel o Google Sheets</div></div>
@@ -16759,6 +16772,7 @@ function coordSelDocentePortal(idx) {
 }
 
 function hubLogout() {
+  if (window.ADM) ADM._initialized = false;
   // Limpiar todos los canales Realtime antes de salir
   if (typeof realtimeDesuscribirTodos === 'function') realtimeDesuscribirTodos();
   // Limpiar timer de inactividad
@@ -23793,6 +23807,7 @@ function ADM_seleccionarEscuela(cct, nombre, nivel) {
 }
 
 window.ADM = window.ADM || {};
+ADM._initialized = false; // guard against double init
 
 // ── Estado del módulo ─────────────────────────────────────────────
 ADM.grupos    = [];
@@ -23803,6 +23818,8 @@ ADM.paginaActual = 'adm-dashboard';
 
 // ── Inicialización ────────────────────────────────────────────────
 ADM.init = async function() {
+  if (ADM._initialized) { console.log('[ADM] Ya inicializado, skip'); return; }
+  ADM._initialized = true;
   console.log('[ADM] Iniciando panel administradora...');
 
   // Cargar perfil y escuela directamente desde la sesión activa de Supabase
@@ -23990,7 +24007,11 @@ ADM.navTo = function(page) {
   };
   if (topbarTitle) topbarTitle.textContent = pageTitles[page] || page;
   // Re-render asignaciones when navigating to that page
-  if (page === 'asignaciones') ADM.renderAsignaciones();
+  if (page === 'asignaciones') {
+    ADM.renderMaterias();
+    ADM.renderAsignaciones();
+    admAsigTab('catalogo');
+  }
   // Actualizar nombre usuario en sidebar + avatar
   const nameEl = document.getElementById('adm-user-name');
   const avatarEl = document.getElementById('adm-avatar');
@@ -24258,7 +24279,8 @@ ADM.abrirModalGrupo = function(grupoId = null) {
 ADM.abrirEditarGrupo = function(id) { ADM.abrirModalGrupo(id); };
 
 ADM.guardarGrupo = async function(grupoId = '') {
-  const grado   = parseInt(document.getElementById('adm-g-grado').value);
+  const gradoVal = document.getElementById('adm-g-grado').value;
+  const grado   = String(gradoVal); // grupos.grado is TEXT
   const seccion = document.getElementById('adm-g-seccion').value.trim().toUpperCase() || 'A';
   const turno   = document.getElementById('adm-g-turno').value;
   const nivel   = document.getElementById('adm-g-nivel')?.value || window._admNivelActivo || 'primaria';
@@ -25712,6 +25734,24 @@ ADM.confirmarImportarCSV = async function() {
 // MATERIAS CATÁLOGO
 // ═══════════════════════════════════════════════════════
 
+
+function admAsigTab(tab) {
+  const isCatalogo = tab === 'catalogo';
+  document.getElementById('adm-asig-panel-catalogo').style.display = isCatalogo ? '' : 'none';
+  document.getElementById('adm-asig-panel-asig').style.display     = isCatalogo ? 'none' : '';
+  const btnCat  = document.getElementById('adm-asig-tab-catalogo');
+  const btnAsig = document.getElementById('adm-asig-tab-asig');
+  if (btnCat) {
+    btnCat.style.color       = isCatalogo ? '#0d5c2f' : '#64748b';
+    btnCat.style.borderBottom= isCatalogo ? '2px solid #0d5c2f' : '2px solid transparent';
+    btnCat.style.fontWeight  = isCatalogo ? '700' : '600';
+  }
+  if (btnAsig) {
+    btnAsig.style.color       = isCatalogo ? '#64748b' : '#0d5c2f';
+    btnAsig.style.borderBottom= isCatalogo ? '2px solid transparent' : '2px solid #0d5c2f';
+    btnAsig.style.fontWeight  = isCatalogo ? '600' : '700';
+  }
+}
 ADM.renderMaterias = function() {
   const el = document.getElementById('adm-materias-cat-list');
   if (!el) return;
