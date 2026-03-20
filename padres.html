@@ -1003,6 +1003,20 @@ const AI_ROUTER_URL = `${SB_URL_HUB}/functions/v1/ai-router`;
 let sbHub = null;
 try { sbHub = supabase.createClient(SB_URL_HUB, SB_KEY_HUB); } catch(e){}
 
+// ── Ciclo activo desde config_global ──────────
+(async () => {
+  try {
+    if (sbHub) {
+      const { data } = await sbHub.from('config_global')
+        .select('valor').eq('clave','ciclo_activo').maybeSingle();
+      if (data?.valor) {
+        window.CICLO_ACTIVO = data.valor;
+        localStorage.setItem('siembra_ciclo', data.valor);
+      }
+    }
+  } catch(e) { console.warn('[padres] ciclo:', e.message); }
+})();
+
 // ── Estado global ─────────────────────────
 let currentUser    = null;
 let currentPerfil  = null;   // usuario padre
@@ -1279,7 +1293,7 @@ async function cargarCalificaciones() {
       const { data, error } = await sbHub.from('calificaciones')
         .select('materia, trimestre, aspecto, calificacion, ciclo')
         .eq('alumno_id', hijoActivo.id)
-        .eq('ciclo', '2025-2026')
+        .eq('ciclo', window.CICLO_ACTIVO || localStorage.getItem('siembra_ciclo') || '2025-2026')
         .order('materia');
       
       if (data?.length) {
