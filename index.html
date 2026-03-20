@@ -16880,7 +16880,7 @@ async function dirCargarDatosDB() {
     // Cargar grupos de esta escuela
     const { data: gruposDB } = await sb.from('grupos')
       .select('id, nombre, grado, grupo, nivel')
-      .eq('escuela_id', escuelaId)
+      .eq('escuela_cct', window.currentPerfil?.escuela_cct || ADM.escuelaCct)
       .order('grado');
 
     if (gruposDB?.length) {
@@ -17231,7 +17231,7 @@ async function admCrearGrupo() {
     if (sb && currentPerfil?.escuela_id) {
       const { data, error } = await sb.from('grupos').insert({
         nombre, grado: parseInt(grado), grupo: letra, nivel,
-        escuela_id: currentPerfil.escuela_id,
+        escuela_cct: currentPerfil.escuela_cct || ADM.escuelaCct,
         docente_titular_id: docenteId || null,
         ciclo: window.CICLO_ACTIVO, activo: true,
         created_at: new Date().toISOString(),
@@ -17277,7 +17277,7 @@ async function admCargarGruposAdmin() {
   try {
     const { data, error } = await sb.from('grupos')
       .select('id,nombre,grado,grupo,nivel,docente_titular_id,usuarios!docente_titular_id(nombre,apellido_p)')
-      .eq('escuela_id', currentPerfil.escuela_id)
+      .eq('escuela_cct', currentPerfil.escuela_cct || ADM.escuelaCct)
       .eq('activo', true).order('grado').order('grupo');
     if (error) throw error;
     _admGruposDB = data || [];
@@ -17348,7 +17348,7 @@ async function admCrearAlumno() {
       const { data: usr, error: usrErr } = await sb.from('usuarios').insert({
         nombre, apellido_p: ap, apellido_m: am, curp: curp||null,
         rol: 'alumno', escuela_id: currentPerfil.escuela_id,
-        fecha_nacimiento: nac, activo: true,
+        fecha_nac: nac || null, activo: true,
         created_at: new Date().toISOString(),
       }).select('id').single();
       if (usrErr) throw usrErr;
@@ -17566,7 +17566,7 @@ async function sepReporteCURP() {
     let rows = [];
     if (sb && currentPerfil?.escuela_id) {
       const { data } = await sb.from('alumnos_grupos')
-        .select('usuarios!alumno_id(nombre,apellido_p,apellido_m,curp,fecha_nacimiento), grupos!grupo_id(nombre,grado)')
+        .select('usuarios!alumno_id(nombre,apellido_p,apellido_m,curp,fecha_nac), grupos!grupo_id(nombre,grado)')
         .eq('activo', true);
       rows = (data || []).map(r => ({
         nombre: `${r.usuarios?.nombre||''} ${r.usuarios?.apellido_p||''} ${r.usuarios?.apellido_m||''}`.trim(),
@@ -17647,7 +17647,7 @@ async function sepReporteEstadistica() {
     if (sb && currentPerfil?.escuela_id) {
       const [rA, rG, rD] = await Promise.all([
         sb.from('alumnos_grupos').select('id',{count:'exact',head:true}).eq('activo',true),
-        sb.from('grupos').select('id',{count:'exact',head:true}).eq('escuela_id',currentPerfil.escuela_id).eq('activo',true),
+        sb.from('grupos').select('id',{count:'exact',head:true}).eq('escuela_cct',currentPerfil.escuela_cct||ADM?.escuelaCct||'').eq('activo',true),
         sb.from('usuarios').select('id',{count:'exact',head:true}).eq('escuela_id',currentPerfil.escuela_id).eq('rol','docente'),
       ]);
       totalAlumnos = rA.count || 0; totalGrupos = rG.count || 0; totalDocentes = rD.count || 0;
@@ -17672,7 +17672,7 @@ async function sepFormato911() {
     const rows = [];
     if (sb && currentPerfil?.escuela_id) {
       const { data } = await sb.from('alumnos_grupos')
-        .select('usuarios!alumno_id(nombre,apellido_p,apellido_m,curp,fecha_nacimiento,sexo), grupos!grupo_id(nombre,grado,nivel)')
+        .select('usuarios!alumno_id(nombre,apellido_p,apellido_m,curp,fecha_nac), grupos!grupo_id(nombre,grado,nivel)')
         .eq('activo',true);
       (data||[]).forEach(r => {
         rows.push({
@@ -22908,7 +22908,7 @@ async function siembraGetGrupos(escuelaCct) {
   if (!window.sb) return [];
   try {
     const cct = escuelaCct || window.currentPerfil?.escuela_cct;
-    const { data } = await sb.from('grupos').select('*').eq('escuela_id', cct||'').eq('activo',true).order('grado');
+    const { data } = await sb.from('grupos').select('*').eq('escuela_cct', cct||'').eq('activo',true).order('grado');
     return window._siembraGrupos = data || [];
   } catch(e) { return []; }
 }
@@ -23062,9 +23062,8 @@ async function admCargarGruposNivel(nivel) {
   try {
     const cct = window.currentPerfil.escuela_cct;
     const { data: d1 } = await sb.from('grupos').select('*')
-      .eq('escuela_id', cct).eq('nivel', nivel).eq('activo', true).order('grado');
-    const { data: d2 } = await sb.from('grupos').select('*')
       .eq('escuela_cct', cct).eq('nivel', nivel).eq('activo', true).order('grado');
+    const d2 = [];
     const combined = [...(d1||[]), ...(d2||[])];
     const seen = new Set();
     ADM.grupos = combined.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
@@ -23201,7 +23200,7 @@ async function dirCargarGrupos() {
   const cct = _getCct();
   if (!cct || !window.sb) { window._dirGrupos = []; return; }
   try {
-    const { data: d1 } = await sb.from('grupos').select('*, alumnos_grupos(count)').eq('escuela_id', cct).eq('activo', true).order('grado');
+    const { data: d1 } = await sb.from('grupos').select('*, alumnos_grupos(count)').eq('escuela_cct', cct).eq('activo', true).order('grado');
     const { data: d2 } = await sb.from('grupos').select('*, alumnos_grupos(count)').eq('escuela_cct', cct).eq('activo', true).order('grado');
     const combined = [...(d1||[]), ...(d2||[])];
     const seen = new Set();
@@ -23227,7 +23226,7 @@ async function dirCargarStats() {
     const [{ count: alumnos }, { count: docentes }, { count: grupos }] = await Promise.all([
       sb.from('usuarios').select('id', { count:'exact', head:true }).eq('escuela_cct', cct).eq('rol','alumno').eq('activo',true),
       sb.from('usuarios').select('id', { count:'exact', head:true }).eq('escuela_cct', cct).in('rol',['docente','tutor']).eq('activo',true),
-      sb.from('grupos').select('id', { count:'exact', head:true }).eq('escuela_id', cct).eq('activo',true),
+      sb.from('grupos').select('id', { count:'exact', head:true }).eq('escuela_cct', cct).eq('activo',true),
     ]);
     const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v??0; };
     set('dashboard-dispon',  docentes || 0);
@@ -24018,13 +24017,10 @@ ADM.cargarGrupos = async function() {
   try {
     const nivel = ADM.escuelaNivel || window._admNivelActivo;
     const filtrarNivel = (ADM.escuelaNivel === 'primaria_y_secundaria' || ADM.escuelaNivel === 'ambos') && nivel;
-    let q1 = sb.from('grupos').select('*').eq('escuela_id', cct).eq('activo', true);
-    let q2 = sb.from('grupos').select('*').eq('escuela_cct', cct).eq('activo', true);
-    if (filtrarNivel) { q1 = q1.eq('nivel', nivel); q2 = q2.eq('nivel', nivel); }
-    const [{ data: d1 }, { data: d2 }] = await Promise.all([q1.order('grado'), q2.order('grado')]);
-    const combined = [...(d1||[]), ...(d2||[])];
-    const seen = new Set();
-    ADM.grupos = combined.filter(g => { if(seen.has(g.id)) return false; seen.add(g.id); return true; });
+    let q = sb.from('grupos').select('*').eq('escuela_cct', cct).eq('activo', true);
+    if (filtrarNivel) q = q.eq('nivel', nivel);
+    const { data: grupos } = await q.order('grado');
+    ADM.grupos = grupos || [];
   } catch(e) { console.warn("[ADM] cargarGrupos:", e.message); ADM.grupos = []; }
 };
 
@@ -24038,20 +24034,10 @@ ADM.cargarDocentes = async function() {
   const sb = sbRef;
   try {
     const roles = ['docente','coordinador','ts','prefecto','subdirector','tutor'];
-    // Query 1: por escuela_cct (text) — campo correcto
     const { data: d1 } = await sb.from('usuarios')
       .select('*').eq('escuela_cct', cct)
       .in('rol', roles).eq('activo', true).order('nombre');
-    // Query 2: por escuela_id (UUID) — solo si tenemos UUID válido
-    let d2 = [];
-    if (uuid && /^[0-9a-f-]{36}$/i.test(String(uuid))) {
-      const { data } = await sb.from('usuarios')
-        .select('*').eq('escuela_id', uuid)
-        .in('rol', roles).eq('activo', true).order('nombre');
-      d2 = data || [];
-    }
-    // Merge y deduplicar por id
-    const combined = [...(d1 || []), ...d2];
+    const combined = [...(d1 || [])];
     const seen = new Set();
     ADM.docentes = combined.filter(u => { if (seen.has(u.id)) return false; seen.add(u.id); return true; });
     console.log('[ADM] Docentes cargados:', ADM.docentes.length, 'para CCT:', cct);
@@ -24087,11 +24073,10 @@ ADM.cargarAlumnos = async function() {
     ADM.alumnos = []; return;
   }
   try {
-    const { data: a1 } = await sb.from('usuarios').select('*, alumnos_grupos(grupo_id, grupos(nombre,grado))').eq('escuela_id', cctA).eq('rol','alumno').eq('activo',true).order('nombre');
-    const { data: a2 } = await sb.from('usuarios').select('*, alumnos_grupos(grupo_id, grupos(nombre,grado))').eq('escuela_cct', cctA).eq('rol','alumno').eq('activo',true).order('nombre');
-    const combined = [...(a1||[]), ...(a2||[])];
-    const seenA = new Set();
-    ADM.alumnos = combined.filter(u => { if(seenA.has(u.id)) return false; seenA.add(u.id); return true; });
+    const { data: alumnos } = await sb.from('usuarios')
+      .select('*, alumnos_grupos(grupo_id, grupos(nombre,grado))')
+      .eq('escuela_cct', cctA).eq('rol','alumno').eq('activo',true).order('nombre');
+    ADM.alumnos = alumnos || [];
   } catch(e) { console.warn("[ADM] cargarAlumnos:", e.message); ADM.alumnos = []; }
 };
 
@@ -24282,8 +24267,7 @@ ADM.guardarGrupo = async function(grupoId = '') {
   const payload = {
     nombre, grado, seccion, turno, nivel,
     capacidad: cap, ciclo: window.CICLO_ACTIVO, activo: true,
-    escuela_id:  ADM.escuelaId || window.currentPerfil?.escuela_id || null,
-    escuela_cct: window.currentPerfil?.escuela_cct || ADM.escuelaCct || null,
+    escuela_cct: ADM.escuelaCct || window.currentPerfil?.escuela_cct || null,
   };
   try {
     if (window.sb && (window.currentPerfil?.escuela_cct || ADM.escuelaCct)) {
@@ -24925,6 +24909,7 @@ ADM.guardarPersonal = async function() {
         // 4b. Insertar invitación — siempre incluir escuela_cct como respaldo
         const invPayload = {
           token,
+          escuela_id:     ADM.escuelaId || null,
           escuela_cct:    escuelaCct || null,
           rol,
           email_destino:  email,
@@ -25381,15 +25366,14 @@ ADM.guardarAlumno = async function() {
     apellido_m,        // SEP field
     curp: curp || null,
     fecha_nac: fechaNac || null,
-    fecha_nacimiento: fechaNac || null,
     num_lista: numLista,
     telefono: telefono || null,
     tutor_nombre: tutor || null,
     telefono_tutor: telefono || null,
     rol: 'alumno', activo: true, codigo_vinculacion: codigo,
-    escuela_id:  ADM.escuelaId || window.currentPerfil?.escuela_id || null,
-    escuela_cct: window.currentPerfil?.escuela_cct || ADM.escuelaCct || null,
-    created_at: new Date().toISOString(),
+    escuela_id:  ADM.escuelaId || null,
+    escuela_cct: ADM.escuelaCct || window.currentPerfil?.escuela_cct || null,
+    creado_en: new Date().toISOString(),
   };
 
   try {
@@ -25403,7 +25387,7 @@ ADM.guardarAlumno = async function() {
       if (grupoId) {
         await sb.from('alumnos_grupos').insert({
           alumno_id: alumnoId, grupo_id: grupoId,
-          ciclo: window.CICLO_ACTIVO, activo: true,
+          ciclo_escolar: window.CICLO_ACTIVO, activo: true,
         });
       }
 
