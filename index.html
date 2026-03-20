@@ -407,6 +407,7 @@ async function mostrarPortalSegunRol() {
     } catch(e) { /* single school or error — continue normally */ }
     document.getElementById('doc-portal').style.display = 'flex';
     if (typeof dInit === 'function') dInit();
+    setTimeout(() => window.dispatchEvent(new Event('siembra:login_exitoso')), 800);
   } else if (rol === 'admin') {
     document.getElementById('hub-login').style.display = 'none';
     // Check if this admin/docente belongs to multiple schools
@@ -6138,7 +6139,699 @@ function dirImprimirQR() {
       QRCode.toCanvas(document.getElementById('qr'), '${_dirInvLink}', { width: 200, margin: 2, color:{ dark:'#0d5c2f', light:'#ffffff' } });
       setTimeout(() => window.print(), 800);
     <\/script>
-  </body></html>`);
+  
+
+<script>
+// ══ SIEMBRA REALTIME ENGINE ══
+// ══════════════════════════════════════════════════════════════════════
+// SIEMBRA REALTIME ENGINE v1.0
+// Extiende el realtime existente a todas las tablas y roles
+// ══════════════════════════════════════════════════════════════════════
+
+window._realtimeChannels = window._realtimeChannels || {};
+
+// ── Suscripción genérica con payload optimizado ────────────────────
+function siembraSuscribir(tabla, filtro, onInsert, onUpdate, onDelete) {
+  const chKey = `rt_${tabla}_${filtro || 'all'}`;
+  if (window._realtimeChannels[chKey]) return; // ya suscrito
+  if (!window.sb) return;
+
+  const ch = window.sb.channel(chKey)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: tabla,
+      ...(filtro ? { filter: filtro } : {}),
+    }, (payload) => {
+      console.log(`[RT] ${tabla}`, payload.eventType);
+      if (payload.eventType === 'INSERT' && onInsert) onInsert(payload.new, payload);
+      if (payload.eventType === 'UPDATE' && onUpdate) onUpdate(payload.new, payload.old, payload);
+      if (payload.eventType === 'DELETE' && onDelete) onDelete(payload.old, payload);
+      // Dispatch global para que cualquier portal pueda escuchar
+      window.dispatchEvent(new CustomEvent(`siembra:rt_${tabla}`, { detail: payload }));
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') console.log(`[RT] ✅ ${tabla} suscrito`);
+      if (status === 'CHANNEL_ERROR') console.warn(`[RT] ❌ ${tabla} error`);
+    });
+
+  window._realtimeChannels[chKey] = ch;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// INIT REALTIME POR ROL
+// ══════════════════════════════════════════════════════════════════════
+
+function initRealtimeDocente(grupoId, escuelaCct) {
+  if (!grupoId) return;
+
+  // Calificaciones del grupo (ya existe, reusar patrón)
+  siembraSuscribir('calificaciones', `grupo_id=eq.${grupoId}`,
+    (row) => {
+      window.dispatchEvent(new CustomEvent('siembra:cal_update', { detail: { eventType:'INSERT', new: row }}));
+      if (typeof calInit === 'function') calInit();
+    },
+    (row) => {
+      window.dispatchEvent(new CustomEvent('siembra:cal_update', { detail: { eventType:'UPDATE', new: row }}));
+    }
+  );
+
+  // Asistencia del grupo
+  siembraSuscribir('asistencia', `grupo_id=eq.${grupoId}`,
+    (row) => { window.dispatchEvent(new CustomEvent('siembra:as_update', { detail: row })); },
+    (row) => { window.dispatchEvent(new CustomEvent('siembra:as_update', { detail: row })); }
+  );
+
+  // Alertas de la escuela → badge en topbar
+  if (escuelaCct) {
+    siembraSuscribir('alertas', `escuela_cct=eq.${escuelaCct}`,
+      (row) => {
+        _rtActualizarBadgeAlertas(1);
+        hubToast(`🔔 Nueva alerta: ${row.tipo || 'incidencia'}`, 'warn');
+      }
+    );
+  }
+
+  // Alumnos del grupo (si cambia la lista)
+  siembraSuscribir('alumnos_grupos', `grupo_id=eq.${grupoId}`,
+    async () => {
+      if (typeof calCargarAlumnosGrupo === 'function') {
+        const alumnos = await calCargarAlumnosGrupo(grupoId);
+        if (alumnos.length) {
+          window._alumnosActivos = alumnos;
+          if (typeof calRenderTabla === 'function') calRenderTabla();
+          if (typeof dRenderDash === 'function') dRenderDash();
+        }
+      }
+    },
+    async () => {
+      if (typeof calCargarAlumnosGrupo === 'function') {
+        const alumnos = await calCargarAlumnosGrupo(grupoId);
+        window._alumnosActivos = alumnos;
+        if (typeof calRenderTabla === 'function') calRenderTabla();
+      }
+    }
+  );
+
+  console.log('[RT] Docente suscrito — grupo:', grupoId);
+}
+
+function initRealtimeTS(escuelaCct) {
+  if (!escuelaCct) return;
+
+  // Incidencias de la escuela → TS las recibe en tiempo real
+  siembraSuscribir('incidencias', `escuela_cct=eq.${escuelaCct}`,
+    (row) => {
+      hubToast(`🚨 Nueva incidencia: ${row.tipo || 'reporte'}`, 'warn');
+      _rtActualizarBadgeAlertas(1);
+      if (typeof tsInit === 'function') tsInit();
+    },
+    (row) => {
+      if (typeof tsInit === 'function') tsInit();
+    }
+  );
+
+  // Alertas
+  siembraSuscribir('alertas', `escuela_cct=eq.${escuelaCct}`,
+    (row) => {
+      hubToast(`🔔 Alerta: ${row.descripcion?.slice(0,50) || row.tipo}`, 'warn');
+      if (typeof tsInit === 'function') tsInit();
+    }
+  );
+
+  console.log('[RT] TS suscrito — escuela:', escuelaCct);
+}
+
+function initRealtimeAdmin(escuelaCct) {
+  if (!escuelaCct) return;
+
+  // Usuarios nuevos en la escuela
+  siembraSuscribir('usuarios', `escuela_cct=eq.${escuelaCct}`,
+    (row) => {
+      hubToast(`👤 Nuevo usuario: ${row.nombre || row.email}`, 'ok');
+      if (window.ADM) { ADM.cargarDocentes().then(() => ADM.renderDocentes()); }
+    },
+    (row) => {
+      if (window.ADM) { ADM.cargarDocentes().then(() => ADM.renderDocentes()); }
+    }
+  );
+
+  // Grupos
+  siembraSuscribir('grupos', `escuela_cct=eq.${escuelaCct}`,
+    (row) => {
+      if (window.ADM) { ADM.cargarGrupos().then(() => { ADM.renderGrupos(); ADM.popularSelects(); }); }
+    },
+    (row) => {
+      if (window.ADM) { ADM.cargarGrupos().then(() => ADM.renderGrupos()); }
+    }
+  );
+
+  // Alertas → dashboard admin
+  siembraSuscribir('alertas', `escuela_cct=eq.${escuelaCct}`,
+    (row) => {
+      hubToast(`🚨 ${row.tipo}: ${row.descripcion?.slice(0,40) || ''}`, 'warn');
+      _rtActualizarBadgeAlertas(1);
+    }
+  );
+
+  // Incidencias → admin las ve
+  siembraSuscribir('incidencias', `escuela_cct=eq.${escuelaCct}`,
+    (row) => { _rtActualizarBadgeAlertas(1); }
+  );
+
+  console.log('[RT] Admin suscrito — escuela:', escuelaCct);
+}
+
+function initRealtimeDirector(escuelaCct) {
+  if (!escuelaCct) return;
+
+  // Incidencias → director las monitorea
+  siembraSuscribir('incidencias', `escuela_cct=eq.${escuelaCct}`,
+    (row) => {
+      hubToast(`🚨 Incidencia: ${row.tipo}`, 'warn');
+      _rtActualizarBadgeAlertas(1);
+      if (typeof dirInit === 'function') dirInit();
+    }
+  );
+
+  // Asistencia → reporte en tiempo real
+  siembraSuscribir('asistencia', null,
+    () => { window.dispatchEvent(new Event('siembra:asistencia_update')); }
+  );
+
+  // Calificaciones → reporte
+  siembraSuscribir('calificaciones', null,
+    () => { window.dispatchEvent(new Event('siembra:calificaciones_update')); }
+  );
+
+  console.log('[RT] Director suscrito — escuela:', escuelaCct);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// INIT PRINCIPAL — se llama después de login
+// ══════════════════════════════════════════════════════════════════════
+function initRealtime() {
+  if (!window.sb || !window.currentPerfil) return;
+  const perfil = window.currentPerfil;
+  const cct    = window.ESCUELA_ACTIVA?.cct || perfil.escuela_cct;
+  const grupoId = window._grupoActivo;
+  const rol     = perfil.rol;
+
+  console.log('[RT] Iniciando realtime para rol:', rol, '| escuela:', cct);
+
+  switch(rol) {
+    case 'docente':
+    case 'tutor':
+      if (grupoId) initRealtimeDocente(grupoId, cct);
+      break;
+    case 'ts':
+    case 'prefecto':
+      initRealtimeTS(cct);
+      break;
+    case 'admin':
+    case 'coordinador':
+      initRealtimeAdmin(cct);
+      if (rol === 'coordinador') initRealtimeTS(cct);
+      break;
+    case 'director':
+    case 'subdirector':
+      initRealtimeDirector(cct);
+      initRealtimeAdmin(cct);
+      break;
+  }
+
+  // Todos los roles escuchan mensajes
+  siembraSuscribir('mensajes', null,
+    (row) => {
+      if (row.destinatario_id === perfil.id || row.escuela_cct === cct) {
+        _rtMostrarNotifMensaje(row);
+      }
+    }
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// HELPERS UI
+// ══════════════════════════════════════════════════════════════════════
+function _rtActualizarBadgeAlertas(delta) {
+  ['notif-badge', 'badge-alertas', 'ts-badge'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const n = Math.max(0, parseInt(el.textContent || '0') + delta);
+    el.textContent = n;
+    el.style.display = n > 0 ? 'inline-flex' : 'none';
+  });
+  // Badge en el botón de notificaciones del topbar
+  const topBadge = document.querySelector('.tb-btn .badge');
+  if (topBadge) {
+    const n = Math.max(0, parseInt(topBadge.textContent || '0') + delta);
+    topBadge.textContent = n;
+  }
+}
+
+function _rtMostrarNotifMensaje(row) {
+  const nombre = row.remitente_nombre || 'Sistema';
+  const texto  = row.contenido?.slice(0, 60) || 'Nuevo mensaje';
+  hubToast(`✉️ ${nombre}: ${texto}`, 'ok');
+  // Actualizar badge mensajes
+  const badgeMsj = document.getElementById('nav-label-mensajes');
+  if (badgeMsj) badgeMsj.innerHTML = 'Mensajes <span style="background:#ef4444;color:white;border-radius:99px;padding:1px 6px;font-size:10px;">+1</span>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// HOOK: llamar initRealtime después de login exitoso
+// ══════════════════════════════════════════════════════════════════════
+window.addEventListener('siembra:login_exitoso', () => {
+  setTimeout(initRealtime, 500); // pequeño delay para que los datos estén listos
+});
+
+// También cuando el docente cambia de grupo → resuscribir
+window.addEventListener('siembra:grupo_cambiado', (e) => {
+  const nuevoGrupoId = e.detail?.grupo_id || window._grupoActivo;
+  if (!nuevoGrupoId) return;
+  const cct = window.ESCUELA_ACTIVA?.cct || window.currentPerfil?.escuela_cct;
+  // Desuscribir canales de grupo anterior
+  ['cal_','as_','rt_calificaciones_','rt_asistencia_','rt_alumnos_grupos_'].forEach(prefix => {
+    Object.keys(window._realtimeChannels)
+      .filter(k => k.startsWith(prefix))
+      .forEach(k => {
+        try { window.sb.removeChannel(window._realtimeChannels[k]); } catch(e) {}
+        delete window._realtimeChannels[k];
+      });
+  });
+  initRealtimeDocente(nuevoGrupoId, cct);
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// EXPONER
+// ══════════════════════════════════════════════════════════════════════
+window.initRealtime            = initRealtime;
+window.siembraSuscribir        = siembraSuscribir;
+window.initRealtimeDocente     = initRealtimeDocente;
+window.initRealtimeTS          = initRealtimeTS;
+window.initRealtimeAdmin       = initRealtimeAdmin;
+window.initRealtimeDirector    = initRealtimeDirector;
+
+console.log('[SIEMBRA Realtime] Engine cargado ✅');
+
+</script>
+<script>
+// ══ SIEMBRA ACTION ENGINE ══
+// ══════════════════════════════════════════════════════════════════════
+// SIEMBRA — ACTION ENGINE GLOBAL v1.0
+// Conecta todos los roles end-to-end usando tablas existentes
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Utilidad: dispatch de actualización global ─────────────────────
+function siembraDispatch(event, detail = {}) {
+  window.dispatchEvent(new CustomEvent('siembra:' + event, { detail }));
+}
+
+// ── Recolector de datos desde botón o contexto ────────────────────
+function recolectarDatos(btn) {
+  const payload = { ...btn.dataset };
+  // Leer campos del form más cercano
+  const form = btn.closest('[data-form]') || btn.closest('form') || btn.parentElement;
+  if (form) {
+    form.querySelectorAll('input,select,textarea').forEach(el => {
+      if (el.id) payload[el.id.replace(/-/g,'_')] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+  }
+  return payload;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ACTION ENGINE PRINCIPAL
+// ══════════════════════════════════════════════════════════════════════
+async function handleAction(action, payload = {}) {
+  if (!window.sb && !['demo','generar_analisis_ia'].includes(action)) {
+    hubToast('Sin conexión a Supabase', 'warn'); return;
+  }
+  const perfil = window.currentPerfil;
+
+  try {
+    switch(action) {
+
+      // ─────────────────────────────────────────────────────────────
+      // ADMIN — Crear grupo
+      // ─────────────────────────────────────────────────────────────
+      case 'crear_grupo': {
+        const { grado, seccion, nivel, turno, capacidad } = payload;
+        if (!grado || !seccion) { hubToast('⚠️ Grado y sección requeridos', 'warn'); return; }
+        const cct = window.ADM?.escuelaCct || perfil?.escuela_cct;
+        const { data, error } = await sb.from('grupos').insert({
+          nombre: `${grado}° ${seccion.toUpperCase()}`,
+          grado: String(grado),
+          seccion: seccion.toUpperCase(),
+          nivel: nivel || window._admNivelActivo || 'secundaria',
+          turno: turno || 'matutino',
+          capacidad: parseInt(capacidad) || 35,
+          escuela_cct: cct,
+          ciclo: window.CICLO_ACTIVO,
+          activo: true,
+        }).select().single();
+        if (error) throw error;
+        hubToast(`✅ Grupo ${data.nombre} creado`, 'ok');
+        if (window.ADM) { await ADM.cargarGrupos(); ADM.renderGrupos(); ADM.popularSelects(); }
+        siembraDispatch('grupo_creado', data);
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // ADMIN — Asignar alumno a grupo
+      // ─────────────────────────────────────────────────────────────
+      case 'asignar_alumno': {
+        const { alumno_id, grupo_id } = payload;
+        if (!alumno_id || !grupo_id) { hubToast('⚠️ Selecciona alumno y grupo', 'warn'); return; }
+        const { error } = await sb.from('alumnos_grupos').upsert({
+          alumno_id, grupo_id,
+          ciclo_escolar: window.CICLO_ACTIVO,
+          activo: true,
+          fecha_alta: new Date().toISOString().split('T')[0],
+        }, { onConflict: 'alumno_id,grupo_id' });
+        if (error) throw error;
+        hubToast('✅ Alumno asignado al grupo', 'ok');
+        if (window.ADM) { await ADM.cargarAlumnos(); ADM.renderAlumnos(); }
+        siembraDispatch('alumno_asignado', { alumno_id, grupo_id });
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // ADMIN — Asignar docente a grupo+materia
+      // ─────────────────────────────────────────────────────────────
+      case 'asignar_docente': {
+        const { docente_id, grupo_id, materia } = payload;
+        if (!docente_id || !materia) { hubToast('⚠️ Selecciona docente y materia', 'warn'); return; }
+        const { error } = await sb.from('docente_grupos').upsert({
+          docente_id, grupo_id: grupo_id || null,
+          materia, ciclo: window.CICLO_ACTIVO, activo: true,
+        }, { onConflict: 'docente_id,grupo_id,materia,ciclo' });
+        if (error) throw error;
+        hubToast('✅ Asignación guardada', 'ok');
+        if (window.ADM) { ADM.renderAsignaciones(); }
+        siembraDispatch('docente_asignado', { docente_id, grupo_id, materia });
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // DOCENTE — Guardar asistencia (usa función existente)
+      // ─────────────────────────────────────────────────────────────
+      case 'guardar_asistencia': {
+        const grupoId = payload.grupo_id || window._grupoActivo;
+        const alumnos = window._alumnosActivos || [];
+        if (!grupoId || !alumnos.length) { hubToast('⚠️ Sin grupo o alumnos cargados', 'warn'); return; }
+        const hoy = new Date().toISOString().split('T')[0];
+        const rows = alumnos.map(a => ({
+          alumno_id: a.id,
+          grupo_id: grupoId,
+          docente_id: perfil?.id,
+          fecha: hoy,
+          estado: payload['estado_' + a.id] || document.querySelector(`[data-alumno-id="${a.id}"][data-asistencia]`)?.dataset.asistencia || 'P',
+        }));
+        const { error } = await sb.from('asistencia')
+          .upsert(rows, { onConflict: 'alumno_id,grupo_id,fecha' });
+        if (error) throw error;
+        hubToast('✅ Asistencia guardada', 'ok');
+        siembraDispatch('asistencia_guardada', { fecha: hoy, grupo_id: grupoId });
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // DOCENTE — Guardar calificación (usa calGuardar existente)
+      // ─────────────────────────────────────────────────────────────
+      case 'guardar_calificacion': {
+        if (typeof calGuardar === 'function') {
+          await calGuardar();
+        } else {
+          const { alumno_id, grupo_id, materia, trimestre, aspecto, calificacion } = payload;
+          const { error } = await sb.from('calificaciones').upsert({
+            alumno_id, grupo_id: grupo_id || window._grupoActivo,
+            docente_id: perfil?.id, materia,
+            trimestre: parseInt(trimestre) || 1,
+            aspecto: aspecto || 'General',
+            calificacion: parseFloat(calificacion),
+            ciclo: window.CICLO_ACTIVO,
+            actualizado_en: new Date().toISOString(),
+          }, { onConflict: 'alumno_id,grupo_id,materia,trimestre,aspecto,ciclo' });
+          if (error) throw error;
+          hubToast('✅ Calificación guardada', 'ok');
+        }
+        siembraDispatch('calificacion_guardada', payload);
+        // Detectar riesgo y notificar automáticamente
+        if (typeof calDetectarRiesgoYNotificar === 'function') {
+          calDetectarRiesgoYNotificar().catch(() => {});
+        }
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // DOCENTE — Reportar incidencia → TS la recibe
+      // ─────────────────────────────────────────────────────────────
+      case 'reportar_incidencia': {
+        const { alumno_id, tipo, descripcion, derivada_ts } = payload;
+        if (!alumno_id) { hubToast('⚠️ Selecciona un alumno', 'warn'); return; }
+        if (!descripcion?.trim()) { hubToast('⚠️ Escribe una descripción', 'warn'); return; }
+        const { data, error } = await sb.from('incidencias').insert({
+          alumno_id,
+          grupo_id: window._grupoActivo || null,
+          reportado_por: perfil?.id,
+          tipo: tipo || 'otro',
+          descripcion: descripcion.trim(),
+          estado: 'abierta',
+          derivada_ts: derivada_ts === 'true' || derivada_ts === true,
+          escuela_cct: perfil?.escuela_cct,
+          created_at: new Date().toISOString(),
+        }).select().single();
+        if (error) throw error;
+        hubToast('🚨 Incidencia reportada a TS', 'ok');
+        siembraDispatch('incidencia_creada', data);
+        // Si hay panel TS activo, refrescar
+        if (typeof tsInit === 'function') tsInit();
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // TRABAJO SOCIAL — Actualizar incidencia
+      // ─────────────────────────────────────────────────────────────
+      case 'actualizar_incidencia': {
+        const { incidencia_id, estado, descripcion } = payload;
+        if (!incidencia_id) { hubToast('⚠️ Sin incidencia seleccionada', 'warn'); return; }
+        const updates = {
+          estado: estado || 'en_seguimiento',
+          updated_at: new Date().toISOString(),
+        };
+        if (descripcion) updates.descripcion = descripcion;
+        const { error } = await sb.from('incidencias')
+          .update(updates).eq('id', incidencia_id);
+        if (error) throw error;
+        hubToast(`✅ Incidencia actualizada → ${estado}`, 'ok');
+        siembraDispatch('incidencia_actualizada', { incidencia_id, estado });
+        if (typeof tsInit === 'function') tsInit();
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // COORDINADOR — Evaluar docente
+      // ─────────────────────────────────────────────────────────────
+      case 'evaluar_docente': {
+        const { docente_id, fecha_visita, calificacion, observaciones,
+                planeacion_ok, actividades_ok, nem_ok, libretas_ok } = payload;
+        if (!docente_id) { hubToast('⚠️ Selecciona un docente', 'warn'); return; }
+        const { error } = await sb.from('evaluaciones_coordinador').insert({
+          coordinador_id: perfil?.id,
+          docente_id,
+          fecha_visita: fecha_visita || new Date().toISOString().split('T')[0],
+          calificacion: parseFloat(calificacion) || null,
+          observaciones: observaciones || null,
+          planeacion_ok: planeacion_ok === 'true' || planeacion_ok === true,
+          actividades_ok: actividades_ok === 'true' || actividades_ok === true,
+          nem_ok: nem_ok === 'true' || nem_ok === true,
+          libretas_ok: libretas_ok === 'true' || libretas_ok === true,
+          created_at: new Date().toISOString(),
+        });
+        if (error) throw error;
+        hubToast('✅ Evaluación guardada', 'ok');
+        siembraDispatch('docente_evaluado', { docente_id, calificacion });
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // PADRE — Vincular hijo con código
+      // ─────────────────────────────────────────────────────────────
+      case 'vincular_hijo': {
+        const codigo = payload.codigo || document.getElementById('vinc-codigo')?.value?.trim();
+        if (!codigo) { hubToast('⚠️ Ingresa el código de vinculación', 'warn'); return; }
+        if (typeof pVincularConCodigo === 'function') {
+          await pVincularConCodigo(codigo);
+        } else {
+          const { data: vinc, error: ve } = await sb.from('vinculos_padre')
+            .select('*').eq('codigo', codigo).eq('usado', false).single();
+          if (ve || !vinc) { hubToast('❌ Código inválido o ya usado', 'err'); return; }
+          await sb.from('vinculos_padre').update({ usado: true, padre_id: perfil?.id })
+            .eq('id', vinc.id);
+          hubToast('✅ Hijo vinculado correctamente', 'ok');
+          siembraDispatch('hijo_vinculado', vinc);
+        }
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // ALUMNO — Generar análisis IA
+      // ─────────────────────────────────────────────────────────────
+      case 'generar_analisis_ia': {
+        const alumnoId = payload.alumno_id || perfil?.id;
+        if (!alumnoId) { hubToast('⚠️ Sin alumno seleccionado', 'warn'); return; }
+        hubToast('🤖 Generando análisis IA…');
+        // Cargar calificaciones del alumno
+        const { data: cals } = await sb.from('calificaciones')
+          .select('materia, calificacion, trimestre')
+          .eq('alumno_id', alumnoId)
+          .eq('ciclo', window.CICLO_ACTIVO || '2025-2026')
+          .order('materia');
+        if (!cals?.length) { hubToast('Sin calificaciones para analizar', 'warn'); return; }
+        // Construir prompt
+        const resumen = cals.map(c => `${c.materia} T${c.trimestre}: ${c.calificacion}`).join(', ');
+        const prompt = `Analiza el desempeño académico de este alumno y da 3 recomendaciones concretas. Calificaciones: ${resumen}. Responde en español, máximo 200 palabras.`;
+        if (typeof callAI === 'function') {
+          const resp = await callAI('analisis_alumno', prompt);
+          const el = document.getElementById('ia-analisis-resultado') || document.getElementById('alumno-ia-result');
+          if (el) el.innerHTML = `<div style="background:#f0fdf4;border-radius:10px;padding:14px;font-size:13px;line-height:1.6;">${resp?.replace(/\n/g,'<br>') || 'Sin respuesta'}</div>`;
+          hubToast('✅ Análisis generado', 'ok');
+        }
+        siembraDispatch('analisis_generado', { alumno_id: alumnoId });
+        break;
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // DIRECTOR/SUBDIRECTOR — Ver reporte global
+      // ─────────────────────────────────────────────────────────────
+      case 'cargar_reporte_global': {
+        const cct = perfil?.escuela_cct;
+        if (!cct) { hubToast('Sin escuela asignada', 'warn'); return; }
+        const [{ data: alumnos }, { data: incidencias }, { data: evaluaciones }] = await Promise.all([
+          sb.from('usuarios').select('id', { count: 'exact', head: true })
+            .eq('escuela_cct', cct).eq('rol', 'alumno').eq('activo', true),
+          sb.from('incidencias').select('id,estado,tipo', { count: 'exact' })
+            .eq('escuela_cct', cct).eq('estado', 'abierta'),
+          sb.from('evaluaciones_coordinador').select('calificacion')
+            .gte('created_at', new Date(Date.now() - 30*24*60*60*1000).toISOString()),
+        ]);
+        const promEval = evaluaciones?.length
+          ? (evaluaciones.reduce((s,e) => s + (e.calificacion||0), 0) / evaluaciones.length).toFixed(1)
+          : '—';
+        siembraDispatch('reporte_global', {
+          total_alumnos: alumnos?.length || 0,
+          incidencias_abiertas: incidencias?.length || 0,
+          promedio_evaluaciones: promEval,
+        });
+        break;
+      }
+
+      default:
+        console.warn('[SIEMBRA Engine] Acción desconocida:', action);
+    }
+  } catch(e) {
+    console.error('[SIEMBRA Engine]', action, e.message);
+    hubToast('❌ Error: ' + e.message, 'err');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// LISTENER GLOBAL — Intercepta todos los [data-action]
+// ══════════════════════════════════════════════════════════════════════
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  e.preventDefault();
+  const action = btn.dataset.action;
+  const payload = recolectarDatos(btn);
+  // Feedback visual
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ ' + origText.replace(/^[⏳✅❌]\s*/,'');
+  handleAction(action, payload).finally(() => {
+    btn.disabled = false;
+    btn.textContent = origText;
+  });
+}, true);
+
+// ══════════════════════════════════════════════════════════════════════
+// LISTENERS DE EVENTOS — Flujo entre roles
+// ══════════════════════════════════════════════════════════════════════
+
+// Cuando se crea una incidencia → actualizar badge de TS
+window.addEventListener('siembra:incidencia_creada', () => {
+  const badge = document.getElementById('ts-incidencias-badge');
+  if (badge) {
+    const n = parseInt(badge.textContent || '0') + 1;
+    badge.textContent = n;
+    badge.style.display = n > 0 ? 'inline' : 'none';
+  }
+});
+
+// Cuando se actualiza una incidencia → notificar al docente
+window.addEventListener('siembra:incidencia_actualizada', (e) => {
+  const { estado } = e.detail;
+  if (estado === 'cerrada') {
+    hubToast('✅ TS cerró una incidencia', 'ok');
+  }
+});
+
+// Cuando se guarda calificación → refrescar vista padre/alumno si activa
+window.addEventListener('siembra:calificacion_guardada', () => {
+  if (typeof cargarCalificaciones === 'function') cargarCalificaciones();
+  if (typeof cargarVista === 'function') cargarVista('calificaciones');
+});
+
+// Cuando se guarda asistencia → actualizar dashboard docente
+window.addEventListener('siembra:asistencia_guardada', () => {
+  if (typeof dRenderDash === 'function') dRenderDash();
+});
+
+// Reporte global → pintar en panel director
+window.addEventListener('siembra:reporte_global', (e) => {
+  const { total_alumnos, incidencias_abiertas, promedio_evaluaciones } = e.detail;
+  const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  setEl('dir-stat-alumnos', total_alumnos);
+  setEl('dir-stat-incidencias', incidencias_abiertas);
+  setEl('dir-stat-eval-promedio', promedio_evaluaciones);
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// HELPER: otorgar XP al alumno (gamificación)
+// ══════════════════════════════════════════════════════════════════════
+async function siembraOtorgarXP(alumnoId, puntos, concepto) {
+  if (!window.sb || !alumnoId) return;
+  try {
+    await sb.from('xp_eventos_alumno').insert({
+      alumno_id: alumnoId,
+      puntos: parseInt(puntos) || 10,
+      concepto: concepto || 'actividad',
+      fecha: new Date().toISOString().split('T')[0],
+    });
+    // Actualizar perfil_alumno
+    const { data: perfAlumno } = await sb.from('perfil_alumno')
+      .select('xp').eq('alumno_id', alumnoId).maybeSingle();
+    if (perfAlumno) {
+      await sb.from('perfil_alumno').update({
+        xp: (perfAlumno.xp || 0) + parseInt(puntos)
+      }).eq('alumno_id', alumnoId);
+    }
+  } catch(e) { console.warn('[XP]', e.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// EXPONER EN WINDOW
+// ══════════════════════════════════════════════════════════════════════
+window.handleAction     = handleAction;
+window.recolectarDatos  = recolectarDatos;
+window.siembraDispatch  = siembraDispatch;
+window.siembraOtorgarXP = siembraOtorgarXP;
+
+console.log('[SIEMBRA Engine] Action engine cargado ✅');
+
+</script>
+</body></html>`);
 }
 
 async function dirCargarInvitaciones() {
