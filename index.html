@@ -6135,7 +6135,7 @@ function dirImprimirQR() {
     <canvas id="qr" style="border:8px solid white;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.12);"></canvas>
     <p style="margin-top:16px;font-size:13px;color:#0d5c2f;font-weight:700;">Escanea para registrarte como ${rol}</p>
     <p style="font-size:11px;color:#94a3b8;word-break:break-all;margin-top:8px;">${_dirInvLink}</p>
-    <script>
+    <scr'+'ipt>
       QRCode.toCanvas(document.getElementById('qr'), '${_dirInvLink}', { width: 200, margin: 2, color:{ dark:'#0d5c2f', light:'#ffffff' } });
       setTimeout(() => window.print(), 800);
     <\/script>
