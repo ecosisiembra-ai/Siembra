@@ -24282,11 +24282,11 @@ ADM.guardarGrupo = async function(grupoId = '') {
   const payload = {
     nombre, grado, seccion, turno, nivel,
     capacidad: cap, ciclo: window.CICLO_ACTIVO, activo: true,
-    escuela_id:  window.currentPerfil?.escuela_cct || null,
-    escuela_cct: window.currentPerfil?.escuela_cct || null,
+    escuela_id:  ADM.escuelaId || window.currentPerfil?.escuela_id || null,
+    escuela_cct: window.currentPerfil?.escuela_cct || ADM.escuelaCct || null,
   };
   try {
-    if (window.sb && window.currentPerfil?.escuela_cct) {
+    if (window.sb && (window.currentPerfil?.escuela_cct || ADM.escuelaCct)) {
       if (grupoId) {
         await sb.from('grupos').update(payload).eq('id', grupoId);
       } else {
@@ -25387,14 +25387,14 @@ ADM.guardarAlumno = async function() {
     tutor_nombre: tutor || null,
     telefono_tutor: telefono || null,
     rol: 'alumno', activo: true, codigo_vinculacion: codigo,
-    escuela_id:  window.currentPerfil?.escuela_cct || null,
-    escuela_cct: window.currentPerfil?.escuela_cct || null,
+    escuela_id:  ADM.escuelaId || window.currentPerfil?.escuela_id || null,
+    escuela_cct: window.currentPerfil?.escuela_cct || ADM.escuelaCct || null,
     created_at: new Date().toISOString(),
   };
 
   try {
     let alumnoId;
-    if (window.sb && window.currentPerfil?.escuela_cct) {
+    if (window.sb && (window.currentPerfil?.escuela_cct || ADM.escuelaCct)) {
       const { data, error } = await sb.from('usuarios').insert(payload).select().single();
       if (error) throw error;
       alumnoId = data.id;
@@ -25416,7 +25416,7 @@ ADM.guardarAlumno = async function() {
       // Guardar código de vinculación en vinculos_padre
       await sb.from('vinculos_padre').insert({
         codigo, alumno_id: alumnoId,
-        escuela_id: currentPerfil.escuela_cct,
+        escuela_id: ADM.escuelaId || currentPerfil?.escuela_id || null,
         usado: false,
         expira_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       });
@@ -25487,7 +25487,7 @@ ADM.generarCodigoAlumno = async function(alumnoId, nombre) {
       await sb.from('usuarios').update({ codigo_vinculacion: codigo }).eq('id', alumnoId);
       await sb.from('vinculos_padre').insert({
         codigo, alumno_id: alumnoId,
-        escuela_id: window.currentPerfil?.escuela_cct,
+        escuela_id: ADM.escuelaId || window.currentPerfil?.escuela_id || null,
         usado: false,
         expira_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       });
