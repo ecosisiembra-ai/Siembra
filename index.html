@@ -6126,25 +6126,20 @@ function dirImprimirQR() {
   const rol = document.getElementById('dir-inv-rol').value;
   const escNom = currentPerfil?.escuela_nombre || 'SIEMBRA';
   const w = window.open('', '_blank');
-  const qrHtml = '<!DOCTYPE html><html><head><title>Invitaci\u00f3n SIEMBRA</title>'
-    + '<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>'
+  const qrSrc = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+  const html = '<!DOCTYPE html><html><head><title>SIEMBRA QR</title>'
+    + '<scr' + "ipt src=\"" + qrSrc + "\"><\\/scr" + "ipt>"
     + '</head><body style="font-family:sans-serif;text-align:center;padding:40px;">'
-    + '<div style="font-size:28px;margin-bottom:8px;">\uD83C\uDF31</div>'
-    + '<h2 style="color:#0d5c2f;margin-bottom:4px;">SIEMBRA</h2>'
-    + '<p style="color:#475569;font-size:13px;margin-bottom:20px;">' + escNom + '</p>'
+    + '<h2 style="color:#0d5c2f;">SIEMBRA</h2>'
+    + '<p style="color:#475569;font-size:13px;">' + escNom + '</p>'
     + '<canvas id="qr" style="border:8px solid white;border-radius:12px;"></canvas>'
-    + '<p style="margin-top:16px;font-size:13px;color:#0d5c2f;font-weight:700;">Escanea para registrarte como ' + rol + '</p>'
-    + '<p style="font-size:11px;color:#94a3b8;word-break:break-all;margin-top:8px;">' + _dirInvLink + '</p>'
-    + '<scr' + 'ipt>QRCode.toCanvas(document.getElementById("qr"),"' + _dirInvLink + '",{width:200,color:{dark:"#0d5c2f",light:"#fff"}});setTimeout(()=>window.print(),800);<\/scr' + 'ipt>'
-    + '
-</body></html>';
-  w.document.write(qrHtml);
-  
-
-
-
-</script>
-</body></html>`);
+    + '<p style="font-size:13px;color:#0d5c2f;font-weight:700;margin-top:16px;">'
+    + 'Registrarse como: ' + rol + '</p>'
+    + '<p style="font-size:11px;color:#94a3b8;word-break:break-all;">' + _dirInvLink + '</p>'
+    + '<scr' + "ipt>QRCode.toCanvas(document.getElementById('qr'),'" + _dirInvLink + "',{width:200,color:{dark:'#0d5c2f',light:'#fff'}});setTimeout(()=>window.print(),800);<\\/scr" + "ipt>"
+    + '</body></html>';
+  w.document.write(html);
+  w.document.close();
 }
 
 async function dirCargarInvitaciones() {
