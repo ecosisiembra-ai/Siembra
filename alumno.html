@@ -1756,7 +1756,7 @@ html, body {
     </div>
     <button class="btn-login" onclick="doLogin()">Entrar a mi espacio →</button>
     <div class="login-demo">
-      Demo listo · <button onclick="doLogin()">Entrar como Ana García</button>
+      Demo listo · <button onclick="document.getElementById('login-user').value='alumno@siembra.test';document.getElementById('login-pass').value='demo1234';doLogin()">Entrar como Ana García</button>
     </div>
   </div>
 </div>
@@ -2704,7 +2704,7 @@ async function doLogin() {
   if (btn) { btn.textContent = 'Entrando…'; btn.disabled = true; }
 
   // Modo demo - acceso directo para pruebas
-  if (email === 'alumno@siembra.test' || email === 'demo') {
+  if (email === 'alumno@siembra.test' || email === 'demo' || email === 'alumno') {
     currentUser = { id: 'demo-user', email: 'alumno@siembra.test' };
     currentPerfil = {
       nombre: 'Sofía', apellido: 'Ramírez', grado: '6°', grupo: 'A',
