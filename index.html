@@ -23921,11 +23921,12 @@ ADM.init = async function() {
             if (esc) escResuelta = esc;
           }
 
-          // Estrategia 4: buscar en usuario_escuelas
+          // Estrategia 4: buscar en usuario_escuelas (usa auth_id - FK hacia auth.users)
           if (!escResuelta) {
+            const authIdToUse = authId || perfilFull.auth_id;
             const { data: ue } = await window.sb
               .from('usuario_escuelas').select('escuela_cct')
-              .eq('usuario_id', perfilFull.id).eq('activo', true).limit(1).maybeSingle();
+              .eq('usuario_id', authIdToUse).eq('activo', true).limit(1).maybeSingle();
             if (ue?.escuela_cct) {
               const { data: esc } = await window.sb
                 .from('escuelas').select('id, nombre, cct, nivel, nivel_default')
@@ -23947,16 +23948,17 @@ ADM.init = async function() {
             }
           }
 
-          // Estrategia 6: última opción — primera escuela activa
-          if (!escResuelta) {
+          // Estrategia 6: buscar por escuela_cct del perfil directamente
+          if (!escResuelta && perfilFull.escuela_cct) {
             const { data: esc } = await window.sb
               .from('escuelas').select('id, nombre, cct, nivel, nivel_default')
-              .eq('activa', true).limit(1).maybeSingle();
+              .eq('cct', perfilFull.escuela_cct).maybeSingle();
             if (esc) escResuelta = esc;
           }
 
           // Aplicar la escuela resuelta
           if (escResuelta) {
+            console.log('[ADM] Escuela resuelta:', escResuelta.cct, escResuelta.nombre);
             ADM.escuelaId  = escResuelta.id;
             ADM.escuelaCct = escResuelta.cct;
             ADM.escuelaNombre = escResuelta.nombre;
