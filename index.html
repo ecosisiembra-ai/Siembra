@@ -17352,36 +17352,62 @@ function admAbrirModalGrupo() {
 async function admCrearGrupo() {
   const grado   = document.getElementById('adm-gr-grado')?.value;
   const letra   = document.getElementById('adm-gr-letra')?.value;
-  const nivel   = document.getElementById('adm-gr-nivel')?.value || 'primaria';
+  const nivel   = document.getElementById('adm-gr-nivel')?.value || ADM.escuelaNivel || 'secundaria';
   const docenteId = document.getElementById('adm-gr-docente')?.value || null;
   const nombre  = `${grado}° ${letra}`;
 
+  // Resolver CCT y escuela_id desde múltiples fuentes
+  const escuelaCct = window.currentPerfil?.escuela_cct || ADM.escuelaCct || ADM.currentPerfil?.escuela_cct;
+  const escuelaId  = window.currentPerfil?.escuela_id  || ADM.escuelaId  || ADM.currentPerfil?.escuela_id || null;
+
   if (!grado || !letra) { hubToast('⚠️ Selecciona grado y grupo', 'warn'); return; }
+  if (!escuelaCct) { hubToast('⚠️ No se pudo identificar la escuela. Recarga la página.', 'warn'); return; }
 
   try {
-    if (sb && currentPerfil?.escuela_id) {
-      const { data, error } = await sb.from('grupos').insert({
-        nombre, grado: parseInt(grado), grupo: letra, nivel,
-        escuela_cct: currentPerfil.escuela_cct || ADM.escuelaCct,
-        docente_titular_id: docenteId || null,
-        ciclo: window.CICLO_ACTIVO, activo: true,
-        created_at: new Date().toISOString(),
-      }).select('id').single();
-      if (error) throw error;
+    if (!sb) throw new Error('Sin conexión a Supabase');
 
-      // Vincular docente al grupo
-      if (docenteId && data?.id) {
-        await sb.from('docente_grupos').upsert({
-          docente_id: docenteId, grupo_id: data.id, activo: true
-        }, { onConflict: 'docente_id,grupo_id' });
-      }
+    const payload = {
+      nombre,
+      grado:     parseInt(grado),
+      grupo:     letra,
+      seccion:   letra,
+      nivel,
+      escuela_cct: escuelaCct,
+      docente_guia:       docenteId || null,
+      docente_titular_id: docenteId || null,
+      ciclo:   window.CICLO_ACTIVO || '2025-2026',
+      activo:  true,
+    };
+
+    // Agregar escuela_id solo si es un UUID válido
+    if (escuelaId && /^[0-9a-f-]{36}$/i.test(String(escuelaId))) {
+      payload.escuela_id = escuelaId;
+    }
+
+    const { data, error } = await sb.from('grupos').insert(payload).select('id').single();
+    if (error) throw error;
+
+    // Vincular docente al grupo
+    if (docenteId && data?.id) {
+      await sb.from('docente_grupos').upsert({
+        docente_id: docenteId,
+        grupo_id:   data.id,
+        ciclo:      window.CICLO_ACTIVO || '2025-2026',
+        activo:     true,
+      }, { onConflict: 'docente_id,grupo_id,materia,ciclo' }).catch(e => {
+        console.warn('[admCrearGrupo] docente_grupos:', e.message);
+      });
     }
 
     document.getElementById('adm-modal-grupo').style.display = 'none';
     hubToast(`✅ Grupo ${nombre} creado`, 'ok');
+    // Recargar en ambos sistemas
+    await ADM.cargarGrupos();
+    ADM.renderGrupos();
     admCargarGruposAdmin();
   } catch(e) {
     hubToast('Error: ' + e.message, 'err');
+    console.error('[admCrearGrupo]', e);
   }
 }
 
@@ -17389,17 +17415,10 @@ async function admCargarGruposAdmin() {
   const grid = document.getElementById('adm-grupos-grid');
   if (!grid) return;
 
-  if (!sb || !currentPerfil?.escuela_id) {
-    // Demo
-    grid.innerHTML = ['1° A','2° A','3° A','4° A','5° A','6° A'].map(g => `
-      <div style="background:white;border-radius:12px;border:1px solid #e5e7ef;padding:16px;cursor:pointer;" onclick="admAdmTab('alumnos')">
-        <div style="width:48px;height:48px;border-radius:12px;background:#eaf6ee;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#0d5c2f;margin-bottom:10px;">${g.replace('°','').replace(' ','')}</div>
-        <div style="font-weight:700;font-size:14px;">${g}</div>
-        <div style="font-size:12px;color:#64748b;margin-top:3px;">~30 alumnos · Demo</div>
-      </div>`).join('');
-    _admGruposDB = []; // reset
-    // Populate selectors with demo groups
-    _poblarSelectoresGrupo(['1° A','2° A','3° A','4° A','5° A','6° A'].map((n,i) => ({id:'demo-g-'+i, nombre:n})));
+  const cct = window.currentPerfil?.escuela_cct || ADM.escuelaCct || ADM.currentPerfil?.escuela_cct;
+
+  if (!sb || !cct) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:48px;color:#94a3b8;"><div style="font-size:32px;margin-bottom:10px;">⚠️</div><div>No se pudo identificar la escuela. Recarga la página.</div></div>';
     return;
   }
 
@@ -17408,7 +17427,7 @@ async function admCargarGruposAdmin() {
   try {
     const { data, error } = await sb.from('grupos')
       .select('id,nombre,grado,grupo,nivel,docente_titular_id,usuarios!docente_titular_id(nombre,apellido_p)')
-      .eq('escuela_cct', currentPerfil.escuela_cct || ADM.escuelaCct)
+      .eq('escuela_cct', cct)
       .eq('activo', true).order('grado').order('grupo');
     if (error) throw error;
     _admGruposDB = data || [];
