@@ -24235,18 +24235,22 @@ ADM.init = async function() {
               // El perfil tiene un CCT diferente al UUID resuelto — corregir en BD
               window.currentPerfil.escuela_cct = escResuelta.cct;
               ADM.currentPerfil.escuela_cct = escResuelta.cct;
-              await window.sb.from('usuarios').update({
-                escuela_cct: escResuelta.cct,
-                escuela_id:  escResuelta.id,
-              }).eq('auth_id', authId).catch(() => {});
+              try {
+                await window.sb.from('usuarios').update({
+                  escuela_cct: escResuelta.cct,
+                  escuela_id:  escResuelta.id,
+                }).eq('auth_id', authId);
+              } catch(e) {}
               console.log('[ADM] CCT corregido automáticamente:', perfilFull.escuela_cct, '→', escResuelta.cct);
             } else if (!perfilFull.escuela_cct) {
               window.currentPerfil.escuela_cct = escResuelta.cct;
               ADM.currentPerfil.escuela_cct = escResuelta.cct;
-              await window.sb.from('usuarios').update({
-                escuela_cct: escResuelta.cct,
-                escuela_id:  escResuelta.id,
-              }).eq('auth_id', authId).catch(() => {});
+              try {
+                await window.sb.from('usuarios').update({
+                  escuela_cct: escResuelta.cct,
+                  escuela_id:  escResuelta.id,
+                }).eq('auth_id', authId);
+              } catch(e) {}
             }
 
             console.log('[ADM] ✅ Escuela:', escResuelta.nombre, '| nivel_esc:', nivelEsc, '| nivelFinal:', nivelFinal, '| CCT:', escResuelta.cct);
@@ -25937,17 +25941,19 @@ ADM.guardarAlumno = async function() {
       if (emailAlumno && alumnoId) {
         const tokenAlumno = ADM._generarToken();
         linkAlumno = `${location.origin}/alumno.html?invite=${tokenAlumno}`;
-        await sbRef.from('invitaciones').insert({
-          token:          tokenAlumno,
-          escuela_id:     escuelaId  || null,
-          escuela_cct:    escuelaCct || null,
-          rol:            'alumno',
-          email_destino:  emailAlumno,
-          nombre_destino: `${nombre} ${apellido}`.trim(),
-          estado:         'pendiente',
-          expira_at:      expira7d,
-          creado_por:     window.currentUser?.id || null,
-        }).catch(e => console.warn('[ADM] inv alumno:', e.message));
+        try {
+          await sbRef.from('invitaciones').insert({
+            token:          tokenAlumno,
+            escuela_id:     escuelaId  || null,
+            escuela_cct:    escuelaCct || null,
+            rol:            'alumno',
+            email_destino:  emailAlumno,
+            nombre_destino: `${nombre} ${apellido}`.trim(),
+            estado:         'pendiente',
+            expira_at:      expira7d,
+            creado_por:     window.currentUser?.id || null,
+          });
+        } catch(e) { console.warn('[ADM] inv alumno:', e.message); }
 
         if (jwt) {
           try {
@@ -25968,17 +25974,19 @@ ADM.guardarAlumno = async function() {
       if (emailPadre) {
         const tokenPadre = ADM._generarToken();
         linkPadre = `${location.origin}/index.html?invite=${tokenPadre}`;
-        await sbRef.from('invitaciones').insert({
-          token:          tokenPadre,
-          escuela_id:     escuelaId  || null,
-          escuela_cct:    escuelaCct || null,
-          rol:            'padre',
-          email_destino:  emailPadre,
-          nombre_destino: tutor || emailPadre,
-          estado:         'pendiente',
-          expira_at:      expira7d,
-          creado_por:     window.currentUser?.id || null,
-        }).catch(e => console.warn('[ADM] inv padre:', e.message));
+        try {
+          await sbRef.from('invitaciones').insert({
+            token:          tokenPadre,
+            escuela_id:     escuelaId  || null,
+            escuela_cct:    escuelaCct || null,
+            rol:            'padre',
+            email_destino:  emailPadre,
+            nombre_destino: tutor || emailPadre,
+            estado:         'pendiente',
+            expira_at:      expira7d,
+            creado_por:     window.currentUser?.id || null,
+          });
+        } catch(e) { console.warn('[ADM] inv padre:', e.message); }
 
         if (jwt) {
           try {
