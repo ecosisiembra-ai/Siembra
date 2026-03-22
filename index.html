@@ -24445,7 +24445,8 @@ ADM.guardarGrupo = async function(grupoId = '') {
     ADM.toast('❌ No se pudo identificar la escuela. Recarga la página.', 'err');
     return;
   }
-  if (!window.sb) {
+  const sbClient = window.sb || ADM.sb;
+  if (!sbClient) {
     ADM.toast('❌ Sin conexión a Supabase.', 'err');
     return;
   }
@@ -24465,9 +24466,9 @@ ADM.guardarGrupo = async function(grupoId = '') {
 
   try {
     if (grupoId) {
-      await window.sb.from('grupos').update(payload).eq('id', grupoId);
+      await sbClient.from('grupos').update(payload).eq('id', grupoId);
     } else {
-      const { data, error } = await window.sb.from('grupos').insert(payload).select().single();
+      const { data, error } = await sbClient.from('grupos').insert(payload).select().single();
       if (error) throw error;
       ADM.grupos.push(data);
     }
