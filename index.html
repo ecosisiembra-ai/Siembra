@@ -23943,7 +23943,9 @@ function ADM_seleccionarEscuela(cct, nombre, nivel) {
 }
 
 window.ADM = window.ADM || {};
-ADM._initialized = false; // guard against double init
+ADM._initialized = false;
+ADM.escuelaCct = null;
+ADM.escuelaId  = null;
 
 // ── Estado del módulo ─────────────────────────────────────────────
 ADM.grupos    = [];
