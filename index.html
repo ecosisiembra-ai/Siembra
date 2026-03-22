@@ -6340,6 +6340,20 @@ async function dirCargarInvitaciones() {
           <div id="dashboard-horas"></div>
         </div>
       </div>
+      <!-- PEMC Avance — Director puede ver el progreso del plan -->
+      <div class="card" style="margin-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+          <div class="card-title" style="margin:0;">🎯 Avance PEMC — Ruta de Mejora Continua</div>
+          <button onclick="dirCargarAvancePEMC()" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#475569;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">🔄 Actualizar</button>
+        </div>
+        <div id="dir-pemc-avance">
+          <div style="text-align:center;padding:24px;color:#94a3b8;">
+            <div style="font-size:28px;margin-bottom:8px;">📋</div>
+            <div style="font-size:13px;font-weight:600;">El Subdirector o Coordinador aún no ha generado el plan PEMC</div>
+            <div style="font-size:12px;margin-top:4px;">Cuando lo generen con la IA, podrás ver el avance aquí.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ── DOCENTES ── -->
@@ -6629,7 +6643,7 @@ async function dirCargarInvitaciones() {
       <div id="dir-p-pemc" class="page" style="display:none;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
           <h2 style="font-family:'Fraunces',serif;font-size:20px;">PEMC — Plan de Mejora Continua</h2>
-          <button onclick="if(document.getElementById('admin-portal')){ADM.navTo('nem-pemc')}" style="padding:9px 16px;background:var(--verde);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">Ir al módulo PEMC →</button>
+          <button onclick="hubToast('El módulo PEMC está disponible para Subdirector y Coordinador','info')" style="padding:9px 16px;background:var(--verde);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">Ir al módulo PEMC →</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
           <div style="padding:16px;background:#f0fdf4;border-radius:10px;border:1px solid #86efac;"><div style="font-weight:700;font-size:13px;color:#0d5c2f;">Logro educativo</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Gestiona este eje desde el Panel Admin → PEMC</div></div>
@@ -6689,7 +6703,7 @@ async function dirCargarInvitaciones() {
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;padding:2px 10px;margin-bottom:6px;">SEP / NEM</div>
         <button id="adm-nav-nem-911"    class="adm-nav-btn" onclick="ADM.navTo('nem-911')"><span style="font-size:15px;">📊</span> Estadística 911</button>
         <button id="adm-nav-nem-ficha" class="adm-nav-btn" onclick="ADM.navTo('nem-ficha')" style="display:none;"><span style="font-size:15px;">📋</span> Ficha inscripción</button>
-        <button id="adm-nav-nem-pemc"   class="adm-nav-btn" onclick="ADM.navTo('nem-pemc')"><span style="font-size:15px;">🎯</span> PEMC / Ruta mejora</button>
+        <button id="adm-nav-nem-pemc"   class="adm-nav-btn" onclick="ADM.navTo('nem-pemc')" style="display:none;" style="display:none;"><span style="font-size:15px;">🎯</span> PEMC / Ruta mejora</button>
         <button id="adm-nav-nem-cte"    class="adm-nav-btn" onclick="ADM.navTo('nem-cte')"><span style="font-size:15px;">🏛️</span> CTE</button>
         <button id="adm-nav-nem-boleta" class="adm-nav-btn" onclick="ADM.navTo('nem-boleta')"><span style="font-size:15px;">📝</span> Boleta NEM</button>
         <button id="adm-nav-nem-apf"    class="adm-nav-btn" onclick="ADM.navTo('nem-apf')"><span style="font-size:15px;">👨‍👩‍👧</span> Consejo APF</button>
@@ -17096,7 +17110,7 @@ function subdirNav(page) {
   if (btn) btn.style.background = 'rgba(255,255,255,.1)';
   const titles = {
     dashboard:'Dashboard · Subdirección', docentes:'Docentes', prefectos:'Prefectos',
-    boleta:'Boleta NEM', pemc:'PEMC — Proyecto de Mejora',
+    pemc:'PEMC — Plan de Mejora Continua', boleta:'Boleta NEM',
     cte:'Consejo Técnico Escolar', calendario:'Calendario Escolar', reportes:'Reportes'
   };
   const t = document.getElementById('subdir-title');
@@ -17104,6 +17118,7 @@ function subdirNav(page) {
   if (page === 'docentes')  subdirRenderDocentes();
   if (page === 'prefectos') subdirRenderPrefectos();
   if (page === 'boleta')    subdirBoletaInit();
+  if (page === 'pemc')      { if(typeof nemPemcRender==='function') nemPemcRender(); if(typeof nemPemcCargar==='function') nemPemcCargar(); }
 }
 
 const SUBDIR_DOCENTES = [
@@ -17175,7 +17190,7 @@ function coordNav(page) {
   const titles = {
     dashboard:'Dashboard · Coordinación', visitas:'Visitas a docentes',
     planeaciones:'Revisión de planeaciones', libretas:'Revisión de libretas',
-    boleta:'Boleta NEM', nem:'Alineación NEM', historial:'Historial de evaluaciones'
+    pemc:'PEMC — Plan de Mejora Continua', boleta:'Boleta NEM', nem:'Alineación NEM', historial:'Historial de evaluaciones'
   };
   const t = document.getElementById('coord-title');
   if (t) t.textContent = titles[page] || page;
@@ -17184,6 +17199,7 @@ function coordNav(page) {
   if (page === 'historial')    { coordRenderHistorial(); }
   if (page === 'planeaciones') { coordRenderPlaneaciones(); }
   if (page === 'boleta')       { coordBoletaInit(); }
+  if (page === 'pemc')         { if(typeof nemPemcRender==='function') nemPemcRender(); if(typeof nemPemcCargar==='function') nemPemcCargar(); }
 }
 
 function coordRenderVisitasLista() {
@@ -21950,6 +21966,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <button class="adm-nav" onclick="subdirNav('prefectos')" id="sn-prefectos">🛡️ Prefectos</button>
         <button class="adm-nav" onclick="subdirNav('boleta')"    id="sn-boleta">📝 Boleta NEM</button>
         <button class="adm-nav" onclick="subdirNav('pemc')"      id="sn-pemc">📋 PEMC</button>
+        <button class="adm-nav" onclick="subdirNav('pemc')"      id="sn-pemc">🎯 PEMC / Ruta mejora</button>
         <button class="adm-nav" onclick="subdirNav('cte')"       id="sn-cte">🤝 Consejo Técnico</button>
         <button class="adm-nav" onclick="subdirNav('calendario')" id="sn-calendario">📅 Calendario escolar</button>
         <button class="adm-nav" onclick="subdirNav('reportes')"  id="sn-reportes">📊 Reportes</button>
@@ -22025,41 +22042,106 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
 
         <!-- PEMC -->
+        
+        <!-- ══ PEMC / RUTA DE MEJORA CON IA ══ -->
         <div class="subdir-page" id="subdir-p-pemc" style="display:none;">
-          <div style="font-size:22px;font-weight:700;font-family:'Fraunces',serif;margin-bottom:4px;">📋 PEMC — Proyecto Escolar de Mejora Continua</div>
-          <div style="font-size:13px;color:#64748b;margin-bottom:20px;">Obligatorio NEM · Define las metas de mejora de la escuela para el ciclo</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;">
-              <div style="font-size:14px;font-weight:700;margin-bottom:14px;">🎯 Metas del ciclo 2025–2026</div>
-              <div id="subdir-pemc-metas">
-                <div style="padding:12px 14px;border-radius:9px;border:1.5px solid #dbeafe;background:#f0f7ff;margin-bottom:10px;">
-                  <div style="font-size:12px;font-weight:700;color:#1e40af;margin-bottom:4px;">META 1 · Mejora en comprensión lectora</div>
-                  <div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin:8px 0;"><div style="height:100%;width:65%;background:#3b82f6;border-radius:3px;"></div></div>
-                  <div style="font-size:11px;color:#64748b;">65% avance · Meta: 80% de alumnos en nivel básico o superior</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-size:22px;font-weight:700;font-family:'Fraunces',serif;">🎯 PEMC — Asistente de Ruta de Mejora</div>
+              <div style="font-size:13px;color:#64748b;margin-top:2px;">Sube el PDF de la SEP, describe la problemática de tu escuela y la IA genera un plan mes a mes</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="pemcVerPlan('subdir')" style="padding:9px 16px;background:#1e3a5f;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Ver plan actual</button>
+              <button onclick="pemcNuevoCiclo('subdir')" style="padding:9px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔄 Nuevo ciclo</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+            <!-- Stats -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;">
+              <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">📊 Estado del plan actual</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="background:#f0fdf4;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:24px;font-weight:900;color:#0d5c2f;" id="subdir-pemc-mes-actual">—</div>
+                  <div style="font-size:11px;color:#64748b;">Mes actual</div>
                 </div>
-                <div style="padding:12px 14px;border-radius:9px;border:1.5px solid #d1fae5;background:#f0fdf4;margin-bottom:10px;">
-                  <div style="font-size:12px;font-weight:700;color:#0d5c2f;margin-bottom:4px;">META 2 · Reducir inasistencias crónicas</div>
-                  <div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin:8px 0;"><div style="height:100%;width:78%;background:#22c55e;border-radius:3px;"></div></div>
-                  <div style="font-size:11px;color:#64748b;">78% avance · Meta: menos del 5% de alumnos con +10 faltas</div>
+                <div style="background:#eff6ff;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:24px;font-weight:900;color:#1e40af;" id="subdir-pemc-actividades">0</div>
+                  <div style="font-size:11px;color:#64748b;">Actividades planeadas</div>
                 </div>
-                <div style="padding:12px 14px;border-radius:9px;border:1.5px solid #ede9fe;background:#faf5ff;margin-bottom:10px;">
-                  <div style="font-size:12px;font-weight:700;color:#5b21b6;margin-bottom:4px;">META 3 · Planeaciones alineadas al 100%</div>
-                  <div style="height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;margin:8px 0;"><div style="height:100%;width:42%;background:#7c3aed;border-radius:3px;"></div></div>
-                  <div style="font-size:11px;color:#64748b;">42% avance · Coordinador validando planeaciones mensualmente</div>
+                <div style="background:#fef9c3;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:24px;font-weight:900;color:#a16207;" id="subdir-pemc-completadas">0</div>
+                  <div style="font-size:11px;color:#64748b;">Completadas</div>
+                </div>
+                <div style="background:#f5f3ff;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:24px;font-weight:900;color:#5b21b6;" id="subdir-pemc-avance">0%</div>
+                  <div style="font-size:11px;color:#64748b;">Avance ciclo</div>
                 </div>
               </div>
-              <button onclick="subdirAgregarMeta()" style="width:100%;padding:9px;background:#f8fafc;border:1.5px dashed #94a3b8;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#475569;cursor:pointer;margin-top:6px;">+ Agregar meta</button>
             </div>
-            <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:20px;">
-              <div style="font-size:14px;font-weight:700;margin-bottom:14px;">📝 Registro de avances</div>
-              <textarea placeholder="Registra el avance del mes hacia las metas del PEMC…" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;resize:vertical;min-height:120px;outline:none;margin-bottom:12px;box-sizing:border-box;"></textarea>
-              <button onclick="hubToast('💾 Avance guardado en el PEMC','ok')" style="width:100%;padding:10px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar avance</button>
-              <div style="margin-top:14px;font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Historial</div>
-              <div style="font-size:12px;color:#64748b;line-height:1.8;">
-                <div style="padding:8px 0;border-bottom:1px solid #f1f5f9;">📌 <strong>Feb 2026:</strong> Implementados 3 talleres de lectura. 12 docentes participaron.</div>
-                <div style="padding:8px 0;">📌 <strong>Ene 2026:</strong> Diagnóstico inicial completado. 58% en nivel básico de comprensión.</div>
+            <!-- Upload PDF SEP -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;">
+              <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">📄 Documento SEP de Ruta de Mejora</div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Sube el PDF que envió la SEP al inicio del ciclo escolar. La IA lo leerá para contextualizar el plan.</div>
+              <label for="subdir-pemc-pdf" style="display:flex;align-items:center;gap:10px;padding:14px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                <span style="font-size:28px;">📎</span>
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:#334155;" id="subdir-pemc-pdf-nombre">Seleccionar PDF de la SEP</div>
+                  <div style="font-size:11px;color:#94a3b8;">Máximo 10MB · Solo PDF</div>
+                </div>
+              </label>
+              <input type="file" id="subdir-pemc-pdf" accept=".pdf" style="display:none;" onchange="pemcCargarPDF(this,'subdir')">
+              <div id="subdir-pemc-pdf-status" style="margin-top:8px;font-size:12px;color:#0d5c2f;display:none;"></div>
+            </div>
+          </div>
+
+          <!-- Chat con IA -->
+          <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px;">
+            <div style="padding:16px 20px;background:linear-gradient(135deg,#1e3a5f,#2455a4);display:flex;align-items:center;gap:12px;">
+              <div style="width:38px;height:38px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:white;">Asistente PEMC — IA de Ruta de Mejora</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.75);">Cuéntame la problemática de tu escuela para diseñar el plan</div>
               </div>
             </div>
+            <!-- Mensajes -->
+            <div id="subdir-pemc-chat" style="padding:20px;max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+                <div style="background:#f8fafc;border-radius:12px 12px 12px 3px;padding:14px 16px;max-width:85%;">
+                  <div style="font-size:13px;color:#334155;line-height:1.6;">
+                    Hola 👋 Soy tu asistente de <strong>Ruta de Mejora Continua</strong>.<br><br>
+                    Para diseñar el plan de actividades mes a mes, necesito que me cuentes:<br>
+                    <strong>1.</strong> ¿Cuál es la principal problemática de tu escuela? (asistencia, rendimiento, conducta, deserción…)<br>
+                    <strong>2.</strong> ¿Qué temas identificó la SEP en el documento de Ruta de Mejora?<br>
+                    <strong>3.</strong> ¿Cuántos alumnos y grupos tiene la escuela?<br><br>
+                    También puedes subir el <strong>PDF de la SEP</strong> arriba y lo analizaré directamente. ☝️
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Input -->
+            <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-end;">
+              <div style="flex:1;">
+                <textarea id="subdir-pemc-input" rows="2" placeholder="Describe la problemática de tu escuela… (ej: muchas faltas los viernes, bajo rendimiento en matemáticas, conflictos en recreo…)" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;resize:none;outline:none;line-height:1.5;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();pemcEnviarMensaje('subdir');}"></textarea>
+                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Enter para enviar · Shift+Enter nueva línea</div>
+              </div>
+              <button onclick="pemcEnviarMensaje('subdir')" id="subdir-pemc-send-btn" style="padding:11px 18px;background:#1e3a5f;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;transition:.2s;">
+                ➤ Enviar
+              </button>
+            </div>
+          </div>
+
+          <!-- Plan mensual generado -->
+          <div id="subdir-pemc-plan-container" style="display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+              <div style="font-size:16px;font-weight:700;color:#0f172a;">📅 Plan de actividades mes a mes</div>
+              <div style="display:flex;gap:8px;">
+                <button onclick="pemcExportarPlan('subdir')" style="padding:8px 14px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⬇️ Exportar PDF</button>
+                <button onclick="pemcGuardarPlan('subdir')" style="padding:8px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">💾 Guardar plan</button>
+              </div>
+            </div>
+            <div id="subdir-pemc-plan-meses" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;"></div>
           </div>
         </div>
 
@@ -22206,6 +22288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <button class="adm-nav" onclick="coordNav('visitas')"     id="cn-visitas">🏫 Visitas a docentes</button>
         <button class="adm-nav" onclick="coordNav('planeaciones')" id="cn-planeaciones">📚 Revisión de planeaciones</button>
         <button class="adm-nav" onclick="coordNav('libretas')"    id="cn-libretas">📓 Revisión de libretas</button>
+        <button class="adm-nav" onclick="coordNav('pemc')"       id="cn-pemc">🎯 PEMC / Ruta mejora</button>
         <button class="adm-nav" onclick="coordNav('boleta')"      id="cn-boleta">📝 Boleta NEM</button>
         <button class="adm-nav" onclick="coordNav('nem')"         id="cn-nem">🌱 Alineación NEM</button>
         <button class="adm-nav" onclick="coordNav('historial')"   id="cn-historial">🗂️ Historial de evaluaciones</button>
@@ -22416,6 +22499,111 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:12px 16px;font-weight:600;">Mtra. Laura Sánchez</td><td style="padding:12px 16px;color:#64748b;">12 Feb 2026</td><td style="padding:12px 16px;"><span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">Visita aula</span></td><td style="padding:12px 16px;font-weight:700;color:#15803d;">8.5/10</td><td style="padding:12px 16px;"><button onclick="hubToast('📄 Ver detalle','ok')" style="padding:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Sora',sans-serif;">Ver</button></td></tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+
+        <!-- ── PEMC / Ruta de mejora — Coordinador ── -->
+        
+        <!-- ══ PEMC / RUTA DE MEJORA CON IA ══ -->
+        <div class="coord-page" id="coord-p-pemc" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-size:22px;font-weight:700;font-family:'Fraunces',serif;">🎯 PEMC — Asistente de Ruta de Mejora</div>
+              <div style="font-size:13px;color:#64748b;margin-top:2px;">Sube el PDF de la SEP, describe la problemática de tu escuela y la IA genera un plan mes a mes</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="pemcVerPlan('coord')" style="padding:9px 16px;background:#5b21b6;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Ver plan actual</button>
+              <button onclick="pemcNuevoCiclo('coord')" style="padding:9px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔄 Nuevo ciclo</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+            <!-- Stats -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;">
+              <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">📊 Estado del plan actual</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div style="background:#f0fdf4;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:24px;font-weight:900;color:#0d5c2f;" id="coord-pemc-mes-actual">—</div>
+                  <div style="font-size:11px;color:#64748b;">Mes actual</div>
+                </div>
+                <div style="background:#eff6ff;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:24px;font-weight:900;color:#1e40af;" id="coord-pemc-actividades">0</div>
+                  <div style="font-size:11px;color:#64748b;">Actividades planeadas</div>
+                </div>
+                <div style="background:#fef9c3;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:24px;font-weight:900;color:#a16207;" id="coord-pemc-completadas">0</div>
+                  <div style="font-size:11px;color:#64748b;">Completadas</div>
+                </div>
+                <div style="background:#f5f3ff;border-radius:10px;padding:12px;text-align:center;">
+                  <div style="font-size:24px;font-weight:900;color:#5b21b6;" id="coord-pemc-avance">0%</div>
+                  <div style="font-size:11px;color:#64748b;">Avance ciclo</div>
+                </div>
+              </div>
+            </div>
+            <!-- Upload PDF SEP -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;">
+              <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">📄 Documento SEP de Ruta de Mejora</div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Sube el PDF que envió la SEP al inicio del ciclo escolar. La IA lo leerá para contextualizar el plan.</div>
+              <label for="coord-pemc-pdf" style="display:flex;align-items:center;gap:10px;padding:14px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#5b21b6';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                <span style="font-size:28px;">📎</span>
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:#334155;" id="coord-pemc-pdf-nombre">Seleccionar PDF de la SEP</div>
+                  <div style="font-size:11px;color:#94a3b8;">Máximo 10MB · Solo PDF</div>
+                </div>
+              </label>
+              <input type="file" id="coord-pemc-pdf" accept=".pdf" style="display:none;" onchange="pemcCargarPDF(this,'coord')">
+              <div id="coord-pemc-pdf-status" style="margin-top:8px;font-size:12px;color:#0d5c2f;display:none;"></div>
+            </div>
+          </div>
+
+          <!-- Chat con IA -->
+          <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px;">
+            <div style="padding:16px 20px;background:linear-gradient(135deg,#3b0764,#5b21b6);display:flex;align-items:center;gap:12px;">
+              <div style="width:38px;height:38px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;color:white;">Asistente PEMC — IA de Ruta de Mejora</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.75);">Cuéntame la problemática de tu escuela para diseñar el plan</div>
+              </div>
+            </div>
+            <!-- Mensajes -->
+            <div id="coord-pemc-chat" style="padding:20px;max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+              <div style="display:flex;gap:10px;align-items:flex-start;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#3b0764;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+                <div style="background:#f8fafc;border-radius:12px 12px 12px 3px;padding:14px 16px;max-width:85%;">
+                  <div style="font-size:13px;color:#334155;line-height:1.6;">
+                    Hola 👋 Soy tu asistente de <strong>Ruta de Mejora Continua</strong>.<br><br>
+                    Para diseñar el plan de actividades mes a mes, necesito que me cuentes:<br>
+                    <strong>1.</strong> ¿Cuál es la principal problemática de tu escuela? (asistencia, rendimiento, conducta, deserción…)<br>
+                    <strong>2.</strong> ¿Qué temas identificó la SEP en el documento de Ruta de Mejora?<br>
+                    <strong>3.</strong> ¿Cuántos alumnos y grupos tiene la escuela?<br><br>
+                    También puedes subir el <strong>PDF de la SEP</strong> arriba y lo analizaré directamente. ☝️
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Input -->
+            <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-end;">
+              <div style="flex:1;">
+                <textarea id="coord-pemc-input" rows="2" placeholder="Describe la problemática de tu escuela… (ej: muchas faltas los viernes, bajo rendimiento en matemáticas, conflictos en recreo…)" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;resize:none;outline:none;line-height:1.5;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();pemcEnviarMensaje('coord');}"></textarea>
+                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Enter para enviar · Shift+Enter nueva línea</div>
+              </div>
+              <button onclick="pemcEnviarMensaje('coord')" id="coord-pemc-send-btn" style="padding:11px 18px;background:#3b0764;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;transition:.2s;">
+                ➤ Enviar
+              </button>
+            </div>
+          </div>
+
+          <!-- Plan mensual generado -->
+          <div id="coord-pemc-plan-container" style="display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+              <div style="font-size:16px;font-weight:700;color:#0f172a;">📅 Plan de actividades mes a mes</div>
+              <div style="display:flex;gap:8px;">
+                <button onclick="pemcExportarPlan('coord')" style="padding:8px 14px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⬇️ Exportar PDF</button>
+                <button onclick="pemcGuardarPlan('coord')" style="padding:8px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">💾 Guardar plan</button>
+              </div>
+            </div>
+            <div id="coord-pemc-plan-meses" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;"></div>
           </div>
         </div>
 
@@ -22844,7 +23032,9 @@ const ESTATUS_BADGE = {
   cancelado: '<span style="background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;">❌ Cancelado</span>',
 };
 function nemPemcRender() {
-  const cont = document.getElementById('nem-pemc-ejes');
+  const cont = document.getElementById('nem-pemc-ejes') ||
+                   document.getElementById('subdir-nem-pemc-ejes') ||
+                   document.getElementById('coord-nem-pemc-ejes');
   if (!cont) return;
   const acciones = window._nemData.pemc || [];
   cont.innerHTML = PEMC_EJES.map(eje => {
@@ -29251,6 +29441,449 @@ function admDescargarPlantilla(tipo, formato) {
   }
 }
 window.admDescargarPlantilla = admDescargarPlantilla;
+// ══════════════════════════════════════════════════════════════════════
+// PEMC — ASISTENTE IA DE RUTA DE MEJORA
+// Disponible para Subdirector y Coordinador
+// El Director ve el avance en su dashboard
+// ══════════════════════════════════════════════════════════════════════
+
+window._pemcData = {
+  subdir: { pdfTexto: null, pdfNombre: null, plan: null, historialChat: [], guardado: false },
+  coord:  { pdfTexto: null, pdfNombre: null, plan: null, historialChat: [], guardado: false },
+};
+
+// ── Cargar PDF de la SEP ─────────────────────────────────────────────
+async function pemcCargarPDF(input, portal) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById(`${portal}-pemc-pdf-status`);
+  const nombreEl = document.getElementById(`${portal}-pemc-pdf-nombre`);
+
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = '⏳ Leyendo PDF…'; }
+  if (nombreEl) nombreEl.textContent = file.name;
+
+  try {
+    // Leer PDF como base64 para enviarlo a la IA
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    // Guardar en estado
+    window._pemcData[portal].pdfBase64 = base64;
+    window._pemcData[portal].pdfNombre = file.name;
+
+    if (statusEl) statusEl.textContent = `✅ PDF cargado: ${file.name} (${(file.size/1024).toFixed(0)}KB)`;
+
+    // Agregar mensaje del sistema al chat indicando que el PDF fue cargado
+    pemcAgregarMensaje(portal, 'user',
+      `📎 Adjunté el documento de Ruta de Mejora SEP: **${file.name}**\n\nPor favor analízalo y extrae los temas y áreas de mejora que identifica.`
+    );
+
+    // Llamar a la IA con el PDF
+    await pemcLlamarIA(portal, `El usuario adjuntó el PDF de Ruta de Mejora de la SEP llamado "${file.name}". Analiza el contenido del documento (es un PDF de la SEP mexicana sobre Ruta de Mejora Escolar) y extrae: 1) Los temas principales de mejora que identifica, 2) Las áreas críticas mencionadas, 3) Los indicadores que propone. Responde en español de forma estructurada y lista para planificar actividades escolares.`, base64);
+
+  } catch(e) {
+    if (statusEl) statusEl.textContent = `❌ Error: ${e.message}`;
+    console.warn('[PEMC] cargarPDF:', e.message);
+  }
+}
+window.pemcCargarPDF = pemcCargarPDF;
+
+// ── Enviar mensaje al chat ────────────────────────────────────────────
+async function pemcEnviarMensaje(portal) {
+  const inputEl = document.getElementById(`${portal}-pemc-input`);
+  const btnEl   = document.getElementById(`${portal}-pemc-send-btn`);
+  const texto   = inputEl?.value.trim();
+  if (!texto) return;
+
+  inputEl.value = '';
+  if (btnEl) { btnEl.textContent = '⏳'; btnEl.disabled = true; }
+
+  pemcAgregarMensaje(portal, 'user', texto);
+
+  // Construir contexto con historial
+  const historial = window._pemcData[portal].historialChat || [];
+  const planActual = window._pemcData[portal].plan;
+
+  let systemCtx = `Eres un experto en planeación educativa del sistema SEP México. 
+Ayudas a subdirectores y coordinadores a diseñar su Plan de Mejora Continua (PEMC) y Ruta de Mejora Escolar.
+Cuando el usuario describa problemáticas, genera actividades concretas, medibles y realizables mes a mes.
+Ciclo escolar actual: ${window.CICLO_ACTIVO || '2025-2026'}.
+Escuela: ${window.ADM?.escuelaNombre || window.currentPerfil?.escuela_nombre || 'Escuela'}.
+Al generar un plan mensual, usa este formato JSON al final de tu respuesta:
+[PLAN_JSON]{"meses":[{"mes":"Agosto","objetivo":"...","actividades":["..."],"responsable":"...","indicador":"...","completada":false},...]}[/PLAN_JSON]
+El plan debe cubrir todos los meses del ciclo escolar (Agosto a Junio).`;
+
+  if (planActual) systemCtx += `\n\nYa existe un plan generado. El usuario puede estar pidiendo ajustes o seguimiento.`;
+
+  await pemcLlamarIA(portal, texto, null, systemCtx, historial);
+
+  if (btnEl) { btnEl.textContent = '➤ Enviar'; btnEl.disabled = false; }
+}
+window.pemcEnviarMensaje = pemcEnviarMensaje;
+
+// ── Llamar a la IA ────────────────────────────────────────────────────
+async function pemcLlamarIA(portal, mensaje, pdfBase64 = null, systemOverride = null, historialPrevio = []) {
+  const chatEl = document.getElementById(`${portal}-pemc-chat`);
+
+  // Indicador de typing
+  const typingId = `${portal}-typing-${Date.now()}`;
+  if (chatEl) {
+    chatEl.insertAdjacentHTML('beforeend', `
+      <div id="${typingId}" style="display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:32px;height:32px;border-radius:50%;background:${portal==='subdir'?'#1e3a5f':'#3b0764'};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+        <div style="background:#f8fafc;border-radius:12px 12px 12px 3px;padding:12px 16px;">
+          <div style="display:flex;gap:5px;align-items:center;">
+            <div style="width:8px;height:8px;background:#94a3b8;border-radius:50%;animation:bounce 1s infinite;"></div>
+            <div style="width:8px;height:8px;background:#94a3b8;border-radius:50%;animation:bounce 1s .2s infinite;"></div>
+            <div style="width:8px;height:8px;background:#94a3b8;border-radius:50%;animation:bounce 1s .4s infinite;"></div>
+          </div>
+        </div>
+      </div>`);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  try {
+    const systemMsg = systemOverride || `Eres un experto en planeación educativa SEP México. Ayudas a diseñar el Plan de Mejora Continua (PEMC). Responde siempre en español. Ciclo: ${window.CICLO_ACTIVO||'2025-2026'}.`;
+
+    // Construir mensajes para la API
+    const messages = [];
+
+    // Agregar historial previo
+    (historialPrevio || []).forEach(h => {
+      messages.push({ role: h.rol, content: h.texto });
+    });
+
+    // Construir contenido del mensaje actual
+    let contenidoActual = [];
+    if (pdfBase64) {
+      contenidoActual.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 }
+      });
+    }
+    contenidoActual.push({ type: 'text', text: mensaje });
+
+    messages.push({
+      role: 'user',
+      content: pdfBase64 ? contenidoActual : mensaje
+    });
+
+    // Llamar al API de Claude vía callAI o directo
+    let respuesta = '';
+    if (typeof callAI === 'function' && !pdfBase64) {
+      respuesta = await callAI({
+        feature: 'pemc_ruta_mejora',
+        prompt: mensaje,
+        system: systemMsg,
+        context: { historial: historialPrevio, portal, ciclo: window.CICLO_ACTIVO }
+      });
+    } else {
+      // Llamada directa con soporte para PDF
+      const { data: { session } } = await sb.auth.getSession();
+      const jwt = session?.access_token;
+      const supabaseUrl = window.sb?.supabaseUrl || 'https://maoioxmnfzzwnuinesyt.supabase.co';
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+        body: JSON.stringify({
+          feature: 'pemc_ruta_mejora',
+          prompt: mensaje,
+          system: systemMsg,
+          messages: messages,
+          escuela_id: window.currentPerfil?.escuela_cct,
+          ciclo: window.CICLO_ACTIVO || '2025-2026',
+          has_pdf: !!pdfBase64,
+        })
+      });
+      const data = await resp.json();
+      respuesta = data.text || data.content || '';
+    }
+
+    // Quitar typing indicator
+    document.getElementById(typingId)?.remove();
+
+    // Guardar en historial
+    if (!window._pemcData[portal].historialChat) window._pemcData[portal].historialChat = [];
+    window._pemcData[portal].historialChat.push({ rol: 'user', texto: mensaje });
+    window._pemcData[portal].historialChat.push({ rol: 'assistant', texto: respuesta });
+
+    // Extraer JSON del plan si existe
+    const planMatch = respuesta.match(/\[PLAN_JSON\](.*?)\[\/PLAN_JSON\]/s);
+    if (planMatch) {
+      try {
+        const planData = JSON.parse(planMatch[1]);
+        window._pemcData[portal].plan = planData;
+        const respLimpia = respuesta.replace(/\[PLAN_JSON\].*?\[\/PLAN_JSON\]/s, '').trim();
+        pemcAgregarMensaje(portal, 'assistant', respLimpia);
+        pemcRenderizarPlan(portal, planData);
+      } catch(pe) {
+        pemcAgregarMensaje(portal, 'assistant', respuesta);
+      }
+    } else {
+      pemcAgregarMensaje(portal, 'assistant', respuesta);
+    }
+
+  } catch(e) {
+    document.getElementById(typingId)?.remove();
+    pemcAgregarMensaje(portal, 'assistant', `❌ Error al conectar con la IA: ${e.message}. Verifica tu conexión.`);
+    console.warn('[PEMC] llamarIA:', e.message);
+  }
+}
+window.pemcLlamarIA = pemcLlamarIA;
+
+// ── Agregar mensaje al chat ───────────────────────────────────────────
+function pemcAgregarMensaje(portal, rol, texto) {
+  const chatEl = document.getElementById(`${portal}-pemc-chat`);
+  if (!chatEl) return;
+
+  const isUser = rol === 'user';
+  const color  = portal === 'subdir' ? '#1e3a5f' : '#3b0764';
+  const hora   = new Date().toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit' });
+
+  // Formatear markdown básico
+  let html = texto
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^(\d+\. )/gm, '<br>$1')
+    .replace(/^- /gm, '<br>• ')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+
+  chatEl.insertAdjacentHTML('beforeend', `
+    <div style="display:flex;gap:10px;align-items:flex-start;${isUser?'flex-direction:row-reverse;':''}">
+      <div style="width:32px;height:32px;border-radius:50%;background:${isUser?'#0d5c2f':color};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">
+        ${isUser?'👤':'🤖'}
+      </div>
+      <div style="background:${isUser?'#0d5c2f':color==='#1e3a5f'?'#eff6ff':'#f5f3ff'};color:${isUser?'white':'#1e293b'};border-radius:${isUser?'12px 12px 3px 12px':'12px 12px 12px 3px'};padding:12px 16px;max-width:85%;">
+        <div style="font-size:13px;line-height:1.65;">${html}</div>
+        <div style="font-size:10px;opacity:.6;margin-top:5px;text-align:right;">${hora}</div>
+      </div>
+    </div>`);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+window.pemcAgregarMensaje = pemcAgregarMensaje;
+
+// ── Renderizar plan mensual ───────────────────────────────────────────
+function pemcRenderizarPlan(portal, planData) {
+  const container = document.getElementById(`${portal}-pemc-plan-container`);
+  const mesesEl   = document.getElementById(`${portal}-pemc-plan-meses`);
+  if (!container || !mesesEl) return;
+
+  container.style.display = '';
+
+  const meses = planData.meses || [];
+  const mesActual = new Date().toLocaleString('es-MX', { month: 'long' });
+  const mesActualCap = mesActual.charAt(0).toUpperCase() + mesActual.slice(1);
+
+  // Actualizar stats
+  const totalActs = meses.reduce((s, m) => s + (m.actividades?.length||0), 0);
+  const completadas = meses.reduce((s, m) => s + (m.completada ? (m.actividades?.length||0) : 0), 0);
+  const avance = totalActs > 0 ? Math.round((completadas/totalActs)*100) : 0;
+
+  const setEl = (id, v) => { const e = document.getElementById(`${portal}-pemc-${id}`); if(e) e.textContent = v; };
+  setEl('mes-actual', mesActualCap.slice(0,3));
+  setEl('actividades', totalActs);
+  setEl('completadas', completadas);
+  setEl('avance', avance + '%');
+
+  const colores = ['#0d5c2f','#1e40af','#5b21b6','#c2410c','#047857','#a16207','#0369a1','#7c3aed','#b45309','#15803d'];
+
+  mesesEl.innerHTML = meses.map((m, i) => {
+    const esActual = m.mes === mesActualCap || m.mes?.toLowerCase() === mesActual;
+    const col = colores[i % colores.length];
+    const acts = m.actividades || [];
+    return `
+      <div style="background:white;border-radius:14px;border:${esActual?`2px solid ${col}`:'1px solid #e2e8f0'};padding:16px;position:relative;${esActual?`box-shadow:0 4px 20px ${col}22`:''}>
+        ${esActual?`<div style="position:absolute;top:-10px;left:16px;background:${col};color:white;padding:2px 12px;border-radius:99px;font-size:10px;font-weight:700;">MES ACTUAL</div>`:''}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:15px;font-weight:800;color:${col};">${m.mes}</div>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:#64748b;">
+            <input type="checkbox" ${m.completada?'checked':''} onchange="pemcToggleCompletado('${portal}',${i},this.checked)" style="width:15px;height:15px;">
+            Completado
+          </label>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;">🎯 ${m.objetivo||'Sin objetivo'}</div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px;">
+          ${acts.map(a => `<div style="display:flex;gap:6px;font-size:12px;color:#334155;">
+            <span style="color:${col};font-weight:700;">▸</span><span>${a}</span>
+          </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${m.responsable?`<span style="background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;">👤 ${m.responsable}</span>`:''}
+          ${m.indicador?`<span style="background:${col}18;color:${col};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;">📊 ${m.indicador}</span>`:''}
+        </div>
+      </div>`;
+  }).join('');
+}
+window.pemcRenderizarPlan = pemcRenderizarPlan;
+
+// ── Toggle completado en un mes ───────────────────────────────────────
+function pemcToggleCompletado(portal, mesIdx, completada) {
+  const plan = window._pemcData[portal]?.plan;
+  if (!plan?.meses?.[mesIdx]) return;
+  plan.meses[mesIdx].completada = completada;
+  // Actualizar stats
+  const totalActs  = plan.meses.reduce((s,m) => s+(m.actividades?.length||0), 0);
+  const completadas= plan.meses.reduce((s,m) => s+(m.completada?(m.actividades?.length||0):0), 0);
+  const avance     = totalActs>0 ? Math.round((completadas/totalActs)*100) : 0;
+  const setEl = (id,v) => { const e=document.getElementById(`${portal}-pemc-${id}`); if(e)e.textContent=v; };
+  setEl('completadas', completadas);
+  setEl('avance', avance+'%');
+}
+window.pemcToggleCompletado = pemcToggleCompletado;
+
+// ── Guardar plan en Supabase ──────────────────────────────────────────
+async function pemcGuardarPlan(portal) {
+  const plan = window._pemcData[portal]?.plan;
+  const historial = window._pemcData[portal]?.historialChat || [];
+  if (!plan) { hubToast('⚠️ Aún no hay plan generado', 'warn'); return; }
+
+  const cct = window.currentPerfil?.escuela_cct || ADM?.escuelaCct;
+  if (!window.sb || !cct) { hubToast('⚠️ Sin conexión a Supabase', 'warn'); return; }
+
+  try {
+    await window.sb.from('pemc').upsert({
+      ciclo:       window.CICLO_ACTIVO || '2025-2026',
+      escuela_cct: cct,
+      plan_json:   JSON.stringify(plan),
+      historial_chat: JSON.stringify(historial.slice(-20)), // últimos 20 mensajes
+      generado_por: window.currentPerfil?.id,
+      updated_at:  new Date().toISOString(),
+    }, { onConflict: 'ciclo,escuela_cct' });
+
+    window._pemcData[portal].guardado = true;
+    hubToast('✅ Plan PEMC guardado correctamente', 'ok');
+
+    // Disparar evento para que el director lo vea
+    window.dispatchEvent(new CustomEvent('siembra:pemc_actualizado', {
+      detail: { portal, cct, plan }
+    }));
+  } catch(e) { hubToast('❌ Error al guardar: '+e.message, 'err'); }
+}
+window.pemcGuardarPlan = pemcGuardarPlan;
+
+// ── Ver plan actual (cargarlo desde BD) ──────────────────────────────
+async function pemcVerPlan(portal) {
+  const cct = window.currentPerfil?.escuela_cct;
+  if (!window.sb || !cct) return;
+
+  try {
+    const { data } = await window.sb.from('pemc')
+      .select('plan_json, historial_chat, updated_at, generado_por')
+      .eq('ciclo', window.CICLO_ACTIVO||'2025-2026')
+      .eq('escuela_cct', cct).maybeSingle();
+
+    if (!data?.plan_json) { hubToast('Sin plan guardado para este ciclo', 'warn'); return; }
+
+    const plan = JSON.parse(data.plan_json);
+    window._pemcData[portal].plan = plan;
+    pemcRenderizarPlan(portal, plan);
+
+    const container = document.getElementById(`${portal}-pemc-plan-container`);
+    if (container) container.scrollIntoView({ behavior: 'smooth' });
+
+    hubToast(`✅ Plan cargado · Actualizado: ${new Date(data.updated_at).toLocaleDateString('es-MX')}`, 'ok');
+  } catch(e) { hubToast('❌ '+e.message, 'err'); }
+}
+window.pemcVerPlan = pemcVerPlan;
+
+// ── Nuevo ciclo ───────────────────────────────────────────────────────
+function pemcNuevoCiclo(portal) {
+  if (!confirm('¿Iniciar un nuevo plan? Se limpiará el chat actual (el plan guardado en BD no se borra).')) return;
+  window._pemcData[portal] = { pdfTexto:null, pdfNombre:null, plan:null, historialChat:[], guardado:false };
+  const chatEl = document.getElementById(`${portal}-pemc-chat`);
+  const planCont = document.getElementById(`${portal}-pemc-plan-container`);
+  const statusEl = document.getElementById(`${portal}-pemc-pdf-status`);
+  const nombreEl = document.getElementById(`${portal}-pemc-pdf-nombre`);
+  if (chatEl) chatEl.innerHTML = '';
+  if (planCont) planCont.style.display = 'none';
+  if (statusEl) statusEl.style.display = 'none';
+  if (nombreEl) nombreEl.textContent = 'Seleccionar PDF de la SEP';
+  pemcAgregarMensaje(portal, 'assistant', '✨ Nuevo ciclo iniciado. Cuéntame la problemática de tu escuela para diseñar el nuevo plan de Ruta de Mejora.');
+}
+window.pemcNuevoCiclo = pemcNuevoCiclo;
+
+// ── Exportar plan como PDF (impresión) ────────────────────────────────
+function pemcExportarPlan(portal) {
+  const plan = window._pemcData[portal]?.plan;
+  if (!plan?.meses?.length) { hubToast('⚠️ Sin plan para exportar', 'warn'); return; }
+  hubToast('🖨️ Abriendo vista de impresión…', 'ok');
+  setTimeout(() => window.print(), 400);
+}
+window.pemcExportarPlan = pemcExportarPlan;
+
+// ── DIRECTOR: ver avance del PEMC de su escuela ───────────────────────
+async function dirCargarAvancePEMC() {
+  const cct = window.currentPerfil?.escuela_cct || window.ESCUELA_ACTIVA?.cct;
+  if (!window.sb || !cct) return;
+
+  try {
+    const { data } = await window.sb.from('pemc')
+      .select('plan_json, updated_at, generado_por, usuarios!generado_por(nombre,rol)')
+      .eq('ciclo', window.CICLO_ACTIVO||'2025-2026')
+      .eq('escuela_cct', cct).maybeSingle();
+
+    if (!data) { 
+      const el = document.getElementById('dir-pemc-avance');
+      if (el) el.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;"><div style="font-size:32px;margin-bottom:8px;">📋</div><div style="font-weight:700;">Sin plan PEMC generado</div><div style="font-size:12px;margin-top:4px;">El Subdirector o Coordinador debe generar el plan con la IA</div></div>';
+      return;
+    }
+
+    const plan = JSON.parse(data.plan_json);
+    const meses = plan.meses || [];
+    const total = meses.reduce((s,m)=>s+(m.actividades?.length||0),0);
+    const comp  = meses.reduce((s,m)=>s+(m.completada?(m.actividades?.length||0):0),0);
+    const avance= total>0?Math.round((comp/total)*100):0;
+    const autor = data.usuarios?.nombre || 'Coordinador';
+    const fecha = new Date(data.updated_at).toLocaleDateString('es-MX',{day:'2-digit',month:'long'});
+
+    const el = document.getElementById('dir-pemc-avance');
+    if (!el) return;
+
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+        <div style="background:#f0fdf4;border-radius:10px;padding:14px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#0d5c2f;">${avance}%</div>
+          <div style="font-size:11px;color:#64748b;">Avance del ciclo</div>
+        </div>
+        <div style="background:#eff6ff;border-radius:10px;padding:14px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#1e40af;">${comp}/${total}</div>
+          <div style="font-size:11px;color:#64748b;">Actividades completadas</div>
+        </div>
+        <div style="background:#f5f3ff;border-radius:10px;padding:14px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#5b21b6;">${meses.length}</div>
+          <div style="font-size:11px;color:#64748b;">Meses planeados</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Generado por <strong>${autor}</strong> · Actualizado ${fecha}</div>
+      <div style="background:#f8fafc;border-radius:10px;padding:12px;">
+        <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:8px;">Progreso por mes:</div>
+        ${meses.map(m => `
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <div style="font-size:12px;min-width:70px;color:#334155;">${m.mes?.slice(0,3)||'—'}</div>
+            <div style="flex:1;height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;">
+              <div style="height:100%;background:${m.completada?'#22c55e':'#94a3b8'};border-radius:99px;width:${m.completada?100:0}%;"></div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:${m.completada?'#15803d':'#94a3b8'};">${m.completada?'✅':'⏳'}</span>
+          </div>`).join('')}
+      </div>`;
+  } catch(e) { console.warn('[PEMC director]', e.message); }
+}
+window.dirCargarAvancePEMC = dirCargarAvancePEMC;
+
+// Cargar avance PEMC cuando el director entra a su dashboard
+window.addEventListener('siembra:datos-cargados', () => {
+  if (window.currentPerfil?.rol === 'director') {
+    setTimeout(dirCargarAvancePEMC, 1000);
+  }
+});
+
 // ══════════════════════════════════════════════════════════════════════
 // SOLICITUDES DE VINCULACIÓN PADRE–ALUMNO — Panel Admin
 // ══════════════════════════════════════════════════════════════════════
