@@ -1205,46 +1205,221 @@ async function cargarPerfil() {
 }
 
 async function cargarHijos() {
-  // Buscar alumnos vinculados al padre en hub
   hijosData = [];
-  try {
-    if (currentPerfil && sbHub) {
-      // Tabla padres_alumnos: padre_id → alumno_id
-      const { data: vinculos } = await sbHub
-        .from('padres_alumnos')
-        .select('alumnos:alumno_id(id,nombre,apellido,grado,grupo,escuela_id)')
-        .eq('padre_id', currentPerfil.id);
-      if (vinculos?.length) {
-        hijosData = vinculos.map(v => v.alumnos).filter(Boolean);
-      }
-    }
-  } catch(e) {}
-
-  // Fallback: buscar en tabla usuarios por relación
-  if (!hijosData.length && currentPerfil && sbHub) {
-    try {
-      const { data: hijos } = await sbHub.from('usuarios')
-        .select('*')
-        .eq('padre_id', currentPerfil.id)
-        .eq('rol', 'alumno');
-      if (hijos?.length) hijosData = hijos;
-    } catch(e) {}
+  if (!currentPerfil || !sbHub) {
+    hijoActivo = { id: currentPerfil?.id, nombre: currentPerfil?.nombre || 'Mi hijo', apellido: '', grupo: '—' };
+    return;
   }
 
-  // Si hay hijos, usar el primero; si no, usar datos del propio usuario como demo
+  try {
+    // 1. Buscar hijos vinculados via padres_alumnos
+    const { data: vincPA } = await sbHub.from('padres_alumnos')
+      .select('alumno_id, activo, usuarios!alumno_id(id,nombre,apellido_p,apellido_m,fecha_nac,escuela_cct,alumnos_grupos(grupo_id,grupos(nombre,grado,seccion)))')
+      .eq('padre_id', currentPerfil.id).eq('activo', true);
+
+    if (vincPA?.length) {
+      hijosData = vincPA.map(v => {
+        const u = v.usuarios;
+        if (!u) return null;
+        const grp = u.alumnos_grupos?.[0]?.grupos;
+        return { ...u, apellido: `${u.apellido_p||''} ${u.apellido_m||''}`.trim(), grupo: grp?.nombre || `${grp?.grado||''}°${grp?.seccion||''}` || '—' };
+      }).filter(Boolean);
+    }
+
+    // 2. Fallback: buscar via vinculos_padre (código de vinculación)
+    if (!hijosData.length) {
+      const { data: vincVP } = await sbHub.from('vinculos_padre')
+        .select('alumno_id, usuarios!alumno_id(id,nombre,apellido_p,apellido_m,fecha_nac,escuela_cct,alumnos_grupos(grupo_id,grupos(nombre,grado,seccion)))')
+        .eq('padre_id', currentPerfil.id);
+
+      if (vincVP?.length) {
+        hijosData = vincVP.map(v => {
+          const u = v.usuarios;
+          if (!u) return null;
+          const grp = u.alumnos_grupos?.[0]?.grupos;
+          return { ...u, apellido: `${u.apellido_p||''} ${u.apellido_m||''}`.trim(), grupo: grp?.nombre || `${grp?.grado||''}°${grp?.seccion||''}` || '—' };
+        }).filter(Boolean);
+      }
+    }
+
+    // 3. Si aún no hay → intentar vinculación automática por nombre + fecha de nacimiento
+    if (!hijosData.length) {
+      await _padreIntentarVinculacionAuto();
+    }
+
+  } catch(e) { console.warn('[Padre] cargarHijos:', e.message); }
+
   if (hijosData.length > 0) {
     hijoActivo = hijosData[0];
     if (hijosData.length > 1) renderHijoSelector();
   } else {
-    // Modo demo con datos del usuario actual
-    hijoActivo = {
-      id: currentPerfil?.id,
-      nombre: currentPerfil?.nombre || 'Mi hijo',
-      apellido: currentPerfil?.apellido || '',
-      grupo: currentPerfil?.grupo || '2°B',
-    };
+    // Sin hijos vinculados — mostrar pantalla de vinculación
+    _padresMostrarPantallaVinculacion();
   }
 }
+
+async function _padreIntentarVinculacionAuto() {
+  if (!currentPerfil || !sbHub) return;
+  // Buscar si hay solicitud pendiente
+  const { data: solPend } = await sbHub.from('solicitudes_vinculacion')
+    .select('*').eq('padre_id', currentPerfil.id).neq('estado','rechazada').maybeSingle();
+  if (solPend) {
+    window._solicitudVinculacion = solPend;
+    return; // Ya hay solicitud, esperar aprobación
+  }
+  // No hay solicitud → mostrar form para buscar hijo
+  window._solicitudVinculacion = null;
+}
+
+function _padresMostrarPantallaVinculacion() {
+  const appEl = document.getElementById('app');
+  if (!appEl) return;
+
+  // Verificar si hay solicitud pendiente
+  const sol = window._solicitudVinculacion;
+  if (sol && sol.estado === 'pendiente') {
+    appEl.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:#f0fdf4;font-family:var(--font-body);">
+        <div style="background:white;border-radius:24px;padding:32px;width:100%;max-width:380px;box-shadow:0 8px 40px rgba(0,0,0,.12);text-align:center;">
+          <div style="font-size:56px;margin-bottom:16px;">⏳</div>
+          <div style="font-size:20px;font-weight:800;color:#0d1a0f;margin-bottom:8px;">Solicitud en revisión</div>
+          <div style="font-size:14px;color:#64748b;line-height:1.6;">Tu solicitud de vinculación con <strong>${sol.nombre_buscado||'tu hijo/a'}</strong> está siendo revisada por el administrador de la escuela.</div>
+          <div style="margin-top:20px;padding:12px;background:#fef9c3;border-radius:10px;font-size:13px;color:#a16207;">Recibirás una notificación cuando sea aprobada.</div>
+          <button onclick="location.reload()" style="margin-top:20px;padding:12px 24px;background:#0d5c2f;color:white;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">🔄 Verificar estado</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Mostrar formulario de búsqueda
+  appEl.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:#f0fdf4;font-family:var(--font-body);">
+      <div style="background:white;border-radius:24px;padding:32px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.12);">
+        <div style="text-align:center;margin-bottom:24px;">
+          <div style="font-size:48px;margin-bottom:10px;">🔗</div>
+          <div style="font-size:20px;font-weight:800;color:#0d1a0f;">Vincular con tu hijo/a</div>
+          <div style="font-size:13px;color:#64748b;margin-top:6px;">Ingresa los datos de tu hijo/a para localizarlo en el sistema.</div>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Nombre completo del alumno</label>
+          <input id="vinc-nombre" type="text" placeholder="Ana García López" style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Fecha de nacimiento</label>
+          <input id="vinc-fecha" type="date" style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;">
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Código de vinculación (si tienes uno)</label>
+          <input id="vinc-codigo" type="text" placeholder="ej: 3E6PG8" style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <button onclick="_padresEnviarSolicitudVinculacion()" id="vinc-btn"
+          style="width:100%;padding:13px;background:linear-gradient(135deg,#0d5c2f,#157a40);color:white;border:none;border-radius:12px;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;">
+          🔍 Buscar y vincular
+        </button>
+        <div id="vinc-error" style="color:#dc2626;font-size:13px;margin-top:10px;display:none;"></div>
+      </div>
+    </div>`;
+}
+
+async function _padresEnviarSolicitudVinculacion() {
+  const nombre  = document.getElementById('vinc-nombre')?.value.trim();
+  const fecha   = document.getElementById('vinc-fecha')?.value;
+  const codigo  = document.getElementById('vinc-codigo')?.value.trim().toUpperCase();
+  const errEl   = document.getElementById('vinc-error');
+  const btn     = document.getElementById('vinc-btn');
+  const showErr = msg => { if(errEl){errEl.textContent=msg;errEl.style.display='block';} };
+
+  // Flujo 1: código de vinculación directo
+  if (codigo && sbHub) {
+    if(btn){btn.textContent='⏳ Verificando…';btn.disabled=true;}
+    try {
+      const { data: vinc } = await sbHub.from('vinculos_padre')
+        .select('*, usuarios!alumno_id(id,nombre,apellido_p,apellido_m,alumnos_grupos(grupos(nombre,grado,seccion)))')
+        .eq('codigo', codigo).eq('usado', false).maybeSingle();
+
+      if (!vinc) { showErr('❌ Código inválido o ya utilizado.'); if(btn){btn.textContent='🔍 Buscar y vincular';btn.disabled=false;} return; }
+
+      // Vincular
+      await sbHub.from('vinculos_padre').update({ usado: true, padre_id: currentPerfil.id }).eq('id', vinc.id);
+      await sbHub.from('padres_alumnos').upsert({
+        padre_id: currentPerfil.id, alumno_id: vinc.alumno_id, activo: true
+      }, { onConflict: 'padre_id,alumno_id' });
+
+      // Recargar app
+      await cargarHijos();
+      mostrarApp();
+      return;
+    } catch(e) { showErr('❌ '+e.message); if(btn){btn.textContent='🔍 Buscar y vincular';btn.disabled=false;} return; }
+  }
+
+  if (!nombre) { showErr('⚠️ Ingresa el nombre del alumno.'); return; }
+
+  if(btn){btn.textContent='⏳ Buscando…';btn.disabled=true;}
+
+  try {
+    // Buscar alumno por nombre (fuzzy)
+    const partes = nombre.toUpperCase().split(/\s+/);
+    const nombreBuscar = partes[0] || '';
+    const apellidoBuscar = partes[1] || '';
+
+    let q = sbHub.from('usuarios').select('id,nombre,apellido_p,apellido_m,fecha_nac,escuela_cct')
+      .eq('rol','alumno').eq('activo',true)
+      .ilike('nombre', `%${nombreBuscar}%`);
+    if (apellidoBuscar) q = q.ilike('apellido_p', `%${apellidoBuscar}%`);
+
+    const { data: candidatos } = await q.limit(10);
+
+    // Calcular similitud
+    let mejorMatch = null, mejorScore = 0;
+    (candidatos||[]).forEach(c => {
+      let score = 0;
+      const nomC = `${c.nombre||''} ${c.apellido_p||''} ${c.apellido_m||''}`.toLowerCase();
+      const nomB = nombre.toLowerCase();
+      if (nomC.includes(nomB.split(' ')[0]?.toLowerCase())) score += 30;
+      if (nomC.includes(nomB.split(' ')[1]?.toLowerCase()||'X')) score += 30;
+      if (fecha && c.fecha_nac && c.fecha_nac.startsWith(fecha)) score += 40;
+      if (score > mejorScore) { mejorScore = score; mejorMatch = c; }
+    });
+
+    if (mejorScore >= 70 && mejorMatch) {
+      // Coincidencia alta → vincular automáticamente
+      await sbHub.from('padres_alumnos').upsert({
+        padre_id: currentPerfil.id, alumno_id: mejorMatch.id, activo: true
+      }, { onConflict: 'padre_id,alumno_id' });
+      await cargarHijos();
+      mostrarApp();
+    } else if (mejorScore >= 40 && mejorMatch) {
+      // Coincidencia media → solicitud pendiente para admin
+      await sbHub.from('solicitudes_vinculacion').insert({
+        padre_id:      currentPerfil.id,
+        alumno_id:     mejorMatch.id,
+        nombre_buscado: nombre,
+        fecha_nac_buscada: fecha || null,
+        escuela_id:    null,
+        estado:        'pendiente',
+        similitud:     mejorScore,
+      }).catch(()=>{});
+      window._solicitudVinculacion = { estado: 'pendiente', nombre_buscado: nombre };
+      _padresMostrarPantallaVinculacion();
+    } else {
+      // Sin coincidencia → solicitud manual
+      await sbHub.from('solicitudes_vinculacion').insert({
+        padre_id:         currentPerfil.id,
+        nombre_buscado:   nombre,
+        fecha_nac_buscada: fecha || null,
+        estado:           'pendiente',
+        similitud:        0,
+      }).catch(()=>{});
+      window._solicitudVinculacion = { estado: 'pendiente', nombre_buscado: nombre };
+      _padresMostrarPantallaVinculacion();
+    }
+  } catch(e) {
+    showErr('❌ '+e.message);
+    if(btn){btn.textContent='🔍 Buscar y vincular';btn.disabled=false;}
+  }
+}
+window._padresEnviarSolicitudVinculacion = _padresEnviarSolicitudVinculacion;
 
 function mostrarApp() {
   ocultarLoading();
