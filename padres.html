@@ -1076,6 +1076,15 @@ const LOGROS = [
 
 // ─── INIT ─────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
+  // ── Verificar token de invitación en URL ──
+  const _urlParams = new URLSearchParams(location.search);
+  const _inviteToken = _urlParams.get('invite') || _urlParams.get('token');
+  if (_inviteToken) {
+    history.replaceState({}, '', location.pathname);
+    ocultarLoading();
+    mostrarRegistroConToken(_inviteToken);
+    return;
+  }
   // Si hay sesión activa, mostrar app rápido (400ms para animación)
   // Si no hay sesión, mostrar login en 400ms también — no 2 segundos
   try {
@@ -1100,6 +1109,89 @@ function ocultarLoading() {
 
 function mostrarLogin() {
   document.getElementById('login-screen').style.display = 'flex';
+}
+
+// ── Registro con token de invitación ──────────────────────────────
+async function mostrarRegistroConToken(token) {
+  // Verificar que el token sea válido
+  let inv = null;
+  try {
+    if (sbHub) {
+      const { data } = await sbHub.from('invitaciones')
+        .select('*').eq('token', token).maybeSingle();
+      inv = data;
+    }
+  } catch(e) {}
+
+  const loginScreen = document.getElementById('login-screen');
+  if (!loginScreen) { mostrarLogin(); return; }
+
+  loginScreen.style.display = 'flex';
+
+  if (!inv || inv.estado === 'usado') {
+    loginScreen.innerHTML = `
+      <div class="login-logo">SIEM<span>BRA</span></div>
+      <div class="login-card" style="text-align:center;">
+        <div style="font-size:48px;margin-bottom:12px;">${inv?.estado==='usado' ? '⚠️' : '❌'}</div>
+        <div class="login-title">${inv?.estado==='usado' ? 'Invitación ya usada' : 'Invitación inválida'}</div>
+        <div class="login-hint" style="margin-top:8px;">${inv?.estado==='usado' ? 'Esta invitación ya fue utilizada. Inicia sesión si ya tienes cuenta.' : 'Este link no es válido o ha expirado. Contacta a la escuela.'}</div>
+        <button class="btn-primary" style="margin-top:20px;" onclick="document.getElementById('login-screen').innerHTML='';mostrarLogin();">Ir al inicio de sesión →</button>
+      </div>`;
+    return;
+  }
+
+  const nombrePre = inv.nombre_destino || '';
+  const emailPre  = inv.email_destino  || '';
+
+  loginScreen.innerHTML = `
+    <div class="login-logo">SIEM<span>BRA</span></div>
+    <div class="login-sub">Portal para familias</div>
+    <div class="login-card">
+      <div class="login-title">🎉 ¡Bienvenido/a!</div>
+      <div class="login-hint">La escuela te invitó a SIEMBRA. Crea tu cuenta para ver el progreso de tu hijo/a.</div>
+      <input class="form-input" type="text"     id="reg-nombre" placeholder="Tu nombre completo"  value="${nombrePre}" style="margin-top:16px;">
+      <input class="form-input" type="email"    id="reg-email"  placeholder="tu@correo.com"        value="${emailPre}"  style="margin-top:10px;" ${emailPre?'readonly':''}> 
+      <input class="form-input" type="password" id="reg-pass"   placeholder="Crea una contraseña (mín. 8 caracteres)" style="margin-top:10px;">
+      <input class="form-input" type="password" id="reg-pass2"  placeholder="Repite la contraseña" style="margin-top:10px;">
+      <button class="btn-primary" id="btn-reg" onclick="registrarConToken('${token}')" style="margin-top:16px;">Crear mi cuenta →</button>
+      <div class="login-error" id="reg-error" style="display:none;"></div>
+    </div>`;
+}
+
+async function registrarConToken(token) {
+  const nombre = document.getElementById('reg-nombre')?.value.trim();
+  const email  = document.getElementById('reg-email')?.value.trim().toLowerCase();
+  const pass   = document.getElementById('reg-pass')?.value;
+  const pass2  = document.getElementById('reg-pass2')?.value;
+  const errEl  = document.getElementById('reg-error');
+  const btn    = document.getElementById('btn-reg');
+
+  const showErr = (msg) => { if(errEl){errEl.textContent=msg;errEl.style.display='block';} };
+
+  if (!nombre)           return showErr('⚠️ Ingresa tu nombre completo.');
+  if (!email)            return showErr('⚠️ Ingresa tu correo.');
+  if (pass.length < 8)   return showErr('⚠️ La contraseña debe tener al menos 8 caracteres.');
+  if (pass !== pass2)    return showErr('⚠️ Las contraseñas no coinciden.');
+
+  if (btn) { btn.textContent = '⏳ Creando cuenta…'; btn.disabled = true; }
+
+  try {
+    const result = await SIEMBRA.auth.registrarConToken(token, nombre, email, pass);
+    if (result.error) throw result.error;
+
+    // Login automático
+    const loginResult = await SIEMBRA.auth.login(email, pass);
+    if (loginResult.error) throw loginResult.error;
+
+    currentUser   = window.currentUser;
+    currentPerfil = window.currentPerfil;
+    ocultarLoading();
+    await cargarPerfil();
+    mostrarApp();
+  } catch(e) {
+    showErr('❌ ' + (e.message || 'Error al crear la cuenta.'));
+    if (btn) { btn.textContent = 'Crear mi cuenta →'; btn.disabled = false; }
+  }
 }
 
 async function cargarPerfil() {
