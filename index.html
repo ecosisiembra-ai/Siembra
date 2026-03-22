@@ -23954,7 +23954,7 @@ ADM.paginaActual = 'adm-dashboard';
 
 // ── Inicialización ────────────────────────────────────────────────
 ADM.init = async function() {
-  if (ADM._initialized) { console.log('[ADM] Ya inicializado, skip'); return; }
+  if (ADM._initialized && ADM.escuelaCct) { console.log('[ADM] Ya inicializado, skip'); return; }
   ADM._initialized = true;
   console.log('[ADM] Iniciando panel administradora...');
 
