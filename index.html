@@ -10878,7 +10878,7 @@ Tono: profesional, objetivo, sin juicios de valor sobre la familia.`;
 
     const txtEl = document.getElementById(`tsr-ia-texto-${alumnoId}`);
     if (texto) {
-      txtEl.innerHTML = `
+      if (txtEl) txtEl.innerHTML = `
         <div style="line-height:1.7;">${texto.replace(/\n/g,'<br>')}</div>
         <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
           <button onclick="TSR.guardarAnalisis('${alumnoId}','${nombre}')"
@@ -10891,6 +10891,7 @@ Tono: profesional, objetivo, sin juicios de valor sobre la familia.`;
           </button>
         </div>
         <div style="font-size:10px;opacity:.5;margin-top:8px;">⚠️ Solo referencia pedagógica · No es diagnóstico profesional · NEM 2026</div>`;
+    } else throw new Error('AI no disponible');
   } catch(e) {
     const txtEl = document.getElementById(`tsr-ia-texto-${alumnoId}`);
     if (txtEl) txtEl.innerHTML = `<div>Sin conexión a IA. Revisa el expediente manualmente.<br><br><em style="opacity:.6;">Datos disponibles: ${TSR.incidencias.filter(i=>i.alumno_id===alumnoId).length} incidencias registradas.</em></div>`;
