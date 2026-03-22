@@ -12747,17 +12747,8 @@ Responde en JSON con exactamente esta estructura:
     let analisis = null;
 
     if (typeof fetch !== 'undefined') {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
-      const data = await res.json();
-      const txt = data.content?.[0]?.text || '';
+      const txt = await callAI({ feature: 'ficha_analisis', prompt,
+        system: 'Responde SOLO con el JSON solicitado. Sin markdown ni texto adicional.' });
       const clean = txt.replace(/```json|```/g,'').trim();
       analisis = JSON.parse(clean);
     }
@@ -21497,13 +21488,7 @@ async function obsGenerarIA() {
       ? `Genera una observación positiva breve (máx 2 oraciones) para un docente de primaria/secundaria sobre el alumno ${nombre} en la materia ${materia}. Tono profesional, cálido y específico. Solo la observación, sin introducción.`
       : `Genera una observación de área de mejora constructiva (máx 2 oraciones) para un docente de primaria/secundaria sobre el alumno ${nombre} en la materia ${materia}. Tono empático y orientado a soluciones. Solo la observación, sin introducción.`;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 150, messages: [{ role: 'user', content: prompt }] })
-    });
-    const data = await res.json();
-    const sugerencia = data.content?.[0]?.text?.trim() || '';
+    const sugerencia = await callAI({ feature: 'portafolio_retro', prompt });
     if (txtEl && sugerencia) txtEl.value = sugerencia;
     hubToast('🤖 Sugerencia generada', 'ok');
   } catch(e) {
