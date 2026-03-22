@@ -8142,30 +8142,53 @@ async function initApp() {
           alumnosDB.forEach(a => alumnos.push(a));
         }
 
-        // 5. Materias del docente — ya vienen en gruposDB desde cargarGruposDocente()
-        // Acumular todas las materias de todos los grupos (sin duplicados)
-        const todasLasMaterias = [...new Set(
-          gruposDB.flatMap(grp => grp.materias || []).filter(Boolean)
-        )];
+        // 5. Materias del docente — REGLA CRÍTICA: SOLO materias asignadas en docente_grupos
+        // Nunca mostrar MATERIAS_NEM completo — siempre filtrar por asignación real
+        try {
+          const { data: asignaciones } = await sb.from('docente_grupos')
+            .select('materia, campo_formativo, grupo_id, grupos(nombre,grado)')
+            .eq('docente_id', currentPerfil.id)
+            .eq('activo', true)
+            .eq('ciclo', window.CICLO_ACTIVO || '2025-2026');
 
-        if (todasLasMaterias.length) {
-          window._materiasDocente  = todasLasMaterias;
-          window._materiasFiltered = todasLasMaterias;
-          // Sincronizar con MATERIAS_NEM: si las materias son campos formativos NEM,
-          // usarlas directamente; si no, mantener MATERIAS_NEM completo
-          const matEl = document.getElementById('doc-materias-label');
-          if (matEl) matEl.textContent = todasLasMaterias.join(' · ') || 'Sin materias asignadas';
-        } else {
-          // Sin asignaciones en docente_grupos → consulta directa como fallback
-          const { data: materiasDB } = await sb.from('docente_grupos')
-            .select('materia').eq('docente_id', currentPerfil.id).eq('activo', true);
-          if (materiasDB?.length) {
-            const mats = [...new Set(materiasDB.map(r => r.materia).filter(Boolean))];
-            window._materiasDocente  = mats;
-            window._materiasFiltered = mats;
+          if (asignaciones?.length) {
+            // Materias únicas del docente (todas sus asignaciones)
+            const mats = [...new Set(asignaciones.map(r => r.materia).filter(Boolean))];
+            window._materiasDocente   = mats;
+            window._materiasFiltered  = mats;
+            window._docenteAsignaciones = asignaciones; // guardar para filtros por grupo
+
             const matEl = document.getElementById('doc-materias-label');
             if (matEl) matEl.textContent = mats.join(' · ') || 'Sin materias asignadas';
+
+            // Actualizar selectores de materia en el portal del docente
+            // para que SOLO aparezcan las materias asignadas
+            document.querySelectorAll('.doc-materia-select, #cal-mat-sel, #asist-mat-sel').forEach(sel => {
+              const val = sel.value;
+              sel.innerHTML = '<option value="">Seleccionar materia…</option>' +
+                mats.map(m => `<option value="${m}">${m}</option>`).join('');
+              if (mats.includes(val)) sel.value = val;
+              else if (mats.length === 1) sel.value = mats[0];
+            });
+
+            console.log('[Docente] Materias asignadas:', mats.length, '→', mats.join(', '));
+          } else {
+            // Sin asignaciones → ADVERTENCIA, no mostrar nada
+            window._materiasDocente  = [];
+            window._materiasFiltered = [];
+            const matEl = document.getElementById('doc-materias-label');
+            if (matEl) {
+              matEl.textContent = '⚠️ Sin materias asignadas';
+              matEl.style.color = '#c2410c';
+            }
+            console.warn('[Docente] Sin materias asignadas en docente_grupos. Solicitar al administrador.');
           }
+        } catch(eMats) {
+          console.warn('[Docente] cargarMaterias:', eMats.message);
+          // Fallback: usar materias que ya venían en gruposDB
+          const fromGrupos = [...new Set(gruposDB.flatMap(g=>g.materias||[]).filter(Boolean))];
+          window._materiasDocente  = fromGrupos;
+          window._materiasFiltered = fromGrupos;
         }
 
         // 6. Construir selector de grupos si hay más de uno
@@ -15285,41 +15308,281 @@ function tutorRegistrarYDerivar() {
 // Si el docente tiene grupo_tutoria asignado en BD, aparece la pestaña.
 // Si no tiene, la pestaña permanece oculta — nada cambia para ese docente.
 async function tutoriaInit() {
-  // Leer grupo_tutoria del perfil actual (ya cargado en currentPerfil)
-  const grupo = currentPerfil?.grupo_tutoria || null;
-  window._grupoTutoria = grupo;
+  const perfil = window.currentPerfil;
+  if (!perfil) return;
+
+  // Buscar si tiene grupo de tutoría asignado
+  // 1. Directo en el perfil (grupo_tutoria = nombre del grupo)
+  // 2. En tutores_grupo (grupo_id = uuid del grupo)
+  // 3. En docente_grupos donde materia = 'Tutoría'
+  let grupoId   = null;
+  let grupoNom  = perfil.grupo_tutoria || null;
+
+  if (sb) {
+    // Buscar en tutores_grupo
+    try {
+      const { data: tg } = await sb.from('tutores_grupo')
+        .select('grupo_id, grupos(id,nombre,grado,seccion)')
+        .eq('docente_id', perfil.id)
+        .eq('ciclo', window.CICLO_ACTIVO || '2025-2026')
+        .eq('activo', true).maybeSingle();
+      if (tg?.grupos) {
+        grupoId  = tg.grupo_id;
+        grupoNom = tg.grupos.nombre || `${tg.grupos.grado}°${tg.grupos.seccion||'A'}`;
+      }
+    } catch(e) {}
+
+    // Fallback: buscar en docente_grupos con materia Tutoría
+    if (!grupoId) {
+      try {
+        const { data: dg } = await sb.from('docente_grupos')
+          .select('grupo_id, grupos(id,nombre,grado,seccion)')
+          .eq('docente_id', perfil.id).eq('activo', true)
+          .ilike('materia', '%tutor%').maybeSingle();
+        if (dg?.grupos) {
+          grupoId  = dg.grupo_id;
+          grupoNom = dg.grupos.nombre || `${dg.grupos.grado}°${dg.grupos.seccion||'A'}`;
+        }
+      } catch(e) {}
+    }
+
+    // Fallback: buscar grupos donde docente_guia = este docente
+    if (!grupoId) {
+      try {
+        const { data: gg } = await sb.from('grupos')
+          .select('id,nombre,grado,seccion')
+          .eq('docente_guia', perfil.id)
+          .eq('activo', true).maybeSingle();
+        if (gg) { grupoId = gg.id; grupoNom = gg.nombre || `${gg.grado}°${gg.seccion||'A'}`; }
+      } catch(e) {}
+    }
+  }
+
+  window._grupoTutoria   = grupoNom;
+  window._grupoTutoriaId = grupoId;
 
   const btn = document.getElementById('nav-btn-tutoria');
-  if (!grupo) {
-    // Sin tutoría asignada → ocultar pestaña completamente
+  if (!grupoNom && !grupoId) {
     if (btn) btn.style.display = 'none';
     return;
   }
-
-  // Con tutoría asignada → mostrar pestaña y actualizar textos
   if (btn) btn.style.display = '';
 
-  // Título del panel
   const h2 = document.getElementById('tutoria-titulo-h2');
-  if (h2) h2.textContent = `🎓 Tutoría — ${grupo}`;
+  if (h2) h2.textContent = `🎓 Tutoría — ${grupoNom || 'Mi grupo'}`;
 
-  // Role chip en sidebar
   const roleEl = document.querySelector('#doc-portal .user-role');
-  if (roleEl && currentPerfil?.rol === 'docente') {
-    roleEl.textContent = `Docente · Tutor ${grupo}`;
-  }
+  if (roleEl) roleEl.textContent = `Docente · Tutor ${grupoNom || ''}`;
 
-  // Stat card de alumnos: actualizar con el grupo real
-  const statAlumnos = document.getElementById('tutor-total-alumnos');
-  if (statAlumnos && sb) {
-    try {
-      const { count } = await sb.from('alumnos_grupos')
-        .select('*', { count: 'exact', head: true })
-        .eq('grupo', grupo).eq('ciclo', window.CICLO_ACTIVO);
-      if (count !== null) statAlumnos.textContent = count;
-    } catch(e) { /* demo: deja el valor por defecto */ }
+  // Cargar datos reales
+  await Promise.all([
+    _tutorCargarAlumnos(grupoId),
+    _tutorCargarIncidencias(grupoId),
+    _tutorCargarResumenAcademico(grupoId),
+  ]);
+}
+
+async function _tutorCargarAlumnos(grupoId) {
+  if (!grupoId || !sb) return;
+  try {
+    const { data } = await sb.from('alumnos_grupos')
+      .select('alumno_id, usuarios!alumno_id(id,nombre,apellido_p,apellido_m,curp,telefono,tutor_nombre,codigo_vinculacion)')
+      .eq('grupo_id', grupoId).eq('activo', true);
+    window._alumnosTutoria = (data||[]).map(r=>r.usuarios).filter(Boolean);
+
+    // Actualizar stat
+    const statEl = document.getElementById('tutor-total-alumnos');
+    if (statEl) statEl.textContent = window._alumnosTutoria.length;
+
+    // Actualizar select en modal de incidencia
+    const sel = document.getElementById('ti-alumno');
+    if (sel) {
+      sel.innerHTML = '<option value="">Seleccionar alumno…</option>' +
+        window._alumnosTutoria.map(a => {
+          const nom = `${a.nombre||''} ${a.apellido_p||''} ${a.apellido_m||''}`.trim();
+          return `<option value="${a.id}">${nom}</option>`;
+        }).join('');
+    }
+    console.log('[Tutoría] Alumnos cargados:', window._alumnosTutoria.length);
+  } catch(e) { console.warn('[Tutoría] cargarAlumnos:', e.message); }
+}
+
+async function _tutorCargarIncidencias(grupoId) {
+  if (!sb || !window.currentPerfil) return;
+  try {
+    const cct = window.currentPerfil.escuela_cct;
+    let q = sb.from('incidencias')
+      .select('*, usuarios!alumno_id(nombre,apellido_p), reportado:usuarios!reportado_por(nombre,rol)')
+      .eq('estado', 'abierta')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (grupoId) q = q.eq('grupo_id', grupoId);
+    else if (cct) q = q.eq('escuela_cct', cct);
+
+    const { data: incidencias } = await q;
+    window._tutorIncidencias = incidencias || [];
+
+    // Stats
+    const openEl = document.getElementById('tutor-incidencias-abiertas');
+    const tsEl   = document.getElementById('tutor-derivadas-ts');
+    if (openEl) openEl.textContent = window._tutorIncidencias.length;
+    if (tsEl)   tsEl.textContent   = window._tutorIncidencias.filter(i=>i.derivada_ts).length;
+
+    // Render lista
+    _tutorRenderIncidencias();
+  } catch(e) { console.warn('[Tutoría] cargarIncidencias:', e.message); }
+}
+
+function _tutorRenderIncidencias() {
+  const lista = document.getElementById('tutor-incidencias-lista');
+  if (!lista) return;
+  const items = window._tutorIncidencias || [];
+  if (!items.length) {
+    lista.innerHTML = `<div style="text-align:center;padding:32px;color:#94a3b8;">
+      <div style="font-size:36px;margin-bottom:10px;">✅</div>
+      <div style="font-weight:700;">Sin incidencias abiertas</div>
+      <div style="font-size:12px;margin-top:4px;">El grupo está al día</div>
+    </div>`;
+    return;
+  }
+  const tipoBg = { academica:'#fef9c3', conducta:'#fee2e2', asistencia:'#fff7ed', salud:'#f0fdf4', otro:'#f1f5f9' };
+  const tipoCol= { academica:'#a16207', conducta:'#b91c1c', asistencia:'#c2410c', salud:'#15803d', otro:'#475569' };
+  const tipoIco= { academica:'📚', conducta:'⚠️', asistencia:'📅', salud:'🏥', otro:'📋' };
+  lista.innerHTML = items.map(inc => {
+    const alumNom = inc.usuarios ? `${inc.usuarios.nombre||''} ${inc.usuarios.apellido_p||''}`.trim() : '—';
+    const repNom  = inc.reportado ? `${inc.reportado.nombre||''} (${inc.reportado.rol||''})` : '—';
+    const fecha   = inc.created_at ? new Date(inc.created_at).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '';
+    const bg      = tipoBg[inc.tipo] || '#f1f5f9';
+    const col     = tipoCol[inc.tipo] || '#475569';
+    const ico     = tipoIco[inc.tipo] || '📋';
+    return `<div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--gris-10);align-items:flex-start;">
+      <div style="width:36px;height:36px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;">${ico}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${alumNom}</div>
+        <div style="font-size:11px;color:var(--gris-50);">Reportado por: ${repNom} · ${fecha}</div>
+        <div style="font-size:12px;color:var(--gris-80);margin-top:4px;padding:8px;background:var(--crema);border-radius:6px;">${inc.descripcion||'—'}</div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="_tutorVerAlumno('${inc.alumno_id}')">👤 Ver alumno</button>
+          ${!inc.derivada_ts ? `<button class="btn btn-sm" style="background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;" onclick="tutorDerivarTS('${inc.id}')">📤 Derivar a TS</button>` : '<span style="font-size:11px;color:#15803d;font-weight:700;">✅ Derivado a TS</span>'}
+        </div>
+      </div>
+      <span style="font-size:10px;background:${bg};color:${col};padding:2px 8px;border-radius:99px;font-weight:700;white-space:nowrap;">${inc.tipo||'otro'}</span>
+    </div>`;
+  }).join('');
+}
+
+async function _tutorCargarResumenAcademico(grupoId) {
+  if (!grupoId || !sb) return;
+  try {
+    // Obtener promedios por materia del grupo
+    const { data: cals } = await sb.from('calificaciones')
+      .select('materia, calificacion, alumno_id')
+      .eq('grupo_id', grupoId)
+      .eq('ciclo', window.CICLO_ACTIVO || '2025-2026');
+
+    if (!cals?.length) return;
+
+    // Agrupar por materia
+    const porMateria = {};
+    cals.forEach(c => {
+      if (!porMateria[c.materia]) porMateria[c.materia] = [];
+      porMateria[c.materia].push(parseFloat(c.calificacion)||0);
+    });
+
+    const resumenEl = document.getElementById('tutor-resumen-grupo');
+    if (!resumenEl) return;
+
+    const materias = Object.entries(porMateria).map(([mat, vals]) => ({
+      materia: mat,
+      promedio: (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1),
+    })).sort((a,b) => parseFloat(a.promedio) - parseFloat(b.promedio));
+
+    resumenEl.innerHTML = materias.map(m => {
+      const pct = Math.min(100, (parseFloat(m.promedio)/10)*100);
+      const col = parseFloat(m.promedio)>=8 ? '#22c55e' : parseFloat(m.promedio)>=6 ? '#3b82f6' : '#ef4444';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--gris-10);">
+        <div style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.materia}</div>
+        <div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:${pct}%;background:${col};"></div></div>
+        <div style="font-size:13px;font-weight:700;min-width:28px;text-align:right;color:${col};">${m.promedio}</div>
+      </div>`;
+    }).join('') || '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Sin calificaciones registradas</div>';
+
+  } catch(e) { console.warn('[Tutoría] resumenAcademico:', e.message); }
+}
+
+async function _tutorVerAlumno(alumnoId) {
+  if (!alumnoId || !sb) return;
+  try {
+    const [{ data: alumno }, { data: cals }, { data: asist }, { data: incids }] = await Promise.all([
+      sb.from('usuarios').select('*').eq('id', alumnoId).maybeSingle(),
+      sb.from('calificaciones').select('materia,trimestre,calificacion,observacion')
+        .eq('alumno_id', alumnoId).eq('ciclo', window.CICLO_ACTIVO||'2025-2026').order('materia'),
+      sb.from('asistencia').select('fecha,estado')
+        .eq('alumno_id', alumnoId)
+        .gte('fecha', new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0])
+        .order('fecha', {ascending:false}),
+      sb.from('incidencias').select('tipo,descripcion,estado,created_at,reportado:usuarios!reportado_por(nombre)')
+        .eq('alumno_id', alumnoId).order('created_at',{ascending:false}).limit(5),
+    ]);
+
+    const nom    = alumno ? `${alumno.nombre||''} ${alumno.apellido_p||''} ${alumno.apellido_m||''}`.trim() : 'Alumno';
+    const prom   = cals?.length ? (cals.reduce((s,c)=>s+parseFloat(c.calificacion||0),0)/cals.length).toFixed(1) : '—';
+    const presentes = (asist||[]).filter(a=>a.estado==='presente').length;
+    const pctAsist  = asist?.length ? Math.round((presentes/asist.length)*100) : null;
+    const colProm   = parseFloat(prom)>=8?'#15803d':parseFloat(prom)>=6?'#1e40af':'#dc2626';
+
+    hubModal(`👤 ${nom}`, `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+        <div style="background:#f0fdf4;border-radius:10px;padding:14px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:${colProm};">${prom}</div>
+          <div style="font-size:11px;color:#64748b;">Promedio general</div>
+        </div>
+        <div style="background:#eff6ff;border-radius:10px;padding:14px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#1d4ed8;">${pctAsist !== null ? pctAsist+'%' : '—'}</div>
+          <div style="font-size:11px;color:#64748b;">Asistencia (30d)</div>
+        </div>
+        <div style="background:#fff7ed;border-radius:10px;padding:14px;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#c2410c;">${(incids||[]).filter(i=>i.estado==='abierta').length}</div>
+          <div style="font-size:11px;color:#64748b;">Incidencias abiertas</div>
+        </div>
+      </div>
+      ${cals?.length ? `
+        <div style="font-weight:700;font-size:13px;margin-bottom:8px;">Calificaciones por materia</div>
+        <div style="max-height:180px;overflow-y:auto;background:#f8fafc;border-radius:8px;padding:8px;">
+          ${cals.map(c=>`<div style="display:flex;justify-content:space-between;padding:5px 8px;font-size:12px;border-bottom:1px solid #f1f5f9;">
+            <span>${c.materia}</span>
+            <span style="font-weight:700;color:${parseFloat(c.calificacion)>=6?'#15803d':'#dc2626'};">T${c.trimestre}: ${c.calificacion}</span>
+          </div>`).join('')}
+        </div>` : '<div style="color:#94a3b8;font-size:13px;">Sin calificaciones registradas.</div>'}
+      ${incids?.length ? `
+        <div style="font-weight:700;font-size:13px;margin-top:14px;margin-bottom:8px;">Incidencias recientes</div>
+        ${incids.map(i=>`<div style="background:#fef2f2;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;">
+          <span style="font-weight:700;">${i.tipo}</span> — ${i.descripcion?.slice(0,80)}...
+          <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${i.reportado?.nombre||'—'} · ${new Date(i.created_at).toLocaleDateString('es-MX')}</div>
+        </div>`).join('')}` : ''}
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+        <button onclick="tutorNuevaIncidencia('${alumnoId}')" style="padding:8px 14px;background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">+ Nueva incidencia</button>
+        <button onclick="tutorContactarPadre('${alumnoId}','${nom}')" style="padding:8px 14px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">💬 Contactar padre</button>
+      </div>
+    `, () => {}, 'Cerrar');
+  } catch(e) { hubToast('❌ '+e.message,'err'); }
+}
+window._tutorVerAlumno = _tutorVerAlumno;
+
+async function tutorContactarPadre(alumnoId, alumnoNom) {
+  if (!alumnoId || !sb) { hubToast('💬 Chat con padres — próximamente','ok'); return; }
+  // Buscar padre vinculado
+  const { data: vinc } = await sb.from('vinculos_padre')
+    .select('padre_id, usuarios!padre_id(nombre,email,telefono)')
+    .eq('alumno_id', alumnoId).eq('usado', true).maybeSingle();
+  const padre = vinc?.usuarios;
+  if (padre) {
+    hubToast(`💬 Padre: ${padre.nombre||padre.email||padre.telefono||'sin datos'} — Chat en desarrollo`, 'ok');
+  } else {
+    hubToast('⚠️ Este alumno no tiene padre vinculado aún', 'warn');
   }
 }
+window.tutorContactarPadre = tutorContactarPadre;
 
 function tutorNuevaIncidencia() {
   // Mostrar formulario inline si no existe
@@ -28952,6 +29215,85 @@ function admDescargarPlantilla(tipo, formato) {
   }
 }
 window.admDescargarPlantilla = admDescargarPlantilla;
+// ══════════════════════════════════════════════════════════════════════
+// SOLICITUDES DE VINCULACIÓN PADRE–ALUMNO — Panel Admin
+// ══════════════════════════════════════════════════════════════════════
+window._solicitudesVinculacion = [];
+
+async function admCargarSolicitudesVinculacion() {
+  const cct = ADM.escuelaCct || window.currentPerfil?.escuela_cct;
+  if (!window.sb || !cct) return;
+  try {
+    const { data } = await window.sb.from('solicitudes_vinculacion')
+      .select('*, padre:usuarios!padre_id(nombre,apellido_p,email,telefono), alumno:usuarios!alumno_id(nombre,apellido_p,apellido_m,fecha_nac)')
+      .eq('estado', 'pendiente')
+      .order('created_at', { ascending: false });
+    window._solicitudesVinculacion = data || [];
+    const badge = document.getElementById('adm-badge-solicitudes');
+    if (badge) { badge.textContent = window._solicitudesVinculacion.length; badge.style.display = window._solicitudesVinculacion.length > 0 ? 'inline' : 'none'; }
+    admRenderSolicitudesVinculacion();
+  } catch(e) { console.warn('[ADM] solicitudesVinculacion:', e.message); }
+}
+window.admCargarSolicitudesVinculacion = admCargarSolicitudesVinculacion;
+
+function admRenderSolicitudesVinculacion() {
+  const el = document.getElementById('adm-solicitudes-lista');
+  if (!el) return;
+  const items = window._solicitudesVinculacion || [];
+  if (!items.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;"><div style="font-size:36px;margin-bottom:10px;">✅</div><div style="font-weight:700;">Sin solicitudes pendientes</div></div>'; return; }
+  const simColor = s => s>=70?'#15803d':s>=40?'#a16207':'#dc2626';
+  const simBg    = s => s>=70?'#f0fdf4':s>=40?'#fefce8':'#fef2f2';
+  el.innerHTML = items.map(s => {
+    const padre   = s.padre;
+    const alumno  = s.alumno;
+    const padreNom = padre ? `${padre.nombre||''} ${padre.apellido_p||''}`.trim() : 'Padre desconocido';
+    const alumNom  = alumno ? `${alumno.nombre||''} ${alumno.apellido_p||''} ${alumno.apellido_m||''}`.trim() : (s.nombre_buscado || 'Alumno buscado');
+    const sim = s.similitud || 0;
+    return `<div style="background:white;border-radius:12px;border:1.5px solid #e2e8f0;padding:16px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div><div style="font-size:14px;font-weight:700;">👨\u200d👩\u200d👧 ${padreNom} → ${alumNom}</div>
+        <div style="font-size:12px;color:#64748b;">${padre?.email||'sin email'} · Buscó: "${s.nombre_buscado||alumNom}"${s.fecha_nac_buscada?' · Nac: '+s.fecha_nac_buscada:''}</div></div>
+        <span style="background:${simBg(sim)};color:${simColor(sim)};padding:4px 12px;border-radius:99px;font-size:12px;font-weight:700;">${sim}% coincidencia</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${alumno?`<button onclick="admAprobarVinculacion('${s.id}','${s.padre_id}','${s.alumno_id||alumno?.id}')" style="padding:8px 16px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">✅ Aprobar</button>`:''}
+        <button onclick="admBuscarAlumnoParaVincular('${s.id}','${s.padre_id}')" style="padding:8px 16px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">🔍 Buscar alumno</button>
+        <button onclick="admRechazarVinculacion('${s.id}')" style="padding:8px 16px;background:white;color:#dc2626;border:1.5px solid #fca5a5;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">✕ Rechazar</button>
+      </div></div>`;
+  }).join('');
+}
+window.admRenderSolicitudesVinculacion = admRenderSolicitudesVinculacion;
+
+async function admAprobarVinculacion(solicitudId, padreId, alumnoId) {
+  if (!window.sb||!padreId||!alumnoId) { hubToast('⚠️ Datos incompletos','warn'); return; }
+  try {
+    await window.sb.from('padres_alumnos').upsert({ padre_id:padreId, alumno_id:alumnoId, activo:true },{ onConflict:'padre_id,alumno_id' });
+    await window.sb.from('solicitudes_vinculacion').update({ estado:'aprobada', aprobado_por:window.currentUser?.id, updated_at:new Date().toISOString() }).eq('id',solicitudId);
+    window._solicitudesVinculacion = window._solicitudesVinculacion.filter(s=>s.id!==solicitudId);
+    admRenderSolicitudesVinculacion();
+    hubToast('✅ Vinculación aprobada','ok');
+  } catch(e) { hubToast('❌ '+e.message,'err'); }
+}
+window.admAprobarVinculacion = admAprobarVinculacion;
+
+async function admRechazarVinculacion(solicitudId) {
+  if (!window.sb) return;
+  try {
+    await window.sb.from('solicitudes_vinculacion').update({ estado:'rechazada', updated_at:new Date().toISOString() }).eq('id',solicitudId);
+    window._solicitudesVinculacion = window._solicitudesVinculacion.filter(s=>s.id!==solicitudId);
+    admRenderSolicitudesVinculacion();
+    hubToast('Solicitud rechazada','ok');
+  } catch(e) { hubToast('❌ '+e.message,'err'); }
+}
+window.admRechazarVinculacion = admRechazarVinculacion;
+
+function admBuscarAlumnoParaVincular(solicitudId, padreId) {
+  const opts = (ADM.alumnos||[]).map(a => { const n=`${a.nombre||''} ${a.apellido_p||''} ${a.apellido_m||''}`.trim(); return `<option value="${a.id}">${n}</option>`; }).join('');
+  hubModal('🔍 Buscar alumno para vincular',`<div style="font-size:13px;color:#64748b;margin-bottom:12px;">Selecciona el alumno correcto:</div><select id="vinc-alumno-manual" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;"><option value="">Seleccionar alumno…</option>${opts}</select>`,
+  async () => { const id=document.getElementById('vinc-alumno-manual')?.value; if(!id){hubToast('⚠️ Selecciona un alumno','warn');return;} await admAprobarVinculacion(solicitudId,padreId,id); },'✅ Vincular');
+}
+window.admBuscarAlumnoParaVincular = admBuscarAlumnoParaVincular;
+
 window.siembraCargarMateriasDocente   = siembraCargarMateriasDocente;
 window.siembraCargarCalificacionesAlumno = siembraCargarCalificacionesAlumno;
 window.siembraPropagar                = siembraPropagar;
