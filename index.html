@@ -6680,6 +6680,10 @@ async function dirCargarInvitaciones() {
         <div style="height:1px;background:rgba(255,255,255,.08);margin:12px 4px;"></div>
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;padding:2px 10px;margin-bottom:6px;">Herramientas</div>
         <button id="adm-nav-importar"   class="adm-nav-btn" onclick="ADM.navTo('importar')"><span style="font-size:15px;">⬆️</span> Importar CSV</button>
+        <button id="adm-nav-solicitudes" class="adm-nav-btn" onclick="ADM.navTo('solicitudes')" style="position:relative;">
+          <span style="font-size:15px;">🔗</span> Vinculaciones
+          <span id="adm-badge-solicitudes" style="display:none;position:absolute;top:6px;right:10px;background:#ef4444;color:white;border-radius:99px;font-size:9px;font-weight:800;padding:1px 6px;min-width:16px;text-align:center;">0</span>
+        </button>
         <button id="adm-nav-vinculos"   class="adm-nav-btn" onclick="ADM.navTo('vinculos')"><span style="font-size:15px;">🔑</span> Códigos QR</button>
         <div style="height:1px;background:rgba(255,255,255,.08);margin:12px 4px;"></div>
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;padding:2px 10px;margin-bottom:6px;">SEP / NEM</div>
@@ -6768,6 +6772,14 @@ async function dirCargarInvitaciones() {
             <div style="font-size:14px;color:#64748b;font-weight:600;margin-top:6px;">Materias</div>
             <div style="font-size:11px;color:#c2410c;margin-top:8px;font-weight:700;">Ver todas →</div>
           </div>
+        </div>
+        <!-- Solicitudes de vinculación padre–alumno -->
+        <div id="adm-dash-solicitudes-wrap" style="display:none;background:white;border-radius:16px;border:1.5px solid #fca5a5;padding:20px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#b91c1c;">🔗 Solicitudes de vinculación pendientes</div>
+            <button onclick="ADM.navTo('solicitudes')" style="padding:7px 14px;background:#fef2f2;color:#b91c1c;border:1.5px solid #fca5a5;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Ver todas →</button>
+          </div>
+          <div id="adm-dash-solicitudes-preview"></div>
         </div>
         <!-- Acciones rápidas -->
         <div style="background:white;border-radius:16px;padding:22px 24px;border:1px solid #e2e8f0;margin-bottom:20px;">
@@ -6915,6 +6927,30 @@ async function dirCargarInvitaciones() {
           </div>
         </div>
       </div>
+      <!-- ── SOLICITUDES DE VINCULACIÓN PADRE–ALUMNO ── -->
+      <div class="adm-page" id="adm-p-solicitudes" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d1a0f;font-weight:700;">🔗 Vinculaciones Padre–Alumno</h2>
+            <div style="font-size:13px;color:#64748b;margin-top:2px;">Aprueba o rechaza solicitudes de padres que buscan a sus hijos</div>
+          </div>
+          <button onclick="admCargarSolicitudesVinculacion()" style="padding:9px 18px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#475569;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔄 Actualizar</button>
+        </div>
+        <!-- Tabs: Pendientes / Aprobadas / Rechazadas -->
+        <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:20px;">
+          <button id="sol-tab-pendientes" onclick="admSolicitudesTab('pendientes')" style="padding:10px 20px;border:none;background:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#b91c1c;border-bottom:2px solid #ef4444;margin-bottom:-2px;cursor:pointer;">⏳ Pendientes <span id="sol-cnt-pendientes" style="background:#fef2f2;color:#b91c1c;padding:1px 7px;border-radius:99px;font-size:11px;margin-left:4px;">0</span></button>
+          <button id="sol-tab-aprobadas" onclick="admSolicitudesTab('aprobadas')" style="padding:10px 20px;border:none;background:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">✅ Aprobadas</button>
+          <button id="sol-tab-rechazadas" onclick="admSolicitudesTab('rechazadas')" style="padding:10px 20px;border:none;background:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">✕ Rechazadas</button>
+        </div>
+        <div id="adm-solicitudes-lista">
+          <div style="text-align:center;padding:60px;color:#94a3b8;">
+            <div style="font-size:48px;margin-bottom:12px;">🔗</div>
+            <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;">Sin solicitudes pendientes</div>
+            <div style="font-size:13px;">Los padres que no encuentren a su hijo automáticamente aparecerán aquí.</div>
+          </div>
+        </div>
+      </div>
+
       <div class="adm-page" id="adm-p-vinculos" style="display:none;">
         <div style="margin-bottom:22px;"><h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d1a0f;font-weight:700;">Códigos de vinculación</h2><div style="font-size:13px;color:#64748b;margin-top:2px;">Genera e imprime los QR para que los padres se conecten</div></div>
         <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;">
@@ -24741,7 +24777,7 @@ ADM.navTo = function(page) {
   const pageTitles = {
     dashboard:'Dashboard', grupos:'Grupos y salones', docentes:'Personal escolar',
     alumnos:'Alumnos', materias:'Materias', asignaciones:'Asignaciones',
-    importar:'Importar CSV', vinculos:'Códigos QR'
+    importar:'Importar CSV', vinculos:'Códigos QR', solicitudes:'Vinculaciones Padre–Alumno'
   };
   if (topbarTitle) topbarTitle.textContent = pageTitles[page] || page;
   // Re-render asignaciones when navigating to that page
@@ -29735,6 +29771,92 @@ function hubModal(titulo, contenido, onConfirm, textoBtn = '💾 Guardar') {
   }
 }
 window.hubModal = hubModal;
+
+
+// ── Solicitudes tab switcher ──────────────────────────────────────────
+async function admSolicitudesTab(estado = 'pendiente') {
+  const tabMap = { pendientes:'pendiente', aprobadas:'aprobada', rechazadas:'rechazada' };
+  const estadoReal = tabMap[estado] || estado;
+  const cct = ADM.escuelaCct || window.currentPerfil?.escuela_cct;
+  if (!window.sb) return;
+
+  ['pendientes','aprobadas','rechazadas'].forEach(t => {
+    const btn = document.getElementById('sol-tab-'+t);
+    if (!btn) return;
+    if (t === estado) {
+      btn.style.cssText = 'padding:10px 20px;border:none;background:none;font-family:\'Sora\',sans-serif;font-size:13px;font-weight:700;color:#b91c1c;border-bottom:2px solid #ef4444;margin-bottom:-2px;cursor:pointer;';
+    } else {
+      btn.style.cssText = 'padding:10px 20px;border:none;background:none;font-family:\'Sora\',sans-serif;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;';
+    }
+  });
+
+  const lista = document.getElementById('adm-solicitudes-lista');
+  if (lista) lista.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">⏳ Cargando…</div>';
+
+  try {
+    const { data } = await window.sb.from('solicitudes_vinculacion')
+      .select('*, padre:usuarios!padre_id(nombre,apellido_p,email,telefono), alumno:usuarios!alumno_id(nombre,apellido_p,apellido_m,fecha_nac)')
+      .eq('estado', estadoReal)
+      .order('created_at', { ascending: false });
+
+    window._solicitudesVinculacion = data || [];
+
+    const cntEl = document.getElementById('sol-cnt-pendientes');
+    if (cntEl && estadoReal === 'pendiente') cntEl.textContent = window._solicitudesVinculacion.length;
+
+    admRenderSolicitudesVinculacion();
+  } catch(e) {
+    if (lista) lista.innerHTML = `<div style="color:#dc2626;padding:20px;">❌ ${e.message}</div>`;
+  }
+}
+window.admSolicitudesTab = admSolicitudesTab;
+
+// Update ADM.navTo to load solicitudes when navigating there
+const _admNavToOrigSol = ADM.navTo?.bind(ADM);
+if (_admNavToOrigSol) {
+  ADM.navTo = function(page) {
+    _admNavToOrigSol(page);
+    if (page === 'solicitudes') admSolicitudesTab('pendientes');
+  };
+}
+
+// Dashboard preview — mostrar las 3 primeras solicitudes pendientes
+async function admActualizarDashboardSolicitudes() {
+  const items = window._solicitudesVinculacion || [];
+  const wrap  = document.getElementById('adm-dash-solicitudes-wrap');
+  const prev  = document.getElementById('adm-dash-solicitudes-preview');
+  const cntEl = document.getElementById('sol-cnt-pendientes');
+  if (cntEl) cntEl.textContent = items.length;
+  if (!wrap || !prev) return;
+  if (!items.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const preview3 = items.slice(0, 3);
+  prev.innerHTML = preview3.map(s => {
+    const padre  = s.padre;
+    const alumno = s.alumno;
+    const pNom   = padre  ? `${padre.nombre||''} ${padre.apellido_p||''}`.trim() : 'Padre';
+    const aNom   = alumno ? `${alumno.nombre||''} ${alumno.apellido_p||''}`.trim() : (s.nombre_buscado||'Alumno');
+    const sim    = s.similitud || 0;
+    const simCol = sim>=70?'#15803d':sim>=40?'#a16207':'#dc2626';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:13px;"><strong>${pNom}</strong> busca a <strong>${aNom}</strong></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="color:${simCol};font-size:11px;font-weight:700;">${sim}% coincidencia</span>
+        ${s.alumno_id?`<button onclick="admAprobarVinculacion('${s.id}','${s.padre_id}','${s.alumno_id}')" style="padding:4px 10px;background:#0d5c2f;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'Sora\',sans-serif;">✅ Aprobar</button>`:''}
+        <button onclick="admBuscarAlumnoParaVincular('${s.id}','${s.padre_id}')" style="padding:4px 10px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:\'Sora\',sans-serif;">🔍 Buscar</button>
+      </div>
+    </div>`;
+  }).join('');
+  if (items.length > 3) prev.innerHTML += `<div style="text-align:center;padding:10px;font-size:12px;color:#64748b;">…y ${items.length-3} más. <a href="#" onclick="ADM.navTo('solicitudes')" style="color:#0d5c2f;font-weight:700;">Ver todas</a></div>`;
+}
+window.admActualizarDashboardSolicitudes = admActualizarDashboardSolicitudes;
+
+// Hook into solicitudes load to also update dashboard preview
+const _admCargarSolOrig = window.admCargarSolicitudesVinculacion;
+window.admCargarSolicitudesVinculacion = async function() {
+  await _admCargarSolOrig();
+  admActualizarDashboardSolicitudes();
+};
 
 console.log('[SIEMBRA Engine] Action engine cargado ✅');
 </script>
