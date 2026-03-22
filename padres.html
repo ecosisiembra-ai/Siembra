@@ -768,6 +768,7 @@ html, body {
   <div class="section-tabs" id="section-tabs">
     <button class="tab-pill active" onclick="switchTab('inicio')">🏠 Inicio</button>
     <button class="tab-pill" onclick="switchTab('materias')">📚 Materias</button>
+    <button class="tab-pill" onclick="switchTab('lectura')">📖 Lectura</button>
     <button class="tab-pill" onclick="switchTab('avisos')">📋 Avisos</button>
     <button class="tab-pill" onclick="switchTab('recompensas')">🎁 Premios</button>
     <button class="tab-pill" onclick="switchTab('escuela')">📸 Escuela</button>
@@ -801,6 +802,16 @@ html, body {
             <div class="ai-dot-anim"></div>
           </div>
         </div>
+      </div>
+
+      <!-- Último análisis IA del alumno -->
+      <div class="ai-card" id="card-analisis-alumno" style="display:none;">
+        <div class="ai-header">
+          <div class="ai-dot" style="background:#7c3aed;"></div>
+          <div class="ai-label">Último análisis IA de tu hij@</div>
+        </div>
+        <div id="analisis-alumno-texto" class="ai-text" style="font-size:13px;line-height:1.7;"></div>
+        <div id="analisis-alumno-fecha" style="font-size:10px;color:var(--gris-400);margin-top:6px;"></div>
       </div>
 
       <!-- Pregunta del día -->
@@ -848,6 +859,45 @@ html, body {
       </div>
 
       <div class="scroll-pad-bottom"></div>
+    </div>
+
+    <!-- ─── VISTA: LECTURA ─── -->
+    <div class="view" id="view-lectura">
+      <div class="scroll-pad"></div>
+      <div style="padding:0 16px;">
+
+        <!-- Progreso general de lectura -->
+        <div style="background:linear-gradient(135deg,#0369a1,#0ea5e9);border-radius:16px;padding:18px;margin-bottom:16px;color:white;">
+          <div style="font-size:11px;font-weight:800;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📖 Progreso de lectura</div>
+          <div id="lectura-stats" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
+            <div><div style="font-size:28px;font-weight:900;" id="lect-terminados">—</div><div style="font-size:10px;opacity:.7;">Libros terminados</div></div>
+            <div><div style="font-size:28px;font-weight:900;" id="lect-leyendo">—</div><div style="font-size:10px;opacity:.7;">Leyendo ahora</div></div>
+            <div><div style="font-size:28px;font-weight:900;" id="lect-xp">—</div><div style="font-size:10px;opacity:.7;">XP lectora</div></div>
+          </div>
+        </div>
+
+        <!-- Lista de libros con progreso -->
+        <div style="font-size:13px;font-weight:700;color:var(--gris-700);margin-bottom:10px;">Libros de tu hij@</div>
+        <div id="lectura-libros-lista" style="margin-bottom:16px;">
+          <div style="text-align:center;padding:24px;color:var(--gris-400);font-size:13px;">Cargando libros…</div>
+        </div>
+
+        <!-- Últimos quiz completados -->
+        <div style="font-size:13px;font-weight:700;color:var(--gris-700);margin-bottom:10px;">🧠 Últimos quiz completados</div>
+        <div id="lectura-quiz-lista" style="margin-bottom:16px;">
+          <div style="text-align:center;padding:16px;color:var(--gris-400);font-size:13px;">Cargando resultados…</div>
+        </div>
+
+        <!-- Análisis IA de lectura -->
+        <div class="ai-card" style="margin-bottom:16px;">
+          <div class="ai-header"><div class="ai-dot"></div><div class="ai-label">Análisis IA de lectura</div></div>
+          <div id="lectura-ia-texto" class="ai-text">
+            <div class="ai-loading"><div class="ai-dot-anim"></div><div class="ai-dot-anim"></div><div class="ai-dot-anim"></div></div>
+          </div>
+          <button onclick="cargarLecturaIA()" style="margin-top:10px;padding:6px 14px;background:var(--azul-light,#e0f2fe);border:none;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;color:#0369a1;cursor:pointer;">🔄 Actualizar análisis</button>
+        </div>
+
+      </div>
     </div>
 
     <!-- ─── VISTA: AVISOS ─── -->
@@ -1000,6 +1050,21 @@ html, body {
 const SB_URL_HUB    = 'https://maoioxmnfzzwnuinesyt.supabase.co';
 const SB_KEY_HUB    = 'sb_publishable_fNwG2bdRTbrV-JCF7of8hA_TDjSXplY';
 const AI_ROUTER_URL = `${SB_URL_HUB}/functions/v1/ai-router`;
+
+// ── Función central IA ─────────────────────────────────────────────
+async function callAI({ feature, prompt, system }) {
+  const { data: { session } } = await sbHub.auth.getSession();
+  const jwt = session?.access_token;
+  if (!jwt) throw new Error('Sesión expirada');
+  const resp = await fetch(AI_ROUTER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+    body: JSON.stringify({ feature, prompt, system }),
+  });
+  if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error || `Error ${resp.status}`); }
+  const data = await resp.json();
+  return data.text || '';
+}
 
 let sbHub = null;
 try { sbHub = supabase.createClient(SB_URL_HUB, SB_KEY_HUB); } catch(e){}
@@ -1527,7 +1592,7 @@ function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  const tabs = ['inicio','materias','avisos','recompensas','escuela'];
+  const tabs = ['inicio','materias','lectura','avisos','recompensas','escuela'];
   const idx = tabs.indexOf(tab);
   document.querySelectorAll('.tab-pill')[idx]?.classList.add('active');
   document.getElementById('view-'+tab)?.classList.add('active');
@@ -1538,6 +1603,7 @@ function switchTab(tab) {
 async function cargarVista(tab) {
   if (tab === 'inicio')      await cargarInicio();
   if (tab === 'materias')    await cargarMaterias();
+  if (tab === 'lectura')     await cargarLectura();
   if (tab === 'avisos')      await cargarAvisos();
   if (tab === 'recompensas') await cargarRecompensas();
   if (tab === 'escuela')     await cargarEscuela();
@@ -1550,6 +1616,7 @@ async function cargarInicio() {
   cargarAISugerencia();
   renderPreguntaDia();
   renderLogros();
+  cargarAnalisisAlumno(); // Mostrar último análisis IA del alumno
 }
 
 async function cargarCalificaciones() {
@@ -1702,20 +1769,9 @@ ${mejores ? `Materias donde destaca: ${mejores}.` : ''}
 Dame UNA sugerencia práctica (2-3 oraciones máximo), amigable y directa, de algo que yo como padre pueda hacer HOY para apoyar a mi hij@. Sin listas, sin diagnósticos, solo un consejo cálido y accionable.`;
 
   try {
-    const { data: { session } } = await sbHub.auth.getSession();
-    const jwt = session?.access_token;
-    const headers = { 'Content-Type': 'application/json' };
-    if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
-
-    const resp = await fetch(AI_ROUTER_URL, {
-      method: 'POST', headers,
-      body: JSON.stringify({ prompt, max_tokens: 150 })
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      el.textContent = data.text || 'Sin sugerencias disponibles por ahora.';
-      return;
-    }
+    const texto = await callAI({ feature: 'padre_reporte_ia', prompt });
+    el.textContent = texto || 'Sin sugerencias disponibles por ahora.';
+    return;
   } catch(e) {}
 
   // Fallback local si la IA no está disponible
@@ -1866,19 +1922,10 @@ async function showMateriaDetail(nombre, cal) {
   // Cargar sugerencia IA para esta materia
   try {
     const prompt = `Dame un consejo MUY CORTO (1-2 oraciones) y práctico para que un padre de familia mexicano ayude a su hij@ a mejorar en la materia de ${nombre}. La calificación actual es ${cal.toFixed(1)}/10. Sin listas, tono amigable.`;
-    const { data: { session } } = await sbHub.auth.getSession();
-    const headers = { 'Content-Type': 'application/json' };
-    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
-    const resp = await fetch(AI_ROUTER_URL, {
-      method:'POST', headers,
-      body: JSON.stringify({ prompt, max_tokens: 100 })
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      const el = document.getElementById('modal-ai-text');
-      if (el) el.textContent = data.text || '—';
-      return;
-    }
+    const texto = await callAI({ feature: 'padre_reporte_ia', prompt });
+    const elM = document.getElementById('modal-ai-text');
+    if (elM) elM.textContent = texto || '—';
+    return;
   } catch(e) {}
   const el = document.getElementById('modal-ai-text');
   if (el) el.textContent = cal < 7
@@ -2119,6 +2166,153 @@ async function doRegister() {
     showRegError('Error al crear la cuenta: ' + (e.message || 'Inténtalo de nuevo'));
   }
   btn.disabled = false; btn.textContent = 'Crear cuenta →';
+}
+
+// ─── VISTA LECTURA ─────────────────────────
+async function cargarLectura() {
+  if (!sbHub || !hijoActivo?.id) {
+    document.getElementById('lectura-libros-lista').innerHTML =
+      '<div style="text-align:center;padding:24px;color:var(--gris-400);font-size:13px;">Vincula a tu hij@ para ver su progreso de lectura.</div>';
+    return;
+  }
+
+  try {
+    // Cargar progreso de libros
+    const { data: progresos } = await sbHub.from('progreso_lectura')
+      .select('*, libros(titulo, autor, paginas, portada_url)')
+      .eq('alumno_id', hijoActivo.id)
+      .order('updated_at', { ascending: false })
+      .limit(20);
+
+    const terminados = progresos?.filter(p => p.terminado || p.porcentaje >= 100).length || 0;
+    const leyendo    = progresos?.filter(p => !p.terminado && p.porcentaje > 0 && p.porcentaje < 100).length || 0;
+
+    // Cargar XP de quiz
+    const { data: quizzes } = await sbHub.from('quiz_resultados')
+      .select('xp_ganado, aciertos, total, libro_id, created_at')
+      .eq('alumno_id', hijoActivo.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    const xpTotal = quizzes?.reduce((s, q) => s + (q.xp_ganado || 0), 0) || 0;
+
+    // Actualizar stats
+    document.getElementById('lect-terminados').textContent = terminados;
+    document.getElementById('lect-leyendo').textContent    = leyendo;
+    document.getElementById('lect-xp').textContent        = xpTotal + ' XP';
+
+    // Renderizar libros
+    const lista = document.getElementById('lectura-libros-lista');
+    if (!progresos?.length) {
+      lista.innerHTML = '<div style="text-align:center;padding:24px;color:var(--gris-400);font-size:13px;">Tu hij@ aún no ha iniciado ningún libro.</div>';
+    } else {
+      lista.innerHTML = progresos.map(p => {
+        const libro   = p.libros || {};
+        const pct     = Math.min(100, Math.round(p.porcentaje || 0));
+        const color   = pct >= 100 ? '#15803d' : pct > 0 ? '#0369a1' : '#94a3b8';
+        const estado  = pct >= 100 ? '✅ Terminado' : pct > 0 ? `📖 ${pct}%` : '📚 Sin iniciar';
+        return `
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:white;border-radius:12px;border:1px solid #e2e8f0;margin-bottom:8px;">
+            <div style="width:40px;height:52px;background:#e0f2fe;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">📗</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${libro.titulo || 'Libro'}</div>
+              <div style="font-size:11px;color:#64748b;margin-bottom:6px;">${libro.autor || ''}</div>
+              <div style="height:6px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+                <div style="height:100%;width:${pct}%;background:${color};border-radius:99px;transition:.5s;"></div>
+              </div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;">${estado}</span>
+          </div>`;
+      }).join('');
+    }
+
+    // Renderizar quiz
+    const quizLista = document.getElementById('lectura-quiz-lista');
+    if (!quizzes?.length) {
+      quizLista.innerHTML = '<div style="text-align:center;padding:16px;color:var(--gris-400);font-size:13px;">Aún no ha completado ningún quiz de lectura.</div>';
+    } else {
+      quizLista.innerHTML = quizzes.slice(0, 5).map(q => {
+        const pct   = Math.round((q.aciertos / q.total) * 100);
+        const color = pct >= 80 ? '#15803d' : pct >= 60 ? '#0369a1' : '#dc2626';
+        const fecha = new Date(q.created_at).toLocaleDateString('es-MX', { day:'numeric', month:'short' });
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:white;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:6px;">
+            <div>
+              <div style="font-size:13px;font-weight:700;">Quiz completado</div>
+              <div style="font-size:11px;color:#64748b;">${fecha} · ${q.aciertos}/${q.total} respuestas correctas</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:900;color:${color};">${pct}%</div>
+              <div style="font-size:10px;color:#64748b;">+${q.xp_ganado} XP</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // Cargar análisis IA de lectura
+    cargarLecturaIA(progresos, quizzes);
+
+  } catch(e) {
+    document.getElementById('lectura-libros-lista').innerHTML =
+      `<div style="color:#dc2626;font-size:13px;padding:16px;">❌ ${e.message}</div>`;
+  }
+}
+
+async function cargarLecturaIA(progresos, quizzes) {
+  const el = document.getElementById('lectura-ia-texto');
+  if (!el) return;
+  const nombre    = hijoActivo?.nombre?.split(' ')[0] || 'tu hij@';
+  const terminados = progresos?.filter(p => p.terminado || p.porcentaje >= 100).length || 0;
+  const enProg    = progresos?.filter(p => !p.terminado && p.porcentaje > 0).map(p => p.libros?.titulo).filter(Boolean).join(', ') || 'ninguno';
+  const promQuiz  = quizzes?.length
+    ? Math.round(quizzes.reduce((s,q)=>s+(q.aciertos/q.total*100),0)/quizzes.length)
+    : null;
+
+  const prompt = `Soy padre/madre de ${nombre}, alumno/a de educación básica en México.
+Libros terminados: ${terminados}. Leyendo actualmente: ${enProg}.
+${promQuiz !== null ? `Promedio en quiz de comprensión: ${promQuiz}%.` : ''}
+Dame un mensaje breve (2-3 oraciones) sobre su hábito lector y UNA sugerencia concreta de cómo apoyarlo desde casa. Tono cálido y motivador.`;
+
+  try {
+    const texto = await callAI({ feature: 'padre_reporte_ia', prompt });
+    el.textContent = texto || 'Sin análisis disponible.';
+  } catch(e) {
+    el.textContent = terminados > 0
+      ? `${nombre} ha completado ${terminados} libro${terminados>1?'s':''} — ¡excelente hábito lector! Sigue motivándole con pequeñas recompensas por cada libro terminado.`
+      : `Anima a ${nombre} a leer al menos 15 minutos al día. Pueden elegir juntos un libro que le llame la atención.`;
+  }
+}
+
+// ─── ANÁLISIS IA DEL ALUMNO (desde tabla analisis_ia) ─────────────
+async function cargarAnalisisAlumno() {
+  if (!sbHub || !hijoActivo?.id) return;
+  try {
+    const { data } = await sbHub.from('analisis_ia')
+      .select('tipo, contenido, created_at')
+      .eq('alumno_id', hijoActivo.id)
+      .eq('tipo', 'desempeno')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!data) return;
+    const card = document.getElementById('card-analisis-alumno');
+    const texto = document.getElementById('analisis-alumno-texto');
+    const fecha = document.getElementById('analisis-alumno-fecha');
+    if (!card || !texto) return;
+
+    let contenido = '';
+    try {
+      const parsed = JSON.parse(data.contenido);
+      contenido = parsed.texto || '';
+    } catch { contenido = data.contenido || ''; }
+
+    if (contenido) {
+      texto.innerHTML = contenido.replace(/\n/g, '<br>');
+      fecha.textContent = `Generado el ${new Date(data.created_at).toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' })} por el sistema SIEMBRA`;
+      card.style.display = 'block';
+    }
+  } catch(e) { /* silencioso */ }
 }
 
 function doLogout() {
