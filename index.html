@@ -7575,31 +7575,85 @@ async function inviteCrearCuenta() {
       authUser = signupData?.user;
     }
 
-    // 3. Guardar perfil en tabla usuarios via función SQL (evita conflictos de tipo uuid/text)
+    // 3. Guardar/vincular perfil en tabla usuarios
+    // Estrategia: primero buscar si ya existe por email (creado por admin sin auth_id)
+    // Si existe → actualizar auth_id. Si no → insertar nuevo.
     if (sb && authUser) {
+      let perfilGuardado = false;
+
+      // 3a. Buscar si ya existe un perfil con este email (sin auth_id, creado por admin)
       try {
-        await sb.rpc('upsert_usuario', {
-          p_auth_id:    authUser.id,
-          p_email:      email,
-          p_nombre:     nombre,
-          p_apellido_p: apells?.split(' ')[0] || '',
-          p_apellido_m: apells?.split(' ')[1] || '',
-          p_rol:        rol,
-          p_escuela_id: escuelaId || '',
-          p_escuela_cct: escuelaCct || '',
-        });
-      } catch(upsertErr) {
-        console.warn('[invite] upsert_usuario:', upsertErr.message);
-        // Fallback: intentar insert directo
+        const { data: existente } = await sb.from('usuarios')
+          .select('id, auth_id').eq('email', email).maybeSingle();
+
+        if (existente) {
+          // Ya existe — solo actualizar auth_id y asegurar datos frescos
+          const { error: updErr } = await sb.from('usuarios').update({
+            auth_id:     authUser.id,
+            activo:      true,
+            escuela_id:  escuelaId  || existente.escuela_id  || null,
+            escuela_cct: escuelaCct || existente.escuela_cct || null,
+          }).eq('id', existente.id);
+          if (!updErr) {
+            perfilGuardado = true;
+            console.log('[invite] ✅ auth_id vinculado al perfil existente:', existente.id);
+          } else {
+            console.warn('[invite] update auth_id:', updErr.message);
+          }
+        }
+      } catch(e1) { console.warn('[invite] buscar existente:', e1.message); }
+
+      // 3b. Si no existía, intentar upsert_usuario RPC
+      if (!perfilGuardado) {
+        try {
+          await sb.rpc('upsert_usuario', {
+            p_auth_id:    authUser.id,
+            p_email:      email,
+            p_nombre:     nombre,
+            p_apellido_p: apells?.split(' ')[0] || '',
+            p_apellido_m: apells?.split(' ').slice(1).join(' ') || '',
+            p_rol:        rol,
+            p_escuela_id:  escuelaId  || '',
+            p_escuela_cct: escuelaCct || '',
+          });
+          perfilGuardado = true;
+          console.log('[invite] ✅ perfil creado via upsert_usuario RPC');
+        } catch(rpcErr) {
+          console.warn('[invite] upsert_usuario RPC:', rpcErr.message);
+        }
+      }
+
+      // 3c. Último fallback: insert directo
+      if (!perfilGuardado) {
         try {
           await sb.from('usuarios').insert({
-            auth_id: authUser.id,
-            email, nombre, rol,
-            escuela_id: escuelaId || null,
+            auth_id:     authUser.id,
+            email, nombre,
+            apellido_p:  apells?.split(' ')[0] || '',
+            apellido_m:  apells?.split(' ').slice(1).join(' ') || '',
+            rol,
+            escuela_id:  escuelaId  || null,
             escuela_cct: escuelaCct || null,
             activo: true,
           });
-        } catch(e2) { console.warn('[invite] insert fallback:', e2.message); }
+          perfilGuardado = true;
+          console.log('[invite] ✅ perfil creado via insert directo');
+        } catch(insErr) {
+          // Si es duplicado, intentar update por email una vez más
+          if (insErr.code === '23505') {
+            try {
+              await sb.from('usuarios').update({ auth_id: authUser.id, activo: true }).eq('email', email);
+              perfilGuardado = true;
+              console.log('[invite] ✅ auth_id actualizado en segundo intento');
+            } catch(e3) { console.warn('[invite] segundo update:', e3.message); }
+          } else {
+            console.warn('[invite] insert fallback:', insErr.message);
+          }
+        }
+      }
+
+      if (!perfilGuardado) {
+        console.error('[invite] ❌ No se pudo guardar el perfil del usuario');
       }
     }
 
