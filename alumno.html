@@ -17,6 +17,24 @@
 const SUPABASE_URL  = localStorage.getItem('siembra_supabase_url') || 'https://maoioxmnfzzwnuinesyt.supabase.co';
 const SUPABASE_KEY  = localStorage.getItem('siembra_supabase_key') || 'sb_publishable_fNwG2bdRTbrV-JCF7of8hA_TDjSXplY';
 const AI_ROUTER_URL = SUPABASE_URL + '/functions/v1/ai-router';
+
+// ── Función central IA — igual que index.html ──────────────────────
+async function callAI({ feature, prompt, system, context }) {
+  const { data: { session } } = await sb.auth.getSession();
+  const jwt = session?.access_token;
+  if (!jwt) throw new Error('Sesión expirada');
+  const resp = await fetch(AI_ROUTER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${jwt}` },
+    body: JSON.stringify({ feature, prompt, system, context,
+      escuela_id: currentPerfil?.escuela_cct,
+      nivel: currentPerfil?.nivel || 'secundaria',
+    }),
+  });
+  if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.error || `Error ${resp.status}`); }
+  const data = await resp.json();
+  return data.text || '';
+}
 let sb = null;
 try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init error:', e); }
 
@@ -227,22 +245,20 @@ Genera un análisis breve (4-5 oraciones) que incluya:
 Tono: cálido, directo, motivador. Habla directamente al alumno (usa "tú").
 NO uses listas ni bullets. Solo párrafo continuo.`;
 
-    const headers = { 'Content-Type': 'application/json' };
-    const { data: { session } } = await sb.auth.getSession();
-    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
-
-    const resp = await fetch(AI_ROUTER_URL, {
-      method: 'POST', headers,
-      body: JSON.stringify({ prompt, max_tokens: 200 })
-    });
-
-    if (resp.ok) {
-      const data = await resp.json();
-      el.innerHTML = `<div style="line-height:1.7;font-size:14px;color:var(--texto);">${(data.text||'').replace(/\n/g,'<br>')}</div>
-        <div style="margin-top:10px;font-size:11px;color:var(--texto-2);display:flex;align-items:center;gap:4px;">
-          <span>✨</span> Análisis generado con IA · basado en tus calificaciones reales
-        </div>`;
-    } else throw new Error('AI error');
+    const texto = await callAI({ feature: 'analisis_alumno', prompt });
+    el.innerHTML = `<div style="line-height:1.7;font-size:14px;color:var(--texto);">${texto.replace(/\n/g,'<br>')}</div>
+      <div style="margin-top:10px;font-size:11px;color:var(--texto-2);display:flex;align-items:center;gap:4px;">
+        <span>✨</span> Análisis generado con IA · basado en tus calificaciones reales
+      </div>`;
+    // Guardar para que padres.html lo pueda ver
+    if (sb && currentPerfil) {
+      sb.from('analisis_ia').insert({
+        alumno_id:  currentPerfil.id,
+        tipo:       'desempeno',
+        contenido:  JSON.stringify({ texto, materias: resumen, bajas, altas }),
+        created_at: new Date().toISOString(),
+      }).catch(()=>{});
+    }
   } catch(e) {
     // Fallback análisis estático
     const nombre = currentPerfil?.nombre?.split(' ')[0] || 'tú';
@@ -2358,7 +2374,7 @@ html, body {
     <!-- Hero -->
     <div class="practica-hero fade-in">
       <div class="practica-hero-label">✨ Con Inteligencia Artificial</div>
-      <div class="practica-hero-title">¡A practicar, Ana!</div>
+      <div class="practica-hero-title" id="practica-hero-title">¡A practicar!</div>
       <div class="practica-hero-sub">Ejercicios creados especialmente para ti, basados en lo que necesitas mejorar. ¡Cada respuesta te da XP!</div>
       <div class="practica-hero-chips">
         <span class="practica-chip selected" onclick="selTipo('contexto',this)">🌮 Contexto mexicano</span>
@@ -3437,18 +3453,9 @@ Responde SOLO con este JSON (sin markdown):
 }`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        messages:[{role:'user', content:prompt}]
-      })
-    });
-    const data = await resp.json();
-    const texto = data.content?.map(c=>c.text||'').join('') || '';
-    const clean = texto.replace(/```json|```/g,'').trim();
+    const textoEj = await callAI({ feature: 'analisis_alumno', prompt,
+      system: 'Responde SOLO con el JSON solicitado. Sin markdown ni texto adicional.' });
+    const clean = textoEj.replace(/```json|```/g,'').trim();
     const ejercicio = JSON.parse(clean);
     mostrarEjercicio(ejercicio, m);
   } catch(e) {
@@ -3644,20 +3651,9 @@ Responde siempre de forma clara, amigable y con ejemplos de México cuando sea p
 Usa emojis con moderación. Máximo 3-4 oraciones por respuesta. Si la pregunta no es educativa, redirige amablemente.`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        system: sistema,
-        messages: [...historial, {role:'user', content: msg}]
-      })
-    });
-    const data = await resp.json();
-    const texto = data.content?.map(c=>c.text||'').join('') || 'Lo siento, hubo un problema. ¡Intenta de nuevo!';
+    const texto = await callAI({ feature: 'plan_semanal_alumno', prompt: msg, system: sistema });
     document.getElementById('chat-loading')?.remove();
-    msgs.innerHTML += `<div class="chat-msg tutor">${texto}</div>`;
+    msgs.innerHTML += `<div class="chat-msg tutor">${texto || 'Lo siento, hubo un problema. ¡Intenta de nuevo!'}</div>`;
     msgs.scrollTop = msgs.scrollHeight;
   } catch(e) {
     document.getElementById('chat-loading')?.remove();
@@ -3673,23 +3669,15 @@ async function generarPlanSemanal() {
   const body = document.getElementById('plan-semanal-body');
   body.innerHTML = `<div class="plan-loader"><div class="plan-spinner-sm"></div>Generando tu plan personalizado con IA…</div>`;
 
-  const prompt = `Genera un plan de estudio semanal (lunes a viernes) para Ana García, alumna de 4° de primaria en México.
-Sus calificaciones: Matemáticas 7.5 (necesita más práctica), Español 9.0 (excelente), Ciencias 8.5, Historia 8.0, Geografía 9.5, Ed.Física 10.
-Enfoca más días en Matemáticas e Historia.
-Responde SOLO con este JSON (sin markdown):
-[
-  {"dia":"LUN","materia":"nombre","actividad":"descripción breve de qué practicar (max 8 palabras)","tiempo":"X min","xp":número},
-  ...5 elementos (uno por día)
-]`;
+  const nombre = currentPerfil?.nombre || 'estudiante';
+  const mats = window._materiasAlumno || materias || [];
+  const resumenMats = mats.map(m=>`${m.nombre}: ${m.cal}`).join(', ') || 'calificaciones no disponibles';
+  const bajas = mats.filter(m=>m.cal<8).map(m=>m.nombre).join(', ') || 'ninguna';
+  const prompt = `Genera un plan de estudio semanal (lunes a viernes) para ${nombre}, alumno/a en México. Calificaciones: ${resumenMats}. Materias con más práctica necesaria: ${bajas}. Responde SOLO con este JSON sin markdown: [{"dia":"LUN","materia":"nombre","actividad":"descripción breve (max 8 palabras)","tiempo":"X min","xp":número}, ...5 elementos]`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:1000, messages:[{role:'user',content:prompt}]})
-    });
-    const data = await resp.json();
-    const texto = data.content?.map(c=>c.text||'').join('');
+    const texto = await callAI({ feature: 'plan_semanal_alumno', prompt,
+      system: 'Responde SOLO con el JSON solicitado. Sin markdown ni texto adicional.' });
     const plan = JSON.parse(texto.replace(/```json|```/g,'').trim());
     body.innerHTML = plan.map(d => `
       <div class="plan-dia">
@@ -3714,19 +3702,16 @@ async function generarSugerencia() {
   const el = document.getElementById('sugerencia-ia-texto');
   el.innerHTML = '<span style="color:var(--texto-2);">🤖 Analizando tu progreso…</span>';
 
-  const prompt = `Analiza el progreso de Ana García, alumna de 4° primaria en México, y da un mensaje motivador y útil.
-Calificaciones: Matemáticas 7.5, Español 9.0, Ciencias 8.5, Historia 8.0, Geografía 9.5, FCE 9.0, Artes 8.5, Ed.Física 10.
-Asistencia: 94%, Racha: 12 días, XP: 1240.
-Escribe UN párrafo corto (3 oraciones máximo) que: 1) identifique su punto débil con nombre, 2) dé un consejo concreto y 3) reconozca sus fortalezas. Usa "tú" y sé amigable como un tutor cercano. Sin saludos, ve directo al análisis.`;
+  const nombreS = currentPerfil?.nombre?.split(' ')[0] || 'estudiante';
+  const matsS = window._materiasAlumno || materias || [];
+  const resumenS = matsS.map(m=>`${m.nombre}: ${m.cal}`).join(', ') || 'calificaciones no disponibles';
+  const xpS = currentPerfil?.xp_total || 0;
+  const rachaS = currentPerfil?.racha_dias || 0;
+  const prompt = `Analiza el progreso de ${nombreS}, alumno/a en México, y da un mensaje motivador y útil. Calificaciones: ${resumenS}. Racha: ${rachaS} días, XP: ${xpS}. Escribe UN párrafo corto (3 oraciones máximo): 1) identifica su punto débil con nombre, 2) da un consejo concreto y 3) reconoce sus fortalezas. Usa "tú" y sé amigable. Sin saludos, ve directo al análisis.`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:1000, messages:[{role:'user',content:prompt}]})
-    });
-    const data = await resp.json();
-    el.innerHTML = data.content?.map(c=>c.text||'').join('') || el.innerHTML;
+    const texto3 = await callAI({ feature: 'analisis_alumno', prompt });
+    el.innerHTML = texto3 || el.innerHTML;
     toast('✅ Análisis actualizado');
   } catch(e) {
     el.innerHTML = 'Tu materia más débil esta semana es <strong>Matemáticas (7.5)</strong>. Practica fracciones y divisiones — con 3 ejercicios diarios en 10 días puedes subir. En Geografía y Español vas excelente 🌟';
@@ -3741,6 +3726,18 @@ function initPracticar() {
   if (ct) ct.classList.remove('open');
   esperandoRespuesta = false;
   limpiarTimer();
+  // Personalizar saludo con nombre real
+  const nombre = currentPerfil?.nombre?.split(' ')[0] || 'estudiante';
+  const msgs = document.getElementById('chat-messages');
+  if (msgs && msgs.children.length <= 1) {
+    msgs.innerHTML = `<div class="chat-msg tutor">¡Hola ${nombre}! 👋 Soy tu tutor SIEMBRA. Puedes preguntarme cualquier cosa de tus materias — ya sea una operación de Matemáticas, algo de Historia, o lo que sea. ¿En qué te ayudo hoy?</div>`;
+  }
+  const sugerenciaHdr = document.getElementById('sugerencia-ia-global')?.querySelector('div div:first-child');
+  if (sugerenciaHdr) sugerenciaHdr.textContent = `¡Hola ${nombre}! Aquí va mi análisis`;
+  const heroTitle = document.getElementById('practica-hero-title');
+  if (heroTitle) heroTitle.textContent = `¡A practicar, ${nombre}!`;
+  // Auto-generar sugerencia si hay materias cargadas
+  if (materias?.length) setTimeout(generarSugerencia, 500);
 }
 
 document.getElementById('modal-ejercicio').addEventListener('click', function(e) {
@@ -4276,12 +4273,8 @@ Escribe un resumen muy corto y emocionante (máximo 4 oraciones) de lo que ha pa
 Usa un tono cálido y animador. Termina con una frase que lo motive a seguir leyendo. Dirígete al alumno como "Ana".`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:500, messages:[{role:'user',content:prompt}] })
-    });
-    const data = await resp.json();
-    textoEl.innerHTML = data.content?.map(c=>c.text||'').join('') || 'No se pudo generar el resumen.';
+    const texto = await callAI({ feature: 'plan_semanal_alumno', prompt });
+    textoEl.innerHTML = texto || 'No se pudo generar el resumen.';
   } catch(e) {
     textoEl.innerHTML = `Hasta ahora en <strong>${libro.titulo}</strong> has conocido a los personajes principales y el mundo de la historia. Las últimas escenas que leíste fueron muy emocionantes. ¡Ana, estás en un momento clave — sigue leyendo para descubrir qué pasa! 📚`;
   }
@@ -4328,12 +4321,8 @@ Responde SOLO con este JSON (sin markdown):
 ]`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:800, messages:[{role:'user',content:prompt}] })
-    });
-    const data = await resp.json();
-    const texto = data.content?.map(c=>c.text||'').join('') || '[]';
+    const texto = await callAI({ feature: 'analisis_alumno', prompt,
+      system: 'Responde SOLO con el JSON solicitado. Sin markdown ni texto adicional.' });
     bibQuizPreguntas = JSON.parse(texto.replace(/```json|```/g,'').trim());
   } catch(e) {
     bibQuizPreguntas = [
@@ -4415,6 +4404,38 @@ function bibMostrarResultadoFinal() {
   const xpBase = 300;
   const xpBonus = perfecto ? 100 : bibQuizAciertos * 30;
   const xpTotal = xpBase + xpBonus;
+
+  // ── Guardar en Supabase ──
+  if (sb && currentPerfil) {
+    // Guardar resultado del quiz
+    sb.from('quiz_resultados').insert({
+      alumno_id:  currentPerfil.id,
+      libro_id:   lectorLibroId,
+      aciertos:   bibQuizAciertos,
+      total:      total,
+      pct:        pct,
+      xp_ganado:  xpTotal,
+      ciclo:      window.CICLO_ACTIVO || '2025-2026',
+      created_at: new Date().toISOString(),
+    }).catch(()=>{});
+    // Actualizar progreso del libro a 100%
+    sb.from('progreso_lectura').upsert({
+      alumno_id:    currentPerfil.id,
+      libro_id:     lectorLibroId,
+      porcentaje:   100,
+      terminado:    true,
+      updated_at:   new Date().toISOString(),
+    }, { onConflict: 'alumno_id,libro_id' }).catch(()=>{});
+    // Sumar XP real
+    sumarXP(xpTotal, `Quiz completado: ${libActual?.titulo || 'libro'}`).catch(()=>{});
+    // Guardar para que padres.html lo vea
+    sb.from('analisis_ia').insert({
+      alumno_id:  currentPerfil.id,
+      tipo:       'lectura',
+      contenido:  JSON.stringify({ libro: libActual?.titulo, aciertos: bibQuizAciertos, total, pct, xp: xpTotal }),
+      created_at: new Date().toISOString(),
+    }).catch(()=>{});
+  }
 
   body.innerHTML = `
     <div class="bib-quiz-result">
