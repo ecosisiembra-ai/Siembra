@@ -25806,7 +25806,7 @@ ADM.guardarAlumno = async function() {
     fecha_nac:       fechaNac || null,
     num_lista:       numLista,
     telefono:        telefono || null,
-    tutor_nombre:    tutor || null,
+    tutor_nombre:    tutor    || null,
     telefono_tutor:  telefono || null,
     email:           emailAlumno || null,
     rol:             'alumno',
@@ -25822,8 +25822,41 @@ ADM.guardarAlumno = async function() {
 
     if (sbRef) {
       // ── PASO 1: Insertar alumno en usuarios ──
-      const { data: inserted, error: insertErr } = await sbRef.from('usuarios')
-        .insert(payload).select().single();
+      // Intentar con payload completo; si falla por columna inexistente, reintentar con payload mínimo
+      let inserted = null, insertErr = null;
+      ({ data: inserted, error: insertErr } = await sbRef.from('usuarios')
+        .insert(payload).select().single());
+
+      if (insertErr && (insertErr.message?.includes('column') || insertErr.code === '42703')) {
+        // Alguna columna no existe en este schema — usar solo columnas base garantizadas
+        console.warn('[ADM] Columna inexistente, reintentando con payload mínimo:', insertErr.message);
+        const payloadMinimo = {
+          nombre, apellido_p, apellido_m,
+          curp: curp || null,
+          email: emailAlumno || null,
+          rol: 'alumno', activo: true,
+          escuela_id:  escuelaId  || null,
+          escuela_cct: escuelaCct || null,
+        };
+        // Agregar campos opcionales uno por uno para saber cuáles existen
+        for (const [k, v] of Object.entries({ fecha_nac: fechaNac||null, num_lista: numLista, codigo_vinculacion: codigo })) {
+          try {
+            const testPayload = { ...payloadMinimo, [k]: v };
+            const { data: testD, error: testE } = await sbRef.from('usuarios')
+              .insert(testPayload).select().single();
+            if (!testE) { inserted = testD; insertErr = null; break; }
+            if (testE.message?.includes(k) || testE.code === '42703') continue; // esa col no existe
+            // Otro error distinto
+            throw testE;
+          } catch(e2) {
+            if (!e2.message?.includes('column') && e2.code !== '42703') throw e2;
+          }
+        }
+        if (!inserted) {
+          ({ data: inserted, error: insertErr } = await sbRef.from('usuarios')
+            .insert(payloadMinimo).select().single());
+        }
+      }
 
       if (insertErr) {
         // Si hay duplicado de email, actualizar en lugar de fallar
@@ -25840,7 +25873,7 @@ ADM.guardarAlumno = async function() {
         } else {
           throw insertErr;
         }
-      } else {
+      } else if (inserted) {
         alumnoId   = inserted.id;
         alumnoData = inserted;
       }
@@ -25869,10 +25902,13 @@ ADM.guardarAlumno = async function() {
       if (alumnoId) {
         await sbRef.from('vinculos_padre').insert({
           codigo,
-          alumno_id:  alumnoId,
-          escuela_id: escuelaId || null,
-          usado:      false,
-          expira_at:  new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          alumno_id:      alumnoId,
+          escuela_id:     escuelaId || null,
+          usado:          false,
+          // Datos del tutor guardados aquí, no en usuarios
+          nombre_tutor:   tutor    || null,
+          telefono_tutor: telefono || null,
+          expira_at:      new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         }).catch(e => console.warn('[ADM] vinculos_padre:', e.message));
       }
 
