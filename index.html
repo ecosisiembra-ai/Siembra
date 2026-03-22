@@ -22045,103 +22045,333 @@ document.addEventListener('DOMContentLoaded', () => {
         
         <!-- ══ PEMC / RUTA DE MEJORA CON IA ══ -->
         <div class="subdir-page" id="subdir-p-pemc" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+          <!-- ══ HEADER ══ -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
             <div>
-              <div style="font-size:22px;font-weight:700;font-family:'Fraunces',serif;">🎯 PEMC — Asistente de Ruta de Mejora</div>
-              <div style="font-size:13px;color:#64748b;margin-top:2px;">Sube el PDF de la SEP, describe la problemática de tu escuela y la IA genera un plan mes a mes</div>
+              <div style="font-size:22px;font-weight:800;font-family:'Fraunces',serif;color:#0d1a0f;">🎯 PEMC — Asistente de Ruta de Mejora</div>
+              <div style="font-size:13px;color:#64748b;margin-top:2px;">Selecciona, no escribas. La IA genera todo listo para entregar a SEP.</div>
             </div>
-            <div style="display:flex;gap:8px;">
-              <button onclick="pemcVerPlan('subdir')" style="padding:9px 16px;background:#1e3a5f;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Ver plan actual</button>
-              <button onclick="pemcNuevoCiclo('subdir')" style="padding:9px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔄 Nuevo ciclo</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button onclick="pemcV2Tab('subdir','wizard')" id="subdir-tab-wizard" style="padding:8px 16px;background:#1e3a5f;color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⚡ Generador rápido</button>
+              <button onclick="pemcV2Tab('subdir','docs')" id="subdir-tab-docs" style="padding:8px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">📄 Documentos SEP</button>
+              <button onclick="pemcV2Tab('subdir','seguimiento')" id="subdir-tab-seguimiento" style="padding:8px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">📊 Seguimiento</button>
+              <button onclick="pemcV2Tab('subdir','chat')" id="subdir-tab-chat" style="padding:8px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">🤖 Asistente SEP</button>
             </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
-            <!-- Stats -->
-            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;">
-              <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">📊 Estado del plan actual</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div style="background:#f0fdf4;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:24px;font-weight:900;color:#0d5c2f;" id="subdir-pemc-mes-actual">—</div>
-                  <div style="font-size:11px;color:#64748b;">Mes actual</div>
-                </div>
-                <div style="background:#eff6ff;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:24px;font-weight:900;color:#1e40af;" id="subdir-pemc-actividades">0</div>
-                  <div style="font-size:11px;color:#64748b;">Actividades planeadas</div>
-                </div>
-                <div style="background:#fef9c3;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:24px;font-weight:900;color:#a16207;" id="subdir-pemc-completadas">0</div>
-                  <div style="font-size:11px;color:#64748b;">Completadas</div>
-                </div>
-                <div style="background:#f5f3ff;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:24px;font-weight:900;color:#5b21b6;" id="subdir-pemc-avance">0%</div>
-                  <div style="font-size:11px;color:#64748b;">Avance ciclo</div>
-                </div>
+          <!-- ══ TAB: WIZARD GENERADOR RÁPIDO ══ -->
+          <div id="subdir-panel-wizard">
+
+            <!-- PASO 1: Contexto de la escuela -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <div style="width:32px;height:32px;background:#1e3a5f;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;flex-shrink:0;">1</div>
+                <div style="font-size:15px;font-weight:700;color:#0f172a;">Datos de tu escuela</div>
               </div>
-            </div>
-            <!-- Upload PDF SEP -->
-            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;">
-              <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">📄 Documento SEP de Ruta de Mejora</div>
-              <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Sube el PDF que envió la SEP al inicio del ciclo escolar. La IA lo leerá para contextualizar el plan.</div>
-              <label for="subdir-pemc-pdf" style="display:flex;align-items:center;gap:10px;padding:14px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
-                <span style="font-size:28px;">📎</span>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                 <div>
-                  <div style="font-size:13px;font-weight:700;color:#334155;" id="subdir-pemc-pdf-nombre">Seleccionar PDF de la SEP</div>
-                  <div style="font-size:11px;color:#94a3b8;">Máximo 10MB · Solo PDF</div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Nivel educativo</label>
+                  <select id="subdir-pemc-nivel" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="primaria">Primaria</option>
+                    <option value="secundaria" selected>Secundaria</option>
+                    <option value="preescolar">Preescolar</option>
+                  </select>
                 </div>
-              </label>
-              <input type="file" id="subdir-pemc-pdf" accept=".pdf" style="display:none;" onchange="pemcCargarPDF(this,'subdir')">
-              <div id="subdir-pemc-pdf-status" style="margin-top:8px;font-size:12px;color:#0d5c2f;display:none;"></div>
-            </div>
-          </div>
-
-          <!-- Chat con IA -->
-          <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px;">
-            <div style="padding:16px 20px;background:linear-gradient(135deg,#1e3a5f,#2455a4);display:flex;align-items:center;gap:12px;">
-              <div style="width:38px;height:38px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
-              <div>
-                <div style="font-size:14px;font-weight:700;color:white;">Asistente PEMC — IA de Ruta de Mejora</div>
-                <div style="font-size:11px;color:rgba(255,255,255,.75);">Cuéntame la problemática de tu escuela para diseñar el plan</div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Contexto</label>
+                  <select id="subdir-pemc-contexto" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="urbano">Urbano</option>
+                    <option value="semiurbano">Semiurbano</option>
+                    <option value="rural">Rural</option>
+                    <option value="indigena">Indígena</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Turno</label>
+                  <select id="subdir-pemc-turno" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="matutino">Matutino</option>
+                    <option value="vespertino">Vespertino</option>
+                    <option value="discontinuo">Discontinuo</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Matrícula aprox.</label>
+                  <select id="subdir-pemc-matricula" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="menos100">Menos de 100</option>
+                    <option value="100a300" selected>100 a 300</option>
+                    <option value="300a600">300 a 600</option>
+                    <option value="mas600">Más de 600</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Ciclo escolar</label>
+                  <select id="subdir-pemc-ciclo" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="2025-2026" selected>2025–2026</option>
+                    <option value="2026-2027">2026–2027</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Marginación</label>
+                  <select id="subdir-pemc-marginacion" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="muy_alta">Muy alta</option>
+                    <option value="alta">Alta</option>
+                    <option value="media" selected>Media</option>
+                    <option value="baja">Baja</option>
+                  </select>
+                </div>
               </div>
             </div>
-            <!-- Mensajes -->
-            <div id="subdir-pemc-chat" style="padding:20px;max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
-              <div style="display:flex;gap:10px;align-items:flex-start;">
-                <div style="width:32px;height:32px;border-radius:50%;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
-                <div style="background:#f8fafc;border-radius:12px 12px 12px 3px;padding:14px 16px;max-width:85%;">
-                  <div style="font-size:13px;color:#334155;line-height:1.6;">
-                    Hola 👋 Soy tu asistente de <strong>Ruta de Mejora Continua</strong>.<br><br>
-                    Para diseñar el plan de actividades mes a mes, necesito que me cuentes:<br>
-                    <strong>1.</strong> ¿Cuál es la principal problemática de tu escuela? (asistencia, rendimiento, conducta, deserción…)<br>
-                    <strong>2.</strong> ¿Qué temas identificó la SEP en el documento de Ruta de Mejora?<br>
-                    <strong>3.</strong> ¿Cuántos alumnos y grupos tiene la escuela?<br><br>
-                    También puedes subir el <strong>PDF de la SEP</strong> arriba y lo analizaré directamente. ☝️
+
+            <!-- PASO 2: Problemáticas -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <div style="width:32px;height:32px;background:#1e3a5f;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;flex-shrink:0;">2</div>
+                <div>
+                  <div style="font-size:15px;font-weight:700;color:#0f172a;">Problemáticas detectadas</div>
+                  <div style="font-size:12px;color:#64748b;">Selecciona todas las que apliquen a tu escuela</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;" id="subdir-pemc-problemas-grid">
+                <!-- Académicas -->
+                <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.8px;grid-column:1/-1;margin-top:4px;padding-top:8px;border-top:1px solid #f1f5f9;">📚 Académicas</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bajo_lectura" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Bajo nivel de lectura y comprensión</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bajo_mate" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Bajo rendimiento en Matemáticas</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="rezago_general" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Rezago académico general</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="reprobacion" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Alto índice de reprobación</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bajo_escritura" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Dificultades de escritura</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bajo_ingles" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Bajo rendimiento en Inglés</span>
+                </label>
+                <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.8px;grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">📅 Asistencia y permanencia</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="ausentismo" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Ausentismo frecuente</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="faltas_viernes" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Más faltas los viernes</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="desercion" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Riesgo de deserción</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="tardanzas" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Tardanzas constantes</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="faltas_lunes" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Más faltas los lunes</span>
+                </label>
+                <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.8px;grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">👨‍👩‍👧 Convivencia y familia</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bullying" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Acoso escolar / bullying</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="padres_ausentes" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Poca participación de padres</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="conflictos" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Conflictos entre alumnos</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="violencia" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Situaciones de violencia</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="redes_sociales" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Uso inadecuado de redes sociales</span>
+                </label>
+                <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.8px;grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">🏫 Gestión y docentes</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="doc_planeacion" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Falta de planeación docente</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="dir_admin" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Rezago en trámites administrativos</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="infraestructura" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Problemas de infraestructura</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="falta_material" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Falta de materiales didácticos</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="rotacion_doc" class="subdir-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Rotación de docentes</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- PASO 3: Intensidad y documento -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <div style="width:32px;height:32px;background:#1e3a5f;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;flex-shrink:0;">3</div>
+                <div style="font-size:15px;font-weight:700;color:#0f172a;">Configurar el plan</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px;">Intensidad de las acciones</label>
+                  <div style="display:flex;gap:8px;">
+                    <label style="flex:1;cursor:pointer;">
+                      <input type="radio" name="subdir-intensidad" value="basica" style="display:none;" id="subdir-int-basica">
+                      <div class="subdir-int-btn" onclick="pemcV2SelIntensidad('subdir','basica')" style="padding:10px;border:2px solid #e2e8f0;border-radius:10px;text-align:center;transition:.2s;">
+                        <div style="font-size:18px;">🟢</div>
+                        <div style="font-size:12px;font-weight:700;margin-top:4px;">Básica</div>
+                        <div style="font-size:10px;color:#64748b;">2–3 acciones/mes</div>
+                      </div>
+                    </label>
+                    <label style="flex:1;cursor:pointer;">
+                      <input type="radio" name="subdir-intensidad" value="media" style="display:none;" id="subdir-int-media" checked>
+                      <div class="subdir-int-btn" onclick="pemcV2SelIntensidad('subdir','media')" style="padding:10px;border:2px solid #1e3a5f;border-radius:10px;text-align:center;background:#eff6ff;transition:.2s;">
+                        <div style="font-size:18px;">🟡</div>
+                        <div style="font-size:12px;font-weight:700;margin-top:4px;color:#1e3a5f;">Media</div>
+                        <div style="font-size:10px;color:#64748b;">4–5 acciones/mes</div>
+                      </div>
+                    </label>
+                    <label style="flex:1;cursor:pointer;">
+                      <input type="radio" name="subdir-intensidad" value="alta" style="display:none;" id="subdir-int-alta">
+                      <div class="subdir-int-btn" onclick="pemcV2SelIntensidad('subdir','alta')" style="padding:10px;border:2px solid #e2e8f0;border-radius:10px;text-align:center;transition:.2s;">
+                        <div style="font-size:18px;">🔴</div>
+                        <div style="font-size:12px;font-weight:700;margin-top:4px;">Alta</div>
+                        <div style="font-size:10px;color:#64748b;">6+ acciones/mes</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px;">Documento a generar</label>
+                  <div style="display:flex;flex-direction:column;gap:6px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">
+                      <input type="checkbox" id="subdir-gen-pemc" checked style="width:15px;height:15px;accent-color:#1e3a5f;"> PEMC completo
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">
+                      <input type="checkbox" id="subdir-gen-diagnostico" checked style="width:15px;height:15px;accent-color:#1e3a5f;"> Diagnóstico escolar
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">
+                      <input type="checkbox" id="subdir-gen-metas" style="width:15px;height:15px;accent-color:#1e3a5f;"> Metas e indicadores
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">
+                      <input type="checkbox" id="subdir-gen-acta" style="width:15px;height:15px;accent-color:#1e3a5f;"> Acta de CTE
+                    </label>
                   </div>
                 </div>
               </div>
             </div>
-            <!-- Input -->
-            <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-end;">
-              <div style="flex:1;">
-                <textarea id="subdir-pemc-input" rows="2" placeholder="Describe la problemática de tu escuela… (ej: muchas faltas los viernes, bajo rendimiento en matemáticas, conflictos en recreo…)" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;resize:none;outline:none;line-height:1.5;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();pemcEnviarMensaje('subdir');}"></textarea>
-                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Enter para enviar · Shift+Enter nueva línea</div>
+
+            <!-- BOTÓN GENERAR -->
+            <button onclick="pemcV2Generar('subdir')" id="subdir-btn-generar"
+              style="width:100%;padding:16px;background:linear-gradient(135deg,#1e3a5f,#2455a4);color:white;border:none;border-radius:14px;font-family:'Sora',sans-serif;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px #1e3a5f44;transition:.2s;display:flex;align-items:center;justify-content:center;gap:10px;">
+              ⚡ Generar plan PEMC completo
+            </button>
+
+            <!-- RESULTADO -->
+            <div id="subdir-pemc-resultado" style="display:none;margin-top:20px;"></div>
+          </div>
+
+          <!-- ══ TAB: DOCUMENTOS SEP ══ -->
+          <div id="subdir-panel-docs" style="display:none;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','pemc_completo','PEMC Completo')">
+              <div style="font-size:32px;margin-bottom:10px;">📋</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">PEMC Completo</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Plan Escolar de Mejora Continua completo con diagnóstico, metas y acciones</div>
+              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','diagnostico','Diagnóstico escolar')">
+              <div style="font-size:32px;margin-bottom:10px;">🔬</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Diagnóstico escolar</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Análisis de la situación actual con áreas de mejora identificadas</div>
+              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','metas','Metas e indicadores')">
+              <div style="font-size:32px;margin-bottom:10px;">🎯</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Metas e indicadores</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Objetivos medibles con sus indicadores de logro y fechas</div>
+              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','acta_cte','Acta de CTE')">
+              <div style="font-size:32px;margin-bottom:10px;">📝</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Acta de CTE</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Acta lista para el Consejo Técnico Escolar del mes</div>
+              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','informe','Informe de avance')">
+              <div style="font-size:32px;margin-bottom:10px;">📊</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Informe de avance</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Informe de seguimiento del PEMC para supervisión escolar</div>
+              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','programa_analitico','Programa analítico')">
+              <div style="font-size:32px;margin-bottom:10px;">📚</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Programa analítico</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Programa analítico por materia y grado basado en NEM</div>
+              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','informe_padres','Informe a padres')">
+              <div style="font-size:32px;margin-bottom:10px;">📤</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Informe a padres</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Comunicado a padres sobre el plan de mejora de la escuela</div>
+              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','calendario','Plan de actividades')">
+              <div style="font-size:32px;margin-bottom:10px;">🗓️</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Plan de actividades</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Calendario mensual de actividades para el ciclo escolar</div>
+              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+            </div>
+            <div id="subdir-doc-resultado" style="margin-top:20px;display:none;"></div>
+          </div>
+
+          <!-- ══ TAB: SEGUIMIENTO ══ -->
+          <div id="subdir-panel-seguimiento" style="display:none;">
+            <div id="subdir-seguimiento-content">
+              <div style="text-align:center;padding:50px;color:#94a3b8;">
+                <div style="font-size:48px;margin-bottom:12px;">📊</div>
+                <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;">Sin plan activo</div>
+                <div style="font-size:13px;">Genera primero el plan en la pestaña ⚡ Generador rápido</div>
               </div>
-              <button onclick="pemcEnviarMensaje('subdir')" id="subdir-pemc-send-btn" style="padding:11px 18px;background:#1e3a5f;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;transition:.2s;">
-                ➤ Enviar
-              </button>
             </div>
           </div>
 
-          <!-- Plan mensual generado -->
-          <div id="subdir-pemc-plan-container" style="display:none;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-              <div style="font-size:16px;font-weight:700;color:#0f172a;">📅 Plan de actividades mes a mes</div>
-              <div style="display:flex;gap:8px;">
-                <button onclick="pemcExportarPlan('subdir')" style="padding:8px 14px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⬇️ Exportar PDF</button>
-                <button onclick="pemcGuardarPlan('subdir')" style="padding:8px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">💾 Guardar plan</button>
+          <!-- ══ TAB: CHAT ASISTENTE SEP ══ -->
+          <div id="subdir-panel-chat" style="display:none;">
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
+              <div style="padding:16px 20px;background:linear-gradient(135deg,#1e3a5f,#2455a4);display:flex;align-items:center;gap:12px;">
+                <div style="font-size:28px;">🤖</div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:white;">Asistente SEP — PEMC</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,.75);">Dime qué necesitas y lo redacto con formato SEP</div>
+                </div>
+              </div>
+              <!-- Sugerencias rápidas -->
+              <div style="padding:14px 20px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="pemcV2ChatRapido('subdir','Genera un diagnóstico escolar con los datos del sistema')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📊 Diagnóstico</button>
+                <button onclick="pemcV2ChatRapido('subdir','Genera metas para mejorar comprensión lectora')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📖 Metas lectura</button>
+                <button onclick="pemcV2ChatRapido('subdir','Redacta el acta de CTE del mes actual')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📋 Acta CTE</button>
+                <button onclick="pemcV2ChatRapido('subdir','Genera acciones para reducir ausentismo')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📅 Ausentismo</button>
+                <button onclick="pemcV2ChatRapido('subdir','Elabora el informe de seguimiento del PEMC')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📝 Informe</button>
+                <button onclick="pemcV2ChatRapido('subdir','Propón actividades para integrar a los padres de familia')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">👨‍👩‍👧 Padres</button>
+              </div>
+              <div id="subdir-chat-sep" style="padding:20px;max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;gap:10px;">
+                  <div style="width:32px;height:32px;border-radius:50%;background:#1e3a5f;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+                  <div style="background:#f8fafc;border-radius:12px 12px 12px 3px;padding:12px 15px;max-width:85%;">
+                    <div style="font-size:13px;color:#334155;line-height:1.6;">Hola 👋 Soy tu asistente de documentos SEP.<br>Puedes pedirme:<br>
+                    <strong>• Diagnósticos</strong> con tus datos reales<br>
+                    <strong>• Metas y objetivos</strong> redactados en formato SEP<br>
+                    <strong>• Actas de CTE</strong> listas para imprimir<br>
+                    <strong>• Planes de mejora</strong> personalizados<br><br>
+                    Usa los botones de arriba o escríbeme directamente.</div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;gap:10px;">
+                <textarea id="subdir-chat-sep-input" rows="2" placeholder='Ejemplo: "Redacta el diagnóstico de mi escuela enfocado en bajo rendimiento en matemáticas"' style="flex:1;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;resize:none;outline:none;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();pemcV2ChatSend('subdir');}"></textarea>
+                <button onclick="pemcV2ChatSend('subdir')" style="padding:11px 16px;background:#1e3a5f;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">➤</button>
               </div>
             </div>
-            <div id="subdir-pemc-plan-meses" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;"></div>
           </div>
         </div>
 
@@ -22507,103 +22737,333 @@ document.addEventListener('DOMContentLoaded', () => {
         
         <!-- ══ PEMC / RUTA DE MEJORA CON IA ══ -->
         <div class="coord-page" id="coord-p-pemc" style="display:none;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+          <!-- ══ HEADER ══ -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
             <div>
-              <div style="font-size:22px;font-weight:700;font-family:'Fraunces',serif;">🎯 PEMC — Asistente de Ruta de Mejora</div>
-              <div style="font-size:13px;color:#64748b;margin-top:2px;">Sube el PDF de la SEP, describe la problemática de tu escuela y la IA genera un plan mes a mes</div>
+              <div style="font-size:22px;font-weight:800;font-family:'Fraunces',serif;color:#0d1a0f;">🎯 PEMC — Asistente de Ruta de Mejora</div>
+              <div style="font-size:13px;color:#64748b;margin-top:2px;">Selecciona, no escribas. La IA genera todo listo para entregar a SEP.</div>
             </div>
-            <div style="display:flex;gap:8px;">
-              <button onclick="pemcVerPlan('coord')" style="padding:9px 16px;background:#5b21b6;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📋 Ver plan actual</button>
-              <button onclick="pemcNuevoCiclo('coord')" style="padding:9px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🔄 Nuevo ciclo</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button onclick="pemcV2Tab('coord','wizard')" id="coord-tab-wizard" style="padding:8px 16px;background:#3b0764;color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⚡ Generador rápido</button>
+              <button onclick="pemcV2Tab('coord','docs')" id="coord-tab-docs" style="padding:8px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">📄 Documentos SEP</button>
+              <button onclick="pemcV2Tab('coord','seguimiento')" id="coord-tab-seguimiento" style="padding:8px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">📊 Seguimiento</button>
+              <button onclick="pemcV2Tab('coord','chat')" id="coord-tab-chat" style="padding:8px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">🤖 Asistente SEP</button>
             </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
-            <!-- Stats -->
-            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;">
-              <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">📊 Estado del plan actual</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                <div style="background:#f0fdf4;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:24px;font-weight:900;color:#0d5c2f;" id="coord-pemc-mes-actual">—</div>
-                  <div style="font-size:11px;color:#64748b;">Mes actual</div>
-                </div>
-                <div style="background:#eff6ff;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:24px;font-weight:900;color:#1e40af;" id="coord-pemc-actividades">0</div>
-                  <div style="font-size:11px;color:#64748b;">Actividades planeadas</div>
-                </div>
-                <div style="background:#fef9c3;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:24px;font-weight:900;color:#a16207;" id="coord-pemc-completadas">0</div>
-                  <div style="font-size:11px;color:#64748b;">Completadas</div>
-                </div>
-                <div style="background:#f5f3ff;border-radius:10px;padding:12px;text-align:center;">
-                  <div style="font-size:24px;font-weight:900;color:#5b21b6;" id="coord-pemc-avance">0%</div>
-                  <div style="font-size:11px;color:#64748b;">Avance ciclo</div>
-                </div>
+          <!-- ══ TAB: WIZARD GENERADOR RÁPIDO ══ -->
+          <div id="coord-panel-wizard">
+
+            <!-- PASO 1: Contexto de la escuela -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <div style="width:32px;height:32px;background:#3b0764;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;flex-shrink:0;">1</div>
+                <div style="font-size:15px;font-weight:700;color:#0f172a;">Datos de tu escuela</div>
               </div>
-            </div>
-            <!-- Upload PDF SEP -->
-            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:18px;">
-              <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:6px;">📄 Documento SEP de Ruta de Mejora</div>
-              <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Sube el PDF que envió la SEP al inicio del ciclo escolar. La IA lo leerá para contextualizar el plan.</div>
-              <label for="coord-pemc-pdf" style="display:flex;align-items:center;gap:10px;padding:14px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#5b21b6';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
-                <span style="font-size:28px;">📎</span>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                 <div>
-                  <div style="font-size:13px;font-weight:700;color:#334155;" id="coord-pemc-pdf-nombre">Seleccionar PDF de la SEP</div>
-                  <div style="font-size:11px;color:#94a3b8;">Máximo 10MB · Solo PDF</div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Nivel educativo</label>
+                  <select id="coord-pemc-nivel" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="primaria">Primaria</option>
+                    <option value="secundaria" selected>Secundaria</option>
+                    <option value="preescolar">Preescolar</option>
+                  </select>
                 </div>
-              </label>
-              <input type="file" id="coord-pemc-pdf" accept=".pdf" style="display:none;" onchange="pemcCargarPDF(this,'coord')">
-              <div id="coord-pemc-pdf-status" style="margin-top:8px;font-size:12px;color:#0d5c2f;display:none;"></div>
-            </div>
-          </div>
-
-          <!-- Chat con IA -->
-          <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:20px;">
-            <div style="padding:16px 20px;background:linear-gradient(135deg,#3b0764,#5b21b6);display:flex;align-items:center;gap:12px;">
-              <div style="width:38px;height:38px;background:rgba(255,255,255,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
-              <div>
-                <div style="font-size:14px;font-weight:700;color:white;">Asistente PEMC — IA de Ruta de Mejora</div>
-                <div style="font-size:11px;color:rgba(255,255,255,.75);">Cuéntame la problemática de tu escuela para diseñar el plan</div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Contexto</label>
+                  <select id="coord-pemc-contexto" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="urbano">Urbano</option>
+                    <option value="semiurbano">Semiurbano</option>
+                    <option value="rural">Rural</option>
+                    <option value="indigena">Indígena</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Turno</label>
+                  <select id="coord-pemc-turno" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="matutino">Matutino</option>
+                    <option value="vespertino">Vespertino</option>
+                    <option value="discontinuo">Discontinuo</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Matrícula aprox.</label>
+                  <select id="coord-pemc-matricula" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="menos100">Menos de 100</option>
+                    <option value="100a300" selected>100 a 300</option>
+                    <option value="300a600">300 a 600</option>
+                    <option value="mas600">Más de 600</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Ciclo escolar</label>
+                  <select id="coord-pemc-ciclo" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="2025-2026" selected>2025–2026</option>
+                    <option value="2026-2027">2026–2027</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;">Marginación</label>
+                  <select id="coord-pemc-marginacion" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+                    <option value="muy_alta">Muy alta</option>
+                    <option value="alta">Alta</option>
+                    <option value="media" selected>Media</option>
+                    <option value="baja">Baja</option>
+                  </select>
+                </div>
               </div>
             </div>
-            <!-- Mensajes -->
-            <div id="coord-pemc-chat" style="padding:20px;max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
-              <div style="display:flex;gap:10px;align-items:flex-start;">
-                <div style="width:32px;height:32px;border-radius:50%;background:#3b0764;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
-                <div style="background:#f8fafc;border-radius:12px 12px 12px 3px;padding:14px 16px;max-width:85%;">
-                  <div style="font-size:13px;color:#334155;line-height:1.6;">
-                    Hola 👋 Soy tu asistente de <strong>Ruta de Mejora Continua</strong>.<br><br>
-                    Para diseñar el plan de actividades mes a mes, necesito que me cuentes:<br>
-                    <strong>1.</strong> ¿Cuál es la principal problemática de tu escuela? (asistencia, rendimiento, conducta, deserción…)<br>
-                    <strong>2.</strong> ¿Qué temas identificó la SEP en el documento de Ruta de Mejora?<br>
-                    <strong>3.</strong> ¿Cuántos alumnos y grupos tiene la escuela?<br><br>
-                    También puedes subir el <strong>PDF de la SEP</strong> arriba y lo analizaré directamente. ☝️
+
+            <!-- PASO 2: Problemáticas -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <div style="width:32px;height:32px;background:#3b0764;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;flex-shrink:0;">2</div>
+                <div>
+                  <div style="font-size:15px;font-weight:700;color:#0f172a;">Problemáticas detectadas</div>
+                  <div style="font-size:12px;color:#64748b;">Selecciona todas las que apliquen a tu escuela</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;" id="coord-pemc-problemas-grid">
+                <!-- Académicas -->
+                <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.8px;grid-column:1/-1;margin-top:4px;padding-top:8px;border-top:1px solid #f1f5f9;">📚 Académicas</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bajo_lectura" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Bajo nivel de lectura y comprensión</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bajo_mate" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Bajo rendimiento en Matemáticas</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="rezago_general" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Rezago académico general</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="reprobacion" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Alto índice de reprobación</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bajo_escritura" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Dificultades de escritura</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bajo_ingles" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Bajo rendimiento en Inglés</span>
+                </label>
+                <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.8px;grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">📅 Asistencia y permanencia</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="ausentismo" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Ausentismo frecuente</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="faltas_viernes" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Más faltas los viernes</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="desercion" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Riesgo de deserción</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="tardanzas" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Tardanzas constantes</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="faltas_lunes" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Más faltas los lunes</span>
+                </label>
+                <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.8px;grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">👨‍👩‍👧 Convivencia y familia</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="bullying" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Acoso escolar / bullying</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="padres_ausentes" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Poca participación de padres</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="conflictos" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Conflictos entre alumnos</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="violencia" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Situaciones de violencia</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="redes_sociales" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Uso inadecuado de redes sociales</span>
+                </label>
+                <div style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.8px;grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid #f1f5f9;">🏫 Gestión y docentes</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="doc_planeacion" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Falta de planeación docente</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="dir_admin" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Rezago en trámites administrativos</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="infraestructura" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Problemas de infraestructura</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="falta_material" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Falta de materiales didácticos</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:9px;transition:.15s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+                  <input type="checkbox" value="rotacion_doc" class="coord-pemc-problema" style="width:15px;height:15px;"> <span style="font-size:12px;color:#334155;font-weight:600;">Rotación de docentes</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- PASO 3: Intensidad y documento -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <div style="width:32px;height:32px;background:#3b0764;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:800;font-size:14px;flex-shrink:0;">3</div>
+                <div style="font-size:15px;font-weight:700;color:#0f172a;">Configurar el plan</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px;">Intensidad de las acciones</label>
+                  <div style="display:flex;gap:8px;">
+                    <label style="flex:1;cursor:pointer;">
+                      <input type="radio" name="coord-intensidad" value="basica" style="display:none;" id="coord-int-basica">
+                      <div class="coord-int-btn" onclick="pemcV2SelIntensidad('coord','basica')" style="padding:10px;border:2px solid #e2e8f0;border-radius:10px;text-align:center;transition:.2s;">
+                        <div style="font-size:18px;">🟢</div>
+                        <div style="font-size:12px;font-weight:700;margin-top:4px;">Básica</div>
+                        <div style="font-size:10px;color:#64748b;">2–3 acciones/mes</div>
+                      </div>
+                    </label>
+                    <label style="flex:1;cursor:pointer;">
+                      <input type="radio" name="coord-intensidad" value="media" style="display:none;" id="coord-int-media" checked>
+                      <div class="coord-int-btn" onclick="pemcV2SelIntensidad('coord','media')" style="padding:10px;border:2px solid #3b0764;border-radius:10px;text-align:center;background:#f5f3ff;transition:.2s;">
+                        <div style="font-size:18px;">🟡</div>
+                        <div style="font-size:12px;font-weight:700;margin-top:4px;color:#3b0764;">Media</div>
+                        <div style="font-size:10px;color:#64748b;">4–5 acciones/mes</div>
+                      </div>
+                    </label>
+                    <label style="flex:1;cursor:pointer;">
+                      <input type="radio" name="coord-intensidad" value="alta" style="display:none;" id="coord-int-alta">
+                      <div class="coord-int-btn" onclick="pemcV2SelIntensidad('coord','alta')" style="padding:10px;border:2px solid #e2e8f0;border-radius:10px;text-align:center;transition:.2s;">
+                        <div style="font-size:18px;">🔴</div>
+                        <div style="font-size:12px;font-weight:700;margin-top:4px;">Alta</div>
+                        <div style="font-size:10px;color:#64748b;">6+ acciones/mes</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+                <div>
+                  <label style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px;">Documento a generar</label>
+                  <div style="display:flex;flex-direction:column;gap:6px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">
+                      <input type="checkbox" id="coord-gen-pemc" checked style="width:15px;height:15px;accent-color:#3b0764;"> PEMC completo
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">
+                      <input type="checkbox" id="coord-gen-diagnostico" checked style="width:15px;height:15px;accent-color:#3b0764;"> Diagnóstico escolar
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">
+                      <input type="checkbox" id="coord-gen-metas" style="width:15px;height:15px;accent-color:#3b0764;"> Metas e indicadores
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#334155;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;">
+                      <input type="checkbox" id="coord-gen-acta" style="width:15px;height:15px;accent-color:#3b0764;"> Acta de CTE
+                    </label>
                   </div>
                 </div>
               </div>
             </div>
-            <!-- Input -->
-            <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;gap:10px;align-items:flex-end;">
-              <div style="flex:1;">
-                <textarea id="coord-pemc-input" rows="2" placeholder="Describe la problemática de tu escuela… (ej: muchas faltas los viernes, bajo rendimiento en matemáticas, conflictos en recreo…)" style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;resize:none;outline:none;line-height:1.5;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();pemcEnviarMensaje('coord');}"></textarea>
-                <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Enter para enviar · Shift+Enter nueva línea</div>
+
+            <!-- BOTÓN GENERAR -->
+            <button onclick="pemcV2Generar('coord')" id="coord-btn-generar"
+              style="width:100%;padding:16px;background:linear-gradient(135deg,#3b0764,#5b21b6);color:white;border:none;border-radius:14px;font-family:'Sora',sans-serif;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px #3b076444;transition:.2s;display:flex;align-items:center;justify-content:center;gap:10px;">
+              ⚡ Generar plan PEMC completo
+            </button>
+
+            <!-- RESULTADO -->
+            <div id="coord-pemc-resultado" style="display:none;margin-top:20px;"></div>
+          </div>
+
+          <!-- ══ TAB: DOCUMENTOS SEP ══ -->
+          <div id="coord-panel-docs" style="display:none;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','pemc_completo','PEMC Completo')">
+              <div style="font-size:32px;margin-bottom:10px;">📋</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">PEMC Completo</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Plan Escolar de Mejora Continua completo con diagnóstico, metas y acciones</div>
+              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','diagnostico','Diagnóstico escolar')">
+              <div style="font-size:32px;margin-bottom:10px;">🔬</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Diagnóstico escolar</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Análisis de la situación actual con áreas de mejora identificadas</div>
+              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','metas','Metas e indicadores')">
+              <div style="font-size:32px;margin-bottom:10px;">🎯</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Metas e indicadores</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Objetivos medibles con sus indicadores de logro y fechas</div>
+              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','acta_cte','Acta de CTE')">
+              <div style="font-size:32px;margin-bottom:10px;">📝</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Acta de CTE</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Acta lista para el Consejo Técnico Escolar del mes</div>
+              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','informe','Informe de avance')">
+              <div style="font-size:32px;margin-bottom:10px;">📊</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Informe de avance</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Informe de seguimiento del PEMC para supervisión escolar</div>
+              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','programa_analitico','Programa analítico')">
+              <div style="font-size:32px;margin-bottom:10px;">📚</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Programa analítico</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Programa analítico por materia y grado basado en NEM</div>
+              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','informe_padres','Informe a padres')">
+              <div style="font-size:32px;margin-bottom:10px;">📤</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Informe a padres</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Comunicado a padres sobre el plan de mejora de la escuela</div>
+              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+              <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','calendario','Plan de actividades')">
+              <div style="font-size:32px;margin-bottom:10px;">🗓️</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Plan de actividades</div>
+              <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Calendario mensual de actividades para el ciclo escolar</div>
+              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+            </div>
+            </div>
+            <div id="coord-doc-resultado" style="margin-top:20px;display:none;"></div>
+          </div>
+
+          <!-- ══ TAB: SEGUIMIENTO ══ -->
+          <div id="coord-panel-seguimiento" style="display:none;">
+            <div id="coord-seguimiento-content">
+              <div style="text-align:center;padding:50px;color:#94a3b8;">
+                <div style="font-size:48px;margin-bottom:12px;">📊</div>
+                <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;">Sin plan activo</div>
+                <div style="font-size:13px;">Genera primero el plan en la pestaña ⚡ Generador rápido</div>
               </div>
-              <button onclick="pemcEnviarMensaje('coord')" id="coord-pemc-send-btn" style="padding:11px 18px;background:#3b0764;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;transition:.2s;">
-                ➤ Enviar
-              </button>
             </div>
           </div>
 
-          <!-- Plan mensual generado -->
-          <div id="coord-pemc-plan-container" style="display:none;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-              <div style="font-size:16px;font-weight:700;color:#0f172a;">📅 Plan de actividades mes a mes</div>
-              <div style="display:flex;gap:8px;">
-                <button onclick="pemcExportarPlan('coord')" style="padding:8px 14px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⬇️ Exportar PDF</button>
-                <button onclick="pemcGuardarPlan('coord')" style="padding:8px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">💾 Guardar plan</button>
+          <!-- ══ TAB: CHAT ASISTENTE SEP ══ -->
+          <div id="coord-panel-chat" style="display:none;">
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;overflow:hidden;">
+              <div style="padding:16px 20px;background:linear-gradient(135deg,#3b0764,#5b21b6);display:flex;align-items:center;gap:12px;">
+                <div style="font-size:28px;">🤖</div>
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:white;">Asistente SEP — PEMC</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,.75);">Dime qué necesitas y lo redacto con formato SEP</div>
+                </div>
+              </div>
+              <!-- Sugerencias rápidas -->
+              <div style="padding:14px 20px;border-bottom:1px solid #f1f5f9;display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="pemcV2ChatRapido('coord','Genera un diagnóstico escolar con los datos del sistema')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📊 Diagnóstico</button>
+                <button onclick="pemcV2ChatRapido('coord','Genera metas para mejorar comprensión lectora')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📖 Metas lectura</button>
+                <button onclick="pemcV2ChatRapido('coord','Redacta el acta de CTE del mes actual')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📋 Acta CTE</button>
+                <button onclick="pemcV2ChatRapido('coord','Genera acciones para reducir ausentismo')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📅 Ausentismo</button>
+                <button onclick="pemcV2ChatRapido('coord','Elabora el informe de seguimiento del PEMC')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📝 Informe</button>
+                <button onclick="pemcV2ChatRapido('coord','Propón actividades para integrar a los padres de familia')" style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:99px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">👨‍👩‍👧 Padres</button>
+              </div>
+              <div id="coord-chat-sep" style="padding:20px;max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;gap:10px;">
+                  <div style="width:32px;height:32px;border-radius:50%;background:#3b0764;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">🤖</div>
+                  <div style="background:#f8fafc;border-radius:12px 12px 12px 3px;padding:12px 15px;max-width:85%;">
+                    <div style="font-size:13px;color:#334155;line-height:1.6;">Hola 👋 Soy tu asistente de documentos SEP.<br>Puedes pedirme:<br>
+                    <strong>• Diagnósticos</strong> con tus datos reales<br>
+                    <strong>• Metas y objetivos</strong> redactados en formato SEP<br>
+                    <strong>• Actas de CTE</strong> listas para imprimir<br>
+                    <strong>• Planes de mejora</strong> personalizados<br><br>
+                    Usa los botones de arriba o escríbeme directamente.</div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding:14px 20px;border-top:1px solid #f1f5f9;display:flex;gap:10px;">
+                <textarea id="coord-chat-sep-input" rows="2" placeholder='Ejemplo: "Redacta el diagnóstico de mi escuela enfocado en bajo rendimiento en matemáticas"' style="flex:1;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;resize:none;outline:none;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();pemcV2ChatSend('coord');}"></textarea>
+                <button onclick="pemcV2ChatSend('coord')" style="padding:11px 16px;background:#3b0764;color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">➤</button>
               </div>
             </div>
-            <div id="coord-pemc-plan-meses" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;"></div>
           </div>
         </div>
 
@@ -29441,6 +29901,481 @@ function admDescargarPlantilla(tipo, formato) {
   }
 }
 window.admDescargarPlantilla = admDescargarPlantilla;
+// ══════════════════════════════════════════════════════════════════════
+// PEMC v2 — SISTEMA DE SELECCIÓN INTELIGENTE
+// 80% seleccionar · 20% ajustar · 0% escribir desde cero
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Tab switcher ─────────────────────────────────────────────────────
+function pemcV2Tab(portal, tab) {
+  ['wizard','docs','seguimiento','chat'].forEach(t => {
+    const panel = document.getElementById(`${portal}-panel-${t}`);
+    const btn   = document.getElementById(`${portal}-tab-${t}`);
+    if (!panel || !btn) return;
+    const isActive = t === tab;
+    panel.style.display = isActive ? '' : 'none';
+    const color = portal === 'subdir' ? '#1e3a5f' : '#3b0764';
+    btn.style.cssText = isActive
+      ? `padding:8px 16px;background:${color};color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;`
+      : `padding:8px 16px;background:white;border:1.5px solid #e2e8f0;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;`;
+  });
+  if (tab === 'seguimiento') pemcV2CargarSeguimiento(portal);
+}
+window.pemcV2Tab = pemcV2Tab;
+
+// ── Seleccionar intensidad ────────────────────────────────────────────
+function pemcV2SelIntensidad(portal, val) {
+  const color = portal === 'subdir' ? '#1e3a5f' : '#3b0764';
+  const bg    = portal === 'subdir' ? '#eff6ff' : '#f5f3ff';
+  ['basica','media','alta'].forEach(v => {
+    const btn = document.querySelector(`[onclick="pemcV2SelIntensidad('${portal}','${v}')"]`);
+    if (!btn) return;
+    if (v === val) {
+      btn.style.cssText = `padding:10px;border:2px solid ${color};border-radius:10px;text-align:center;background:${bg};transition:.2s;`;
+      btn.querySelector('div:last-child').style.color = color;
+    } else {
+      btn.style.cssText = `padding:10px;border:2px solid #e2e8f0;border-radius:10px;text-align:center;transition:.2s;`;
+      btn.querySelector('div:last-child').style.color = '#334155';
+    }
+  });
+  window[`_pemc_intensidad_${portal}`] = val;
+}
+window.pemcV2SelIntensidad = pemcV2SelIntensidad;
+
+// ── Recolectar selecciones del wizard ─────────────────────────────────
+function pemcV2Recolectar(portal) {
+  const g  = id => document.getElementById(id);
+  const nivel       = g(`${portal}-pemc-nivel`)?.value || 'secundaria';
+  const contexto    = g(`${portal}-pemc-contexto`)?.value || 'urbano';
+  const turno       = g(`${portal}-pemc-turno`)?.value || 'matutino';
+  const matricula   = g(`${portal}-pemc-matricula`)?.value || '100a300';
+  const ciclo       = g(`${portal}-pemc-ciclo`)?.value || '2025-2026';
+  const marginacion = g(`${portal}-pemc-marginacion`)?.value || 'media';
+  const intensidad  = window[`_pemc_intensidad_${portal}`] || 'media';
+  const escuelaNom  = window.currentPerfil?.escuela_nombre || window.ADM?.escuelaNombre || 'Escuela';
+  const escuelaCCT  = window.currentPerfil?.escuela_cct || window.ADM?.escuelaCct || '';
+
+  const problemas = [...document.querySelectorAll(`.${portal}-pemc-problema:checked`)]
+    .map(el => el.closest('label')?.querySelector('span')?.textContent || el.value);
+
+  const docs = {
+    pemc:         g(`${portal}-gen-pemc`)?.checked,
+    diagnostico:  g(`${portal}-gen-diagnostico`)?.checked,
+    metas:        g(`${portal}-gen-metas`)?.checked,
+    acta:         g(`${portal}-gen-acta`)?.checked,
+  };
+
+  return { nivel, contexto, turno, matricula, ciclo, marginacion,
+           intensidad, problemas, docs, escuelaNom, escuelaCCT };
+}
+
+// ── GENERAR PLAN COMPLETO ─────────────────────────────────────────────
+async function pemcV2Generar(portal) {
+  const datos = pemcV2Recolectar(portal);
+
+  if (!datos.problemas.length) {
+    hubToast('⚠️ Selecciona al menos una problemática', 'warn'); return;
+  }
+
+  const btn = document.getElementById(`${portal}-btn-generar`);
+  const resEl = document.getElementById(`${portal}-pemc-resultado`);
+  if (btn) { btn.innerHTML = '⏳ Generando con IA…'; btn.disabled = true; }
+  if (resEl) resEl.style.display = 'none';
+
+  const color = portal === 'subdir' ? '#1e3a5f' : '#3b0764';
+  const numAcciones = datos.intensidad === 'basica' ? '2 a 3' : datos.intensidad === 'media' ? '4 a 5' : '6 o más';
+
+  const prompt = `Eres un experto en gestión educativa de México. Genera un PLAN ESCOLAR DE MEJORA CONTINUA (PEMC) completo para la siguiente escuela:
+
+DATOS DE LA ESCUELA:
+- Nombre: ${datos.escuelaNom}
+- CCT: ${datos.escuelaCCT}
+- Nivel: ${datos.nivel}
+- Contexto: ${datos.contexto}
+- Turno: ${datos.turno}
+- Matrícula: ${datos.matricula}
+- Marginación: ${datos.marginacion}
+- Ciclo escolar: ${datos.ciclo}
+
+PROBLEMÁTICAS DETECTADAS:
+${datos.problemas.map((p,i) => `${i+1}. ${p}`).join('\n')}
+
+CONFIGURACIÓN:
+- Intensidad de acciones: ${datos.intensidad} (${numAcciones} acciones por mes)
+- Documentos a generar: ${Object.entries(datos.docs).filter(([,v])=>v).map(([k])=>k).join(', ')}
+
+GENERA:
+1. DIAGNÓSTICO: Análisis de la situación actual basado en las problemáticas (párrafo formal SEP)
+2. OBJETIVOS GENERALES: 2-3 objetivos claros y medibles
+3. PLAN MENSUAL: Para cada mes de Agosto a Junio, genera:
+   - Objetivo del mes
+   - ${numAcciones} actividades concretas y realizables
+   - Responsable sugerido
+   - Indicador de logro medible
+
+Responde en formato JSON exacto:
+[PLAN_JSON]{"diagnostico":"...","objetivos":["..."],"meses":[{"mes":"Agosto","objetivo":"...","actividades":["...","..."],"responsable":"...","indicador":"...","completada":false}]}[/PLAN_JSON]
+
+Redacta en lenguaje formal de la SEP México. Las actividades deben ser específicas, realizables y adaptadas al contexto ${datos.contexto}.`;
+
+  try {
+    let respuesta = '';
+    if (window.sb) {
+      const { data: { session } } = await sb.auth.getSession();
+      const jwt = session?.access_token;
+      const url = `${window.SUPABASE_URL}/functions/v1/ai-router`;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${jwt}` },
+        body: JSON.stringify({
+          feature: 'pemc_ruta_mejora', prompt,
+          system: 'Responde SOLO con el JSON solicitado dentro de las etiquetas [PLAN_JSON][/PLAN_JSON]. Nada más.',
+          escuela_id: datos.escuelaCCT, ciclo: datos.ciclo,
+        })
+      });
+      const data = await resp.json();
+      respuesta = data.text || data.content || '';
+    }
+
+    // Extraer JSON
+    const planMatch = respuesta.match(/\[PLAN_JSON\]([\s\S]*?)\[\/PLAN_JSON\]/);
+    if (!planMatch) throw new Error('La IA no devolvió el formato esperado. Intenta de nuevo.');
+
+    const plan = JSON.parse(planMatch[1]);
+    window[`_pemcPlan_${portal}`] = { ...plan, datos };
+
+    // Guardar en Supabase
+    const cct = datos.escuelaCCT;
+    if (window.sb && cct) {
+      await sb.from('pemc').upsert({
+        ciclo: datos.ciclo, escuela_cct: cct,
+        plan_json: JSON.stringify(plan),
+        generado_por: window.currentPerfil?.id,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'ciclo,escuela_cct' }).catch(()=>{});
+    }
+
+    // Renderizar resultado
+    pemcV2RenderResultado(portal, plan, datos);
+    if (btn) { btn.innerHTML = '✅ Plan generado — ⚡ Regenerar'; btn.disabled = false; }
+
+  } catch(e) {
+    if (btn) { btn.innerHTML = '⚡ Generar plan PEMC completo'; btn.disabled = false; }
+    if (resEl) {
+      resEl.style.display = '';
+      resEl.innerHTML = `<div style="background:#fef2f2;border-radius:12px;padding:20px;color:#dc2626;">
+        <strong>❌ Error:</strong> ${e.message}<br>
+        <div style="font-size:12px;margin-top:8px;color:#7f1d1d;">Verifica que la API key de Anthropic esté configurada en Supabase Edge Functions.</div>
+      </div>`;
+    }
+    hubToast('❌ '+e.message, 'err');
+  }
+}
+window.pemcV2Generar = pemcV2Generar;
+
+// ── Renderizar resultado del plan ─────────────────────────────────────
+function pemcV2RenderResultado(portal, plan, datos) {
+  const resEl = document.getElementById(`${portal}-pemc-resultado`);
+  if (!resEl) return;
+  resEl.style.display = '';
+
+  const color = portal === 'subdir' ? '#1e3a5f' : '#3b0764';
+  const meses = plan.meses || [];
+  const mesActual = new Date().toLocaleString('es-MX',{month:'long'}).replace(/^\w/,c=>c.toUpperCase());
+
+  resEl.innerHTML = `
+    <!-- Diagnóstico y objetivos -->
+    <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:16px;font-weight:700;color:#0f172a;">📋 Resultado del PEMC generado</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="pemcV2Copiar('${portal}')" style="padding:7px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#475569;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">📋 Copiar texto</button>
+          <button onclick="pemcV2ExportarWord('${portal}')" style="padding:7px 14px;background:#eff6ff;border:1.5px solid #bfdbfe;color:#1e40af;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">📄 Exportar Word</button>
+          <button onclick="pemcV2Tab('${portal}','seguimiento')" style="padding:7px 14px;background:${color};color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">📊 Ver seguimiento</button>
+        </div>
+      </div>
+      ${plan.diagnostico ? `
+        <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-bottom:14px;">
+          <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Diagnóstico escolar</div>
+          <div style="font-size:13px;color:#334155;line-height:1.7;">${plan.diagnostico}</div>
+        </div>` : ''}
+      ${plan.objetivos?.length ? `
+        <div style="font-size:12px;font-weight:700;color:${color};margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Objetivos generales</div>
+        ${plan.objetivos.map((o,i) => `<div style="display:flex;gap:10px;margin-bottom:6px;align-items:flex-start;">
+          <div style="width:22px;height:22px;background:${color};border-radius:50%;color:white;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</div>
+          <div style="font-size:13px;color:#334155;line-height:1.5;">${o}</div>
+        </div>`).join('')}` : ''}
+    </div>
+    <!-- Plan mensual -->
+    <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:12px;">📅 Plan mes a mes (${meses.length} meses)</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      ${meses.map((m,i) => {
+        const esActual = m.mes === mesActual;
+        const cols = ['#0d5c2f','#1e40af','#5b21b6','#c2410c','#047857','#a16207','#0369a1','#7c3aed','#b45309','#15803d'];
+        const col = cols[i%cols.length];
+        return `<div style="background:white;border-radius:12px;border:${esActual?`2px solid ${col}`:'1px solid #e2e8f0'};padding:14px;${esActual?`box-shadow:0 4px 16px ${col}22`:''}position:relative;">
+          ${esActual?`<div style="position:absolute;top:-10px;left:12px;background:${col};color:white;padding:2px 10px;border-radius:99px;font-size:10px;font-weight:700;">MES ACTUAL</div>`:''}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:14px;font-weight:800;color:${col};">${m.mes}</div>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10px;color:#64748b;">
+              <input type="checkbox" ${m.completada?'checked':''} onchange="pemcV2Toggle('${portal}',${i},this.checked)" style="width:13px;height:13px;accent-color:${col};"> Completado
+            </label>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:#0f172a;margin-bottom:6px;">${m.objetivo||''}</div>
+          <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px;">
+            ${(m.actividades||[]).map(a=>`<div style="font-size:11px;color:#475569;display:flex;gap:5px;"><span style="color:${col};font-weight:700;">▸</span><span>${a}</span></div>`).join('')}
+          </div>
+          ${m.indicador?`<div style="background:${col}12;border-radius:6px;padding:5px 8px;font-size:10px;color:${col};font-weight:700;">📊 ${m.indicador}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  resEl.scrollIntoView({ behavior:'smooth' });
+
+  // Actualizar seguimiento
+  pemcV2CargarSeguimiento(portal);
+  // Notificar al director
+  window.dispatchEvent(new CustomEvent('siembra:pemc_actualizado'));
+}
+window.pemcV2RenderResultado = pemcV2RenderResultado;
+
+// ── Toggle completado ─────────────────────────────────────────────────
+function pemcV2Toggle(portal, idx, val) {
+  const plan = window[`_pemcPlan_${portal}`];
+  if (!plan?.meses?.[idx]) return;
+  plan.meses[idx].completada = val;
+  pemcV2CargarSeguimiento(portal);
+  if (window.sb && plan.datos?.escuelaCCT) {
+    sb.from('pemc').update({ plan_json: JSON.stringify(plan) })
+      .eq('ciclo', plan.datos?.ciclo||'2025-2026')
+      .eq('escuela_cct', plan.datos.escuelaCCT).catch(()=>{});
+  }
+}
+window.pemcV2Toggle = pemcV2Toggle;
+
+// ── Seguimiento visual ────────────────────────────────────────────────
+function pemcV2CargarSeguimiento(portal) {
+  const el = document.getElementById(`${portal}-seguimiento-content`);
+  if (!el) return;
+  const plan = window[`_pemcPlan_${portal}`];
+  if (!plan?.meses?.length) {
+    el.innerHTML = `<div style="text-align:center;padding:50px;color:#94a3b8;"><div style="font-size:48px;margin-bottom:12px;">📊</div><div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px;">Sin plan activo</div><div style="font-size:13px;">Genera el plan en ⚡ Generador rápido</div></div>`;
+    return;
+  }
+  const color = portal === 'subdir' ? '#1e3a5f' : '#3b0764';
+  const meses = plan.meses;
+  const total = meses.reduce((s,m)=>s+(m.actividades?.length||0),0);
+  const comp  = meses.reduce((s,m)=>s+(m.completada?(m.actividades?.length||0):0),0);
+  const pct   = total>0?Math.round((comp/total)*100):0;
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+      <div style="background:#f0fdf4;border-radius:12px;padding:16px;text-align:center;">
+        <div style="font-size:32px;font-weight:900;color:#0d5c2f;">${pct}%</div>
+        <div style="font-size:12px;color:#64748b;">Avance general</div>
+      </div>
+      <div style="background:#eff6ff;border-radius:12px;padding:16px;text-align:center;">
+        <div style="font-size:32px;font-weight:900;color:#1e40af;">${comp}</div>
+        <div style="font-size:12px;color:#64748b;">Actividades completadas</div>
+      </div>
+      <div style="background:#fff7ed;border-radius:12px;padding:16px;text-align:center;">
+        <div style="font-size:32px;font-weight:900;color:#c2410c;">${total-comp}</div>
+        <div style="font-size:12px;color:#64748b;">Pendientes</div>
+      </div>
+      <div style="background:#f5f3ff;border-radius:12px;padding:16px;text-align:center;">
+        <div style="font-size:32px;font-weight:900;color:#5b21b6;">${meses.filter(m=>m.completada).length}/${meses.length}</div>
+        <div style="font-size:12px;color:#64748b;">Meses completados</div>
+      </div>
+    </div>
+    <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;">
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:12px;">Progreso mes a mes</div>
+      ${meses.map(m => {
+        const pctM = m.completada ? 100 : 0;
+        const col  = m.completada ? '#22c55e' : '#e2e8f0';
+        return `<div style="display:grid;grid-template-columns:80px 1fr 40px;align-items:center;gap:10px;margin-bottom:8px;">
+          <div style="font-size:12px;color:#334155;font-weight:600;">${m.mes}</div>
+          <div style="height:10px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+            <div style="height:100%;width:${pctM}%;background:${col};border-radius:99px;transition:.5s;"></div>
+          </div>
+          <div style="font-size:11px;font-weight:700;color:${m.completada?'#15803d':'#94a3b8'};text-align:right;">${m.completada?'✅':'⏳'}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+window.pemcV2CargarSeguimiento = pemcV2CargarSeguimiento;
+
+// ── Generar documento específico ──────────────────────────────────────
+async function pemcV2GenerarDoc(portal, tipo, titulo) {
+  const datos = pemcV2Recolectar(portal);
+  const plan  = window[`_pemcPlan_${portal}`];
+  const resEl = document.getElementById(`${portal}-doc-resultado`);
+  if (resEl) { resEl.style.display=''; resEl.innerHTML='<div style="text-align:center;padding:30px;color:#64748b;"><div style="font-size:32px;margin-bottom:8px;">⏳</div>Generando documento con IA…</div>'; }
+
+  const PROMPTS = {
+    pemc_completo:    `Redacta un PEMC completo en formato oficial SEP para ${datos.escuelaNom} (${datos.nivel}, ${datos.contexto}). Incluye: carátula, diagnóstico, prioridades de mejora, objetivos, metas, acciones por periodo y seguimiento.`,
+    diagnostico:      `Redacta un diagnóstico escolar formal para ${datos.escuelaNom}. Problemáticas: ${datos.problemas.join(', ')}. Formato SEP con introducción, análisis por dimensión y conclusiones.`,
+    metas:            `Genera una tabla de metas e indicadores en formato SEP para ${datos.escuelaNom}. Incluye: prioridad, meta, indicador, línea base estimada, meta esperada y responsable. Basado en: ${datos.problemas.join(', ')}.`,
+    acta_cte:         `Redacta el Acta del Consejo Técnico Escolar del mes ${new Date().toLocaleString('es-MX',{month:'long',year:'numeric'})} para ${datos.escuelaNom}. Incluye: asistentes tipo, orden del día relacionado con el PEMC, acuerdos y compromisos.`,
+    informe:          `Redacta un informe de seguimiento del PEMC para ${datos.escuelaNom}. ${plan?'Avance actual: '+Math.round((plan.meses?.filter(m=>m.completada).length||0)/(plan.meses?.length||1)*100)+'%':'Ciclo en inicio.'}. Formato formal para supervisión escolar.`,
+    programa_analitico:`Genera un programa analítico en formato NEM para ${datos.nivel} en ${datos.escuelaNom}. Incluye campos formativos del plan 2022, propósitos, contenidos prioritarios y forma de evaluación.`,
+    informe_padres:   `Redacta un comunicado formal para padres de familia de ${datos.escuelaNom} sobre el Plan de Mejora Continua del ciclo ${datos.ciclo}. Lenguaje accesible, menciona las áreas de trabajo y cómo pueden apoyar.`,
+    calendario:       `Genera un calendario de actividades para el ciclo ${datos.ciclo} de ${datos.escuelaNom}. Incluye: actividades del PEMC mes a mes, periodos de evaluación SEP, CTE, y actividades cívicas principales.`,
+  };
+
+  const prompt = PROMPTS[tipo] || `Genera el documento: ${titulo} para ${datos.escuelaNom}`;
+
+  try {
+    let texto = '';
+    if (window.sb) {
+      const { data:{session} } = await sb.auth.getSession();
+      const resp = await fetch(`${window.SUPABASE_URL}/functions/v1/ai-router`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token}`},
+        body: JSON.stringify({ feature:'pemc_ruta_mejora', prompt,
+          system: 'Eres un experto en documentación SEP México. Redacta documentos formales, bien estructurados, listos para entregar. Usa encabezados, secciones claras y lenguaje oficial.',
+          escuela_id: datos.escuelaCCT })
+      });
+      const data = await resp.json();
+      texto = data.text || data.content || '';
+    }
+
+    if (!texto) throw new Error('Sin respuesta de la IA');
+
+    // Formatear texto en HTML
+    const htmlTexto = texto
+      .replace(/^#{1,2}\s+(.+)$/gm, '<h3 style="font-size:15px;font-weight:800;color:#0f172a;margin:16px 0 8px;">$1</h3>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^- (.+)$/gm, '<li style="margin-bottom:4px;">$1</li>')
+      .replace(/\n\n/g, '</p><p style="margin-bottom:10px;">')
+      .replace(/\n/g, '<br>');
+
+    if (resEl) {
+      const color = portal==='subdir'?'#1e3a5f':'#3b0764';
+      resEl.innerHTML = `
+        <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:15px;font-weight:700;color:#0f172a;">📄 ${titulo}</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="navigator.clipboard.writeText(document.getElementById('${portal}-doc-texto').innerText);hubToast('✅ Copiado','ok')"
+                style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#475569;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">📋 Copiar</button>
+              <button onclick="pemcV2ImprimirDoc('${portal}-doc-texto','${titulo}')"
+                style="padding:6px 12px;background:${color};color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">🖨️ Imprimir / PDF</button>
+            </div>
+          </div>
+          <div id="${portal}-doc-texto" style="font-size:13px;color:#334155;line-height:1.8;max-height:500px;overflow-y:auto;padding:16px;background:#f8fafc;border-radius:10px;">
+            <p style="margin-bottom:10px;">${htmlTexto}</p>
+          </div>
+        </div>`;
+    }
+  } catch(e) {
+    if (resEl) resEl.innerHTML = `<div style="background:#fef2f2;border-radius:12px;padding:16px;color:#dc2626;">❌ ${e.message}</div>`;
+    hubToast('❌ '+e.message,'err');
+  }
+}
+window.pemcV2GenerarDoc = pemcV2GenerarDoc;
+
+// ── Imprimir documento ────────────────────────────────────────────────
+function pemcV2ImprimirDoc(elId, titulo) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const ventana = window.open('','_blank');
+  ventana.document.write(`<!DOCTYPE html><html><head><title>${titulo}</title>
+    <style>body{font-family:Arial,sans-serif;font-size:13px;line-height:1.7;padding:40px;max-width:800px;margin:0 auto;}
+    h3{font-size:15px;font-weight:bold;margin:16px 0 8px;}@media print{body{padding:20px;}}</style>
+    </head><body>${el.innerHTML}<br><br><div style="font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;">Generado por SIEMBRA · ${new Date().toLocaleDateString('es-MX')}</div></body></html>`);
+  ventana.document.close();
+  setTimeout(()=>ventana.print(),400);
+}
+window.pemcV2ImprimirDoc = pemcV2ImprimirDoc;
+
+// ── Copiar plan completo ──────────────────────────────────────────────
+function pemcV2Copiar(portal) {
+  const plan = window[`_pemcPlan_${portal}`];
+  if (!plan) { hubToast('Sin plan para copiar','warn'); return; }
+  let txt = `PLAN ESCOLAR DE MEJORA CONTINUA\n${plan.datos?.escuelaNom||'Escuela'}\nCiclo ${plan.datos?.ciclo||'2025-2026'}\n\n`;
+  if (plan.diagnostico) txt += `DIAGNÓSTICO:\n${plan.diagnostico}\n\n`;
+  if (plan.objetivos) txt += `OBJETIVOS:\n${plan.objetivos.map((o,i)=>`${i+1}. ${o}`).join('\n')}\n\n`;
+  txt += 'PLAN MENSUAL:\n';
+  (plan.meses||[]).forEach(m => {
+    txt += `\n${m.mes.toUpperCase()}\nObjetivo: ${m.objetivo}\nActividades:\n`;
+    (m.actividades||[]).forEach(a => txt += `  • ${a}\n`);
+    txt += `Indicador: ${m.indicador||''}\n`;
+  });
+  navigator.clipboard.writeText(txt);
+  hubToast('✅ Plan copiado al portapapeles','ok');
+}
+window.pemcV2Copiar = pemcV2Copiar;
+
+// ── Chat rápido con sugerencias ───────────────────────────────────────
+function pemcV2ChatRapido(portal, texto) {
+  const inp = document.getElementById(`${portal}-chat-sep-input`);
+  if (inp) inp.value = texto;
+  pemcV2ChatSend(portal);
+}
+window.pemcV2ChatRapido = pemcV2ChatRapido;
+
+async function pemcV2ChatSend(portal) {
+  const inp  = document.getElementById(`${portal}-chat-sep-input`);
+  const chat = document.getElementById(`${portal}-chat-sep`);
+  const text = inp?.value.trim();
+  if (!text || !chat) return;
+  inp.value = '';
+
+  const color = portal==='subdir'?'#1e3a5f':'#3b0764';
+  const hora  = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  const datos = pemcV2Recolectar(portal);
+
+  // Mensaje usuario
+  chat.insertAdjacentHTML('beforeend',`
+    <div style="display:flex;gap:8px;flex-direction:row-reverse;">
+      <div style="width:30px;height:30px;border-radius:50%;background:#0d5c2f;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">👤</div>
+      <div style="background:#0d5c2f;color:white;border-radius:12px 12px 3px 12px;padding:10px 13px;max-width:80%;font-size:13px;line-height:1.5;">${text}<div style="font-size:9px;opacity:.6;margin-top:3px;text-align:right;">${hora}</div></div>
+    </div>`);
+
+  // Typing
+  const tid = 'typing'+Date.now();
+  chat.insertAdjacentHTML('beforeend',`
+    <div id="${tid}" style="display:flex;gap:8px;">
+      <div style="width:30px;height:30px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">🤖</div>
+      <div style="background:#f8fafc;border-radius:12px;padding:10px 13px;"><div style="display:flex;gap:4px;align-items:center;"><div style="width:6px;height:6px;background:#94a3b8;border-radius:50%;animation:bounce 1s infinite;"></div><div style="width:6px;height:6px;background:#94a3b8;border-radius:50%;animation:bounce 1s .2s infinite;"></div><div style="width:6px;height:6px;background:#94a3b8;border-radius:50%;animation:bounce 1s .4s infinite;"></div></div></div>
+    </div>`);
+  chat.scrollTop = chat.scrollHeight;
+
+  try {
+    const system = `Eres un experto en gestión educativa SEP México. Redactas documentos formales listos para entregar. Escuela: ${datos.escuelaNom} (${datos.nivel}, ${datos.contexto}). Ciclo: ${datos.ciclo}. Cuando generes documentos usa formato claro con encabezados y secciones.`;
+    let respuesta = '';
+    if (window.sb) {
+      const {data:{session}} = await sb.auth.getSession();
+      const resp = await fetch(`${window.SUPABASE_URL}/functions/v1/ai-router`,{
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token}`},
+        body: JSON.stringify({ feature:'pemc_ruta_mejora', prompt:text, system, escuela_id:datos.escuelaCCT })
+      });
+      const data = await resp.json();
+      respuesta = data.text||data.content||'Sin respuesta';
+    } else {
+      respuesta = '⚠️ Conecta Supabase para activar la IA';
+    }
+
+    document.getElementById(tid)?.remove();
+    const html = respuesta.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    chat.insertAdjacentHTML('beforeend',`
+      <div style="display:flex;gap:8px;">
+        <div style="width:30px;height:30px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">🤖</div>
+        <div style="background:#f8fafc;border-radius:12px 12px 12px 3px;padding:12px 14px;max-width:85%;font-size:13px;color:#334155;line-height:1.65;">${html}
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <button onclick="navigator.clipboard.writeText(this.closest('[style]').querySelector('div').innerText);hubToast('Copiado','ok')"
+              style="padding:4px 10px;background:white;border:1.5px solid #e2e8f0;border-radius:6px;font-size:10px;font-family:'Sora',sans-serif;font-weight:700;color:#64748b;cursor:pointer;">📋 Copiar</button>
+          </div>
+        </div>
+      </div>`);
+    chat.scrollTop = chat.scrollHeight;
+  } catch(e) {
+    document.getElementById(tid)?.remove();
+    chat.insertAdjacentHTML('beforeend',`<div style="color:#dc2626;font-size:12px;padding:8px;">❌ ${e.message}</div>`);
+  }
+}
+window.pemcV2ChatSend = pemcV2ChatSend;
+
 // ══════════════════════════════════════════════════════════════════════
 // PEMC — ASISTENTE IA DE RUTA DE MEJORA
 // Disponible para Subdirector y Coordinador
