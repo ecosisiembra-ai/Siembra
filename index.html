@@ -22333,6 +22333,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="font-size:13px;">Genera primero el plan en la pestaña ⚡ Generador rápido</div>
               </div>
             </div>
+            <div id="subdir-seg-ia" style="margin-top:12px;"></div>
+            <button onclick="pemcV2AnalizarSeguimiento('subdir')" style="margin-top:14px;padding:10px 20px;background:#1e3a5f;color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🤖 Analizar avance con IA</button>
           </div>
 
           <!-- ══ TAB: CHAT ASISTENTE SEP ══ -->
@@ -23025,6 +23027,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="font-size:13px;">Genera primero el plan en la pestaña ⚡ Generador rápido</div>
               </div>
             </div>
+            <div id="coord-seg-ia" style="margin-top:12px;"></div>
+            <button onclick="pemcV2AnalizarSeguimiento('coord')" style="margin-top:14px;padding:10px 20px;background:#3b0764;color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🤖 Analizar avance con IA</button>
           </div>
 
           <!-- ══ TAB: CHAT ASISTENTE SEP ══ -->
@@ -30204,6 +30208,98 @@ function pemcV2CargarSeguimiento(portal) {
 }
 window.pemcV2CargarSeguimiento = pemcV2CargarSeguimiento;
 
+// ── Análisis IA del seguimiento ───────────────────────────────────────
+async function pemcV2AnalizarSeguimiento(portal) {
+  const plan = window[`_pemcPlan_${portal}`];
+  if (!plan?.meses?.length) { hubToast('Genera el plan primero','warn'); return; }
+  const el = document.getElementById(`${portal}-seg-ia`);
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;">🤖 Analizando avance…</div>';
+  const comp  = plan.meses.filter(m=>m.completada).length;
+  const total = plan.meses.length;
+  const pend  = plan.meses.filter(m=>!m.completada).map(m=>m.mes).join(', ');
+  const datos = pemcV2Recolectar(portal);
+  const prompt = `Analiza el avance del PEMC de la escuela ${datos.escuelaNom}: ${comp} de ${total} meses completados. Meses pendientes: ${pend||'ninguno'}. Problemas trabajados: ${datos.problemas?.join(', ')||'no especificados'}. Genera: 1) Evaluación del avance (2 oraciones), 2) 3 recomendaciones concretas para acelerar el cumplimiento, 3) Si hay riesgo de no cumplir el ciclo (sí/no y por qué). Lenguaje formal SEP, máximo 200 palabras.`;
+  try {
+    const texto = await callAI({ feature:'pemc_ruta_mejora', prompt, escuela_id: datos.escuelaCCT });
+    const html = texto.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    el.innerHTML = `<div style="background:#f0fdf4;border-radius:12px;padding:16px;font-size:13px;color:#0d5c2f;line-height:1.7;border:1px solid #bbf7d0;">${html}</div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:#dc2626;font-size:12px;">❌ ${e.message}</div>`;
+  }
+}
+window.pemcV2AnalizarSeguimiento = pemcV2AnalizarSeguimiento;
+
+// ── Exportar Word (.doc HTML trick) ──────────────────────────────────
+function pemcV2ExportarWord(elIdOrPortal, titulo, escuela) {
+  let contenido = '';
+  let tituloDoc = titulo || 'PEMC';
+  let escuelaDoc = escuela || '';
+
+  // Si se pasa un portal (wizard result), construir desde el plan
+  if (!titulo && window[`_pemcPlan_${elIdOrPortal}`]) {
+    const portal = elIdOrPortal;
+    const plan   = window[`_pemcPlan_${portal}`];
+    const datos  = pemcV2Recolectar(portal);
+    tituloDoc  = 'Plan Escolar de Mejora Continua';
+    escuelaDoc = datos.escuelaNom || '';
+    let txt = '';
+    if (plan.diagnostico) txt += `<h3>Diagnóstico escolar</h3><p>${plan.diagnostico.replace(/\n/g,'<br>')}</p>`;
+    if (plan.objetivos?.length) txt += `<h3>Objetivos generales</h3><ul>${plan.objetivos.map(o=>`<li>${o}</li>`).join('')}</ul>`;
+    if (plan.meses?.length) {
+      txt += '<h3>Plan mensual</h3>';
+      plan.meses.forEach(m => {
+        txt += `<h4 style="color:#0d5c2f;margin-top:12pt;">${m.mes}</h4>`;
+        txt += `<p><strong>Objetivo:</strong> ${m.objetivo}</p>`;
+        if (m.actividades?.length) txt += `<ul>${m.actividades.map(a=>`<li>${a}</li>`).join('')}</ul>`;
+        if (m.indicador) txt += `<p><strong>Indicador:</strong> ${m.indicador}</p>`;
+        if (m.responsable) txt += `<p><strong>Responsable:</strong> ${m.responsable}</p>`;
+      });
+    }
+    contenido = txt;
+  } else {
+    // Se pasa un elId directo (documentos SEP)
+    const el = document.getElementById(elIdOrPortal);
+    if (!el) { hubToast('Sin contenido para exportar','warn'); return; }
+    contenido = el.innerHTML;
+  }
+
+  const fecha = new Date().toLocaleDateString('es-MX');
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+       xmlns:w="urn:schemas-microsoft-com:office:word"
+       xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="utf-8"><title>${tituloDoc}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12pt;line-height:1.7;margin:2cm;}
+    h3{font-size:13pt;font-weight:bold;color:#0d5c2f;margin:14pt 0 6pt;}
+    h4{font-size:12pt;font-weight:bold;color:#1e3a5f;margin:10pt 0 4pt;}
+    p{margin-bottom:8pt;}
+    ul{margin:6pt 0 10pt 20pt;}
+    li{margin-bottom:4pt;}
+    .header{text-align:center;border-bottom:2pt solid #0d5c2f;padding-bottom:12pt;margin-bottom:20pt;}
+    .footer{font-size:9pt;color:#666;border-top:1pt solid #ccc;padding-top:8pt;margin-top:20pt;}
+  </style>
+  </head><body>
+  <div class="header">
+    <div style="font-size:16pt;font-weight:bold;color:#0d5c2f;">SIEMBRA</div>
+    <div style="font-size:14pt;font-weight:bold;margin-top:6pt;">${tituloDoc}</div>
+    <div style="font-size:11pt;color:#475569;margin-top:4pt;">${escuelaDoc}</div>
+  </div>
+  ${contenido}
+  <div class="footer">Generado por SIEMBRA · ${fecha}</div>
+  </body></html>`;
+
+  const blob = new Blob([html], { type: 'application/msword' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${tituloDoc.replace(/\s+/g,'-')}-SIEMBRA.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
+  hubToast('✅ Descargando Word…','ok');
+}
+window.pemcV2ExportarWord = pemcV2ExportarWord;
+
 // ── Generar documento específico ──────────────────────────────────────
 async function pemcV2GenerarDoc(portal, tipo, titulo) {
   const datos = pemcV2Recolectar(portal);
@@ -30226,18 +30322,13 @@ async function pemcV2GenerarDoc(portal, tipo, titulo) {
 
   try {
     let texto = '';
-    if (window.sb) {
-      const { data:{session} } = await sb.auth.getSession();
-      const resp = await fetch(`${window.SUPABASE_URL}/functions/v1/ai-router`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token}`},
-        body: JSON.stringify({ feature:'pemc_ruta_mejora', prompt,
-          system: 'Eres un experto en documentación SEP México. Redacta documentos formales, bien estructurados, listos para entregar. Usa encabezados, secciones claras y lenguaje oficial.',
-          escuela_id: datos.escuelaCCT })
-      });
-      const data = await resp.json();
-      texto = data.text || data.content || '';
-    }
+    texto = await callAI({
+      feature: 'pemc_doc_sep',
+      prompt,
+      escuela_id: datos.escuelaCCT,
+      nivel: datos.nivel,
+      ciclo: datos.ciclo,
+    });
 
     if (!texto) throw new Error('Sin respuesta de la IA');
 
@@ -30258,6 +30349,8 @@ async function pemcV2GenerarDoc(portal, tipo, titulo) {
             <div style="display:flex;gap:8px;">
               <button onclick="navigator.clipboard.writeText(document.getElementById('${portal}-doc-texto').innerText);hubToast('✅ Copiado','ok')"
                 style="padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#475569;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">📋 Copiar</button>
+              <button onclick="pemcV2ExportarWord('${portal}-doc-texto','${titulo}','${datos.escuelaNom}')"
+                style="padding:6px 12px;background:#166534;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">📝 Word</button>
               <button onclick="pemcV2ImprimirDoc('${portal}-doc-texto','${titulo}')"
                 style="padding:6px 12px;background:${color};color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">🖨️ Imprimir / PDF</button>
             </div>
@@ -30343,18 +30436,14 @@ async function pemcV2ChatSend(portal) {
 
   try {
     const system = `Eres un experto en gestión educativa SEP México. Redactas documentos formales listos para entregar. Escuela: ${datos.escuelaNom} (${datos.nivel}, ${datos.contexto}). Ciclo: ${datos.ciclo}. Cuando generes documentos usa formato claro con encabezados y secciones.`;
-    let respuesta = '';
-    if (window.sb) {
-      const {data:{session}} = await sb.auth.getSession();
-      const resp = await fetch(`${window.SUPABASE_URL}/functions/v1/ai-router`,{
-        method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token}`},
-        body: JSON.stringify({ feature:'pemc_ruta_mejora', prompt:text, system, escuela_id:datos.escuelaCCT })
-      });
-      const data = await resp.json();
-      respuesta = data.text||data.content||'Sin respuesta';
-    } else {
-      respuesta = '⚠️ Conecta Supabase para activar la IA';
-    }
+    const respuesta = await callAI({
+      feature: 'pemc_chat',
+      prompt: text,
+      system,
+      escuela_id: datos.escuelaCCT,
+      nivel: datos.nivel,
+      ciclo: datos.ciclo,
+    });
 
     document.getElementById(tid)?.remove();
     const html = respuesta.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
