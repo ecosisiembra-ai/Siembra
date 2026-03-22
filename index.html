@@ -247,11 +247,26 @@ window.addEventListener('DOMContentLoaded', async () => {
       const { data: { session } } = await sb.auth.getSession();
       if (session) {
         currentUser = session.user;
-        const { data: perfil } = await sb.from('usuarios')
+        let perfil = null;
+
+        // Buscar por auth_id primero
+        const { data: p1 } = await sb.from('usuarios')
           .select('*').eq('auth_id', currentUser.id).maybeSingle();
+        perfil = p1;
+
+        // Fallback: buscar por email y vincular auth_id automáticamente
+        if (!perfil && currentUser.email) {
+          const { data: p2 } = await sb.from('usuarios')
+            .select('*').eq('email', currentUser.email.toLowerCase()).maybeSingle();
+          if (p2) {
+            try { await sb.from('usuarios').update({ auth_id: currentUser.id, activo: true }).eq('id', p2.id); } catch(e) {}
+            perfil = { ...p2, auth_id: currentUser.id };
+            console.log('[SIEMBRA] auth_id vinculado automáticamente:', currentUser.email);
+          }
+        }
+
         if (perfil) {
           currentPerfil = perfil;
-          // Actualizar timestamp de actividad
           try { sessionStorage.setItem('siembra_last_activity', Date.now().toString()); } catch(e) {}
           await mostrarPortalSegunRol();
           return;
@@ -6829,19 +6844,75 @@ async function dirCargarInvitaciones() {
         </div>
       </div>
       <div class="adm-page" id="adm-p-importar" style="display:none;">
-        <div style="margin-bottom:22px;"><h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d1a0f;font-weight:700;">Importar alumnos por CSV</h2><div style="font-size:13px;color:#64748b;margin-top:2px;">Sube la lista completa desde Excel o Google Sheets</div></div>
-        <div style="background:white;border-radius:14px;padding:24px;border:1px solid #e2e8f0;max-width:600px;">
-          <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:14px;margin-bottom:20px;">
-            <div style="font-size:12px;font-weight:700;color:#166534;margin-bottom:6px;">Formato del CSV</div>
-            <div style="font-family:monospace;font-size:11px;color:#166534;">nombre, apellido, curp, grupo, fecha_nacimiento</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d1a0f;font-weight:700;">⬆️ Importación masiva</h2>
+            <div style="font-size:13px;color:#64748b;margin-top:2px;">Sube alumnos o personal desde Excel (.xlsx) o CSV — el sistema detecta las columnas automáticamente</div>
           </div>
-          <button onclick="if(typeof admDescargarPlantillaCSV==='function')admDescargarPlantillaCSV();" style="display:block;width:100%;padding:10px;background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:10px;font-family:inherit;font-size:13px;color:#64748b;cursor:pointer;margin-bottom:16px;font-weight:600;">⬇️ Descargar plantilla CSV</button>
-          <div style="margin-bottom:14px;">
-            <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Seleccionar archivo</label>
-            <input type="file" id="adm-csv-input" accept=".csv" onchange="ADM.importarCSV()" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:inherit;font-size:13px;">
+        </div>
+
+        <!-- Tabs: Alumnos / Docentes -->
+        <div style="display:flex;gap:0;border-bottom:2px solid #e2e8f0;margin-bottom:20px;">
+          <button id="imp-tab-alumnos" onclick="admImportTab('alumnos')" style="padding:10px 22px;border:none;background:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;color:#0d5c2f;border-bottom:2px solid #0d5c2f;margin-bottom:-2px;cursor:pointer;">👨‍🎓 Alumnos</button>
+          <button id="imp-tab-docentes" onclick="admImportTab('docentes')" style="padding:10px 22px;border:none;background:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">👨‍🏫 Personal docente</button>
+        </div>
+
+        <!-- Panel: Alumnos -->
+        <div id="imp-panel-alumnos">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <!-- Descarga plantilla -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;">1. Descarga la plantilla</div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Llena la plantilla con los datos de tus alumnos. También puedes subir tu propio formato — el sistema lo detecta.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="admDescargarPlantilla('alumnos','xlsx')" style="padding:9px 14px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⬇️ Plantilla Excel</button>
+                <button onclick="admDescargarPlantilla('alumnos','csv')" style="padding:9px 14px;background:#f8fafc;border:1.5px solid #cbd5e1;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⬇️ Plantilla CSV</button>
+              </div>
+            </div>
+            <!-- Subir archivo -->
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;">2. Sube tu archivo</div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Acepta .xlsx, .xls y .csv. El sistema detecta automáticamente las columnas.</div>
+              <label for="imp-file-alumnos" style="display:block;padding:14px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;text-align:center;cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;color:#64748b;font-weight:600;transition:.2s;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                📁 Clic para seleccionar o arrastra aquí<br><span style="font-size:11px;font-weight:400;">.xlsx · .xls · .csv</span>
+              </label>
+              <input type="file" id="imp-file-alumnos" accept=".xlsx,.xls,.csv" style="display:none;" onchange="admLeerArchivo(this,'alumnos')">
+            </div>
           </div>
-          <div id="adm-csv-preview" style="margin-bottom:14px;overflow-x:auto;"></div>
-          <button id="adm-btn-importar-csv" onclick="ADM.confirmarImportarCSV()" style="display:none;width:100%;padding:12px;background:#0d5c2f;color:white;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">✅ Importar alumnos</button>
+          <!-- Preview y estado -->
+          <div id="imp-preview-alumnos"></div>
+          <!-- Botón importar -->
+          <div id="imp-btn-alumnos" style="display:none;margin-top:16px;">
+            <button onclick="admConfirmarImport('alumnos')" style="padding:13px 28px;background:linear-gradient(135deg,#0d5c2f,#157a40);color:white;border:none;border-radius:11px;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(13,92,47,.3);">✅ Importar alumnos a SIEMBRA</button>
+            <button onclick="admLimpiarImport('alumnos')" style="margin-left:10px;padding:13px 20px;background:white;border:1.5px solid #e2e8f0;color:#64748b;border-radius:11px;font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">✕ Cancelar</button>
+          </div>
+        </div>
+
+        <!-- Panel: Docentes -->
+        <div id="imp-panel-docentes" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;">1. Descarga la plantilla</div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Incluye todos los campos necesarios para dar de alta al personal.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="admDescargarPlantilla('docentes','xlsx')" style="padding:9px 14px;background:#eff6ff;border:1.5px solid #bfdbfe;color:#1e40af;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⬇️ Plantilla Excel</button>
+                <button onclick="admDescargarPlantilla('docentes','csv')" style="padding:9px 14px;background:#f8fafc;border:1.5px solid #cbd5e1;color:#475569;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">⬇️ Plantilla CSV</button>
+              </div>
+            </div>
+            <div style="background:white;border-radius:14px;border:1px solid #e2e8f0;padding:20px;">
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px;">2. Sube tu archivo</div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Se enviará invitación por correo a cada docente automáticamente si tiene email.</div>
+              <label for="imp-file-docentes" style="display:block;padding:14px;background:#f8fafc;border:2px dashed #cbd5e1;border-radius:10px;text-align:center;cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;color:#64748b;font-weight:600;transition:.2s;" onmouseover="this.style.borderColor='#1e40af';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#cbd5e1';this.style.background='#f8fafc'">
+                📁 Clic para seleccionar o arrastra aquí<br><span style="font-size:11px;font-weight:400;">.xlsx · .xls · .csv</span>
+              </label>
+              <input type="file" id="imp-file-docentes" accept=".xlsx,.xls,.csv" style="display:none;" onchange="admLeerArchivo(this,'docentes')">
+            </div>
+          </div>
+          <div id="imp-preview-docentes"></div>
+          <div id="imp-btn-docentes" style="display:none;margin-top:16px;">
+            <button onclick="admConfirmarImport('docentes')" style="padding:13px 28px;background:linear-gradient(135deg,#1e3a5f,#2455a4);color:white;border:none;border-radius:11px;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(30,58,95,.3);">✅ Importar personal a SIEMBRA</button>
+            <button onclick="admLimpiarImport('docentes')" style="margin-left:10px;padding:13px 20px;background:white;border:1.5px solid #e2e8f0;color:#64748b;border-radius:11px;font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">✕ Cancelar</button>
+          </div>
         </div>
       </div>
       <div class="adm-page" id="adm-p-vinculos" style="display:none;">
@@ -16528,7 +16599,26 @@ async function hubDoLoginReal() {
     if (error) throw error;
     currentUser   = data.user;
     currentPerfil = null;
-    const { data: perfil } = await sb.from('usuarios').select('*').eq('auth_id', currentUser.id).maybeSingle();
+    let perfil = null;
+
+    // Buscar perfil por auth_id (caso normal)
+    const { data: perfilByAuth } = await sb.from('usuarios').select('*').eq('auth_id', currentUser.id).maybeSingle();
+    perfil = perfilByAuth;
+
+    // Si no hay perfil por auth_id, buscar por email y vincular automáticamente
+    if (!perfil) {
+      const { data: perfilByEmail } = await sb.from('usuarios').select('*').eq('email', email.toLowerCase().trim()).maybeSingle();
+      if (perfilByEmail) {
+        // Vincular auth_id con el perfil existente
+        await sb.from('usuarios').update({
+          auth_id: currentUser.id,
+          activo: true,
+        }).eq('id', perfilByEmail.id);
+        perfil = { ...perfilByEmail, auth_id: currentUser.id };
+        console.log('[SIEMBRA] auth_id vinculado automáticamente para:', email);
+      }
+    }
+
     if (!perfil) throw new Error('Tu cuenta existe pero aún no tiene perfil en SIEMBRA. Contacta al director.');
     currentPerfil = perfil;
 
@@ -28374,7 +28464,440 @@ function siembraPropagar() {
   window.dispatchEvent(new CustomEvent('siembra:datos-propagados', { detail: datos }));
   console.log('[SIEMBRA] Datos propagados —', datos.alumnos.length, 'alumnos,', datos.grupos.length, 'grupos,', datos.materias.length, 'materias');
 }
-window.siembraCargarMateriasEscuela   = siembraCargarMateriasEscuela;
+// ══════════════════════════════════════════════════════════════════════
+// IMPORTACIÓN MASIVA — Alumnos y Docentes (CSV + XLSX)
+// ══════════════════════════════════════════════════════════════════════
+
+window._impDatos = { alumnos: [], docentes: [] };
+
+// Cargar SheetJS dinámicamente si no está
+function _cargarSheetJS() {
+  return new Promise((res) => {
+    if (window.XLSX) { res(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = res;
+    document.head.appendChild(s);
+  });
+}
+
+// Cambiar tab de importación
+function admImportTab(tab) {
+  ['alumnos','docentes'].forEach(t => {
+    document.getElementById('imp-panel-' + t).style.display = t === tab ? '' : 'none';
+    const btn = document.getElementById('imp-tab-' + t);
+    if (t === tab) {
+      btn.style.cssText = 'padding:10px 22px;border:none;background:none;font-family:\'Sora\',sans-serif;font-size:13px;font-weight:700;color:#0d5c2f;border-bottom:2px solid #0d5c2f;margin-bottom:-2px;cursor:pointer;';
+    } else {
+      btn.style.cssText = 'padding:10px 22px;border:none;background:none;font-family:\'Sora\',sans-serif;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;';
+    }
+  });
+}
+window.admImportTab = admImportTab;
+
+// Mapeo inteligente de columnas — detecta variantes de nombres
+const _COL_MAP_ALUMNOS = {
+  nombre:         ['nombre','nombres','name','first name','primer nombre','alumno'],
+  apellido_p:     ['apellido_p','apellido paterno','apellido1','ap','primer apellido','last name','apellido'],
+  apellido_m:     ['apellido_m','apellido materno','apellido2','am','segundo apellido'],
+  curp:           ['curp','clave unica','clave única'],
+  fecha_nac:      ['fecha_nac','fecha nacimiento','fecha_nacimiento','nacimiento','birth','dob','fecha nac'],
+  num_lista:      ['num_lista','numero lista','número lista','no lista','num lista','#','lista'],
+  grupo:          ['grupo','group','salon','salón','grado','clase'],
+  tutor_nombre:   ['tutor_nombre','tutor','padre','madre','familia','nombre tutor','nombre padre'],
+  telefono_tutor: ['telefono_tutor','telefono tutor','tel tutor','tel padre','telefono padre','tel','telefono','phone'],
+  email_alumno:   ['email_alumno','email alumno','correo alumno','correo','email','e-mail'],
+  email_padre:    ['email_padre','email padre','correo padre','correo tutor','email tutor'],
+  sexo:           ['sexo','genero','género','sex','gender'],
+};
+
+const _COL_MAP_DOCENTES = {
+  nombre:       ['nombre','nombres','name','first name'],
+  apellidos:    ['apellidos','apellido','last name','apellido paterno'],
+  apellido_p:   ['apellido_p','apellido paterno','ap'],
+  apellido_m:   ['apellido_m','apellido materno','am'],
+  email:        ['email','correo','e-mail','correo electronico','correo electrónico'],
+  rol:          ['rol','role','cargo','puesto','tipo'],
+  turno:        ['turno','shift','jornada'],
+  materia:      ['materia','asignatura','subject','área','area'],
+  grupo:        ['grupo','group','salon','clase'],
+  num_empleado: ['num_empleado','num empleado','numero empleado','empleado','employee'],
+  telefono:     ['telefono','tel','phone','celular'],
+  nivel:        ['nivel','level','grado escolar'],
+};
+
+function _mapearColumnas(headers, tipoMap) {
+  const mapa = {};
+  headers.forEach((h, i) => {
+    const hLow = (h || '').toString().toLowerCase().trim();
+    for (const [campo, variantes] of Object.entries(tipoMap)) {
+      if (!mapa[campo] && variantes.some(v => hLow.includes(v) || v.includes(hLow))) {
+        mapa[campo] = i;
+      }
+    }
+  });
+  return mapa;
+}
+
+// Leer archivo (CSV o XLSX) y mostrar preview
+async function admLeerArchivo(input, tipo) {
+  const file = input.files[0];
+  if (!file) return;
+  await _cargarSheetJS();
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    let rows = [];
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    } catch(err) {
+      hubToast('❌ Error leyendo archivo: ' + err.message, 'err'); return;
+    }
+
+    // Filtrar filas vacías
+    rows = rows.filter(r => r.some(c => c !== '' && c !== null && c !== undefined));
+    if (rows.length < 2) { hubToast('⚠️ El archivo parece estar vacío', 'warn'); return; }
+
+    // Detectar fila de encabezados (buscar la primera fila con texto, no la de título)
+    let headerRow = 0;
+    const tipoMap = tipo === 'alumnos' ? _COL_MAP_ALUMNOS : _COL_MAP_DOCENTES;
+    for (let i = 0; i < Math.min(5, rows.length); i++) {
+      const mapa = _mapearColumnas(rows[i].map(String), tipoMap);
+      if (Object.keys(mapa).length >= 2) { headerRow = i; break; }
+    }
+
+    const headers = rows[headerRow].map(h => String(h || '').trim());
+    const mapa    = _mapearColumnas(headers, tipoMap);
+    const dataRows = rows.slice(headerRow + 1).filter(r =>
+      r.some(c => c !== '' && c !== null && c !== undefined)
+    );
+
+    // Parsear filas según mapa detectado
+    const datos = dataRows.map(r => {
+      const obj = {};
+      for (const [campo, idx] of Object.entries(mapa)) {
+        obj[campo] = r[idx] !== undefined ? String(r[idx]).trim() : '';
+      }
+      return obj;
+    }).filter(d => tipo === 'alumnos' ? d.nombre : (d.nombre || d.email));
+
+    window._impDatos[tipo] = datos;
+
+    // Mostrar preview
+    admMostrarPreview(tipo, datos, mapa, headers);
+  };
+  reader.readAsBinaryString(file);
+}
+window.admLeerArchivo = admLeerArchivo;
+
+function admMostrarPreview(tipo, datos, mapa, headers) {
+  const previewEl = document.getElementById('imp-preview-' + tipo);
+  const btnEl     = document.getElementById('imp-btn-' + tipo);
+  if (!previewEl) return;
+
+  const camposDetectados = Object.keys(mapa);
+  const camposNecesarios = tipo === 'alumnos'
+    ? ['nombre','apellido_p']
+    : ['nombre','email'];
+  const faltantes = camposNecesarios.filter(c => !mapa[c]);
+
+  if (faltantes.length) {
+    previewEl.innerHTML = `
+      <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:12px;padding:16px;">
+        <div style="font-size:14px;font-weight:700;color:#dc2626;margin-bottom:6px;">⚠️ Columnas obligatorias no detectadas</div>
+        <div style="font-size:13px;color:#7f1d1d;">Faltantes: <strong>${faltantes.join(', ')}</strong></div>
+        <div style="font-size:12px;color:#991b1b;margin-top:6px;">Asegúrate que tu archivo tenga esas columnas. Puedes usar la plantilla como base.</div>
+      </div>`;
+    if (btnEl) btnEl.style.display = 'none';
+    return;
+  }
+
+  const colorHeader = tipo === 'alumnos' ? '#0d5c2f' : '#1e3a5f';
+  const preview5 = datos.slice(0, 5);
+  const camposMostrar = tipo === 'alumnos'
+    ? ['nombre','apellido_p','apellido_m','grupo','email_alumno','email_padre']
+    : ['nombre','apellidos','email','rol','materia','grupo'];
+
+  previewEl.innerHTML = `
+    <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:14px;">
+      <div style="padding:14px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <span style="font-size:14px;font-weight:700;color:#0f172a;">✅ ${datos.length} registros detectados</span>
+          <span style="font-size:12px;color:#64748b;margin-left:10px;">${camposDetectados.length} columnas mapeadas</span>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;">Mostrando primeros 5</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:${colorHeader};">
+              ${camposMostrar.filter(c => mapa[c] !== undefined).map(c =>
+                `<th style="padding:9px 12px;color:white;text-align:left;font-weight:700;white-space:nowrap;">${c}</th>`
+              ).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${preview5.map((d, i) => `
+              <tr style="border-bottom:1px solid #f1f5f9;background:${i%2===0?'white':'#f8fafc'};">
+                ${camposMostrar.filter(c => mapa[c] !== undefined).map(c =>
+                  `<td style="padding:8px 12px;color:#374151;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d[c] || '<span style="color:#d1d5db;">—</span>'}</td>`
+                ).join('')}
+              </tr>`
+            ).join('')}
+          </tbody>
+        </table>
+      </div>
+      ${datos.length > 5 ? `<div style="padding:10px 16px;font-size:12px;color:#64748b;border-top:1px solid #f1f5f9;">...y ${datos.length - 5} registros más</div>` : ''}
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      ${camposDetectados.map(c =>
+        `<span style="background:#f0fdf4;color:#166534;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid #bbf7d0;">✓ ${c}</span>`
+      ).join('')}
+    </div>`;
+
+  if (btnEl) btnEl.style.display = '';
+}
+
+// Importar alumnos en masa
+async function admConfirmarImport(tipo) {
+  const datos = window._impDatos[tipo] || [];
+  if (!datos.length) { hubToast('⚠️ Sin datos para importar', 'warn'); return; }
+
+  const sbRef      = window.sb || ADM.sb;
+  const escuelaCct = ADM.escuelaCct || window.currentPerfil?.escuela_cct;
+  const escuelaId  = ADM.escuelaId  || window.currentPerfil?.escuela_id;
+  const escuelaNom = ADM.escuelaNombre || escuelaCct || 'SIEMBRA';
+
+  if (!sbRef || !escuelaCct) { hubToast('⚠️ Sin conexión o escuela no detectada', 'warn'); return; }
+
+  const btnEl = document.getElementById('imp-btn-' + tipo);
+  if (btnEl) btnEl.querySelector('button').textContent = `⏳ Importando ${datos.length} registros…`;
+
+  let ok = 0, errores = 0, saltados = 0;
+  const errDetalle = [];
+
+  if (tipo === 'alumnos') {
+    // Construir mapa de grupos por nombre
+    const grupoMap = {};
+    (ADM.grupos || []).forEach(g => {
+      const key = (g.nombre || `${g.grado}°${g.seccion||'A'}`).toLowerCase().trim();
+      grupoMap[key] = g.id;
+    });
+
+    for (const d of datos) {
+      try {
+        if (!d.nombre) { saltados++; continue; }
+        const apellido_p = d.apellido_p || (d.apellidos?.split(' ')[0]) || '';
+        const apellido_m = d.apellido_m || (d.apellidos?.split(' ').slice(1).join(' ')) || '';
+        const codigo = ADM._generarCodigoCorto();
+
+        const payload = {
+          nombre: d.nombre, apellido_p, apellido_m,
+          curp: d.curp || null,
+          fecha_nac: d.fecha_nac || null,
+          num_lista: parseInt(d.num_lista) || null,
+          telefono: d.telefono_tutor || null,
+          tutor_nombre: d.tutor_nombre || null,
+          telefono_tutor: d.telefono_tutor || null,
+          email: d.email_alumno || null,
+          rol: 'alumno', activo: true,
+          codigo_vinculacion: codigo,
+          escuela_id:  escuelaId  || null,
+          escuela_cct: escuelaCct || null,
+        };
+
+        const { data: inserted, error: ie } = await sbRef.from('usuarios')
+          .insert(payload).select('id').single();
+
+        if (ie) {
+          if (ie.code === '23505') { saltados++; continue; } // duplicado
+          throw ie;
+        }
+
+        const alumnoId = inserted.id;
+
+        // Asignar grupo si se especificó
+        const grupoKey = (d.grupo || '').toLowerCase().trim();
+        const grupoId  = grupoMap[grupoKey];
+        if (grupoId && alumnoId) {
+          await sbRef.from('alumnos_grupos').upsert({
+            alumno_id: alumnoId, grupo_id: grupoId,
+            ciclo_escolar: window.CICLO_ACTIVO || '2025-2026',
+            ciclo: window.CICLO_ACTIVO || '2025-2026', activo: true,
+          }, { onConflict: 'alumno_id,grupo_id,ciclo_escolar' }).catch(()=>{});
+        }
+
+        // Código de vinculación
+        await sbRef.from('vinculos_padre').insert({
+          codigo, alumno_id: alumnoId, escuela_id: escuelaId || null,
+          nombre_tutor: d.tutor_nombre || null,
+          telefono_tutor: d.telefono_tutor || null,
+          usado: false,
+          expira_at: new Date(Date.now() + 365*24*60*60*1000).toISOString(),
+        }).catch(()=>{});
+
+        // Invitación padre si hay email
+        if (d.email_padre) {
+          const token = ADM._generarToken();
+          await sbRef.from('invitaciones').insert({
+            token, escuela_id: escuelaId||null, escuela_cct: escuelaCct||null,
+            rol: 'padre', email_destino: d.email_padre,
+            nombre_destino: d.tutor_nombre || d.email_padre,
+            estado: 'pendiente',
+            expira_at: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
+          }).catch(()=>{});
+        }
+
+        // Invitación alumno si hay email
+        if (d.email_alumno) {
+          const token = ADM._generarToken();
+          await sbRef.from('invitaciones').insert({
+            token, escuela_id: escuelaId||null, escuela_cct: escuelaCct||null,
+            rol: 'alumno', email_destino: d.email_alumno,
+            nombre_destino: `${d.nombre} ${apellido_p}`.trim(),
+            estado: 'pendiente',
+            expira_at: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
+          }).catch(()=>{});
+        }
+
+        ok++;
+      } catch(e) {
+        errores++;
+        errDetalle.push(`${d.nombre||'?'}: ${e.message}`);
+      }
+    }
+  } else {
+    // Docentes
+    const { data: { session } } = await sbRef.auth.getSession();
+    const jwt = session?.access_token;
+    const supabaseUrl = window.sb?.supabaseUrl || 'https://maoioxmnfzzwnuinesyt.supabase.co';
+
+    for (const d of datos) {
+      try {
+        if (!d.email && !d.nombre) { saltados++; continue; }
+        const nombre = d.nombre || '';
+        const apellidos = d.apellidos || `${d.apellido_p||''} ${d.apellido_m||''}`.trim();
+        const email = (d.email || '').toLowerCase().trim();
+        const rol   = d.rol || 'docente';
+
+        if (!email) { saltados++; continue; }
+
+        const { data: rpcResult, error: rpcErr } = await sbRef.rpc('upsert_usuario', {
+          p_auth_id: null, p_email: email,
+          p_nombre: nombre,
+          p_apellido_p: apellidos.split(' ')[0] || '',
+          p_apellido_m: apellidos.split(' ').slice(1).join(' ') || '',
+          p_rol: rol,
+          p_escuela_id:  escuelaId  || '',
+          p_escuela_cct: escuelaCct || '',
+        });
+
+        let usuarioId = null;
+        if (!rpcErr) {
+          usuarioId = typeof rpcResult === 'object' ? rpcResult?.id : rpcResult;
+        } else {
+          const { data: found } = await sbRef.from('usuarios').select('id').eq('email', email).maybeSingle();
+          usuarioId = found?.id;
+        }
+
+        // Generar invitación
+        const token = ADM._generarToken();
+        const link  = `${location.origin}/index.html?invite=${token}`;
+        await sbRef.from('invitaciones').insert({
+          token, escuela_id: escuelaId||null, escuela_cct: escuelaCct||null,
+          rol, email_destino: email,
+          nombre_destino: `${nombre} ${apellidos}`.trim(),
+          estado: 'pendiente',
+          expira_at: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
+        }).catch(()=>{});
+
+        // Enviar email
+        if (jwt && email) {
+          fetch(`${supabaseUrl}/functions/v1/invite-user`, {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${jwt}` },
+            body: JSON.stringify({ email, rol, escuela_nombre: escuelaNom,
+              invited_by: window.currentPerfil?.nombre || 'Admin', token, link }),
+          }).catch(()=>{});
+        }
+
+        ok++;
+      } catch(e) {
+        errores++;
+        errDetalle.push(`${d.email||d.nombre||'?'}: ${e.message}`);
+      }
+    }
+  }
+
+  // Recargar datos
+  await ADM.cargarAlumnos();
+  await ADM.cargarDocentes();
+  ADM.renderAlumnos();
+  ADM.renderDocentes();
+  ADM.renderDashboard();
+  admLimpiarImport(tipo);
+
+  // Resultado
+  const msg = errDetalle.length
+    ? `✅ ${ok} importados · ${saltados} saltados · ❌ ${errores} errores`
+    : `✅ ${ok} ${tipo === 'alumnos' ? 'alumnos' : 'docentes'} importados correctamente${saltados ? ` · ${saltados} ya existían` : ''}`;
+  hubToast(msg, errores ? 'warn' : 'ok');
+
+  if (errDetalle.length) console.warn('[Import] Errores:', errDetalle);
+}
+window.admConfirmarImport = admConfirmarImport;
+
+function admLimpiarImport(tipo) {
+  window._impDatos[tipo] = [];
+  const preview = document.getElementById('imp-preview-' + tipo);
+  const btnEl   = document.getElementById('imp-btn-' + tipo);
+  const fileEl  = document.getElementById('imp-file-' + tipo);
+  if (preview) preview.innerHTML = '';
+  if (btnEl)   btnEl.style.display = 'none';
+  if (fileEl)  fileEl.value = '';
+  const btn = document.getElementById('imp-btn-' + tipo)?.querySelector('button');
+  if (btn) btn.textContent = tipo === 'alumnos' ? '✅ Importar alumnos a SIEMBRA' : '✅ Importar personal a SIEMBRA';
+}
+window.admLimpiarImport = admLimpiarImport;
+
+// Descargar plantillas
+function admDescargarPlantilla(tipo, formato) {
+  if (formato === 'csv') {
+    const headers = tipo === 'alumnos'
+      ? 'nombre,apellido_p,apellido_m,curp,fecha_nac,num_lista,grupo,tutor_nombre,telefono_tutor,email_alumno,email_padre,sexo'
+      : 'nombre,apellidos,email,rol,turno,materia,grupo,num_empleado,telefono,nivel';
+    const ejemplo = tipo === 'alumnos'
+      ? '\nAna,García,López,GALA100305MNLRPN07,2010-03-05,1,2° A,María López,8110001234,ana@gmail.com,maria@gmail.com,F'
+      : '\nLaura,Martínez Sánchez,laura@escuela.edu.mx,docente,matutino,Matemáticas,6° A,SEP-001,8110001111,primaria';
+    const blob = new Blob([headers + ejemplo], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `plantilla_${tipo}_siembra.csv`;
+    a.click();
+  } else {
+    // Para xlsx, descargar la plantilla pre-generada o generar inline
+    hubToast('⏳ Generando plantilla Excel…', 'ok');
+    _cargarSheetJS().then(() => {
+      const wb = XLSX.utils.book_new();
+      const headers = tipo === 'alumnos'
+        ? [['nombre*','apellido_p*','apellido_m','curp','fecha_nac','num_lista','grupo','tutor_nombre','telefono_tutor','email_alumno','email_padre','sexo'],
+           ['Ana','García','López','GALA100305MNLRPN07','2010-03-05',1,'2° A','María López','8110001234','ana@gmail.com','maria@gmail.com','F'],
+           ['Carlos','Ramírez','Torres','','2011-08-12',2,'1° B','Roberto R.','8110005678','','roberto@hotmail.com','M']]
+        : [['nombre*','apellidos*','email*','rol','turno','materia','grupo','num_empleado','telefono','nivel'],
+           ['Laura','Martínez Sánchez','laura@escuela.edu.mx','docente','matutino','Matemáticas','6° A','SEP-001','8110001111','primaria'],
+           ['Carlos','Ramírez Torres','carlos@escuela.edu.mx','docente','matutino','Español','5° A','SEP-002','8110002222','primaria']];
+      const ws = XLSX.utils.aoa_to_sheet(headers);
+      // Ancho de columnas
+      ws['!cols'] = headers[0].map(() => ({ wch: 20 }));
+      XLSX.utils.book_append_sheet(wb, ws, tipo === 'alumnos' ? 'Alumnos' : 'Personal');
+      XLSX.writeFile(wb, `plantilla_${tipo}_siembra.xlsx`);
+      hubToast('✅ Plantilla descargada', 'ok');
+    });
+  }
+}
+window.admDescargarPlantilla = admDescargarPlantilla;
 window.siembraCargarMateriasDocente   = siembraCargarMateriasDocente;
 window.siembraCargarCalificacionesAlumno = siembraCargarCalificacionesAlumno;
 window.siembraPropagar                = siembraPropagar;
