@@ -10235,6 +10235,8 @@ async function tsInit() {
   if (badge && urgentes > 0) {
     badge.style.display = 'block';
     badge.textContent = `🔴 ${urgentes} urgente${urgentes > 1 ? 's' : ''}`;
+    // Auto-generar resumen IA si hay urgentes
+    setTimeout(() => TSR.generarResumenIA(), 800);
   }
 }
 
@@ -10334,6 +10336,59 @@ TSR.renderDashboard = function() {
           return `<div style="font-size:12px;color:#991b1b;margin-bottom:3px;">• ${n} — ${i.tipo} — ${i.descripcion?.slice(0,60)||''}…</div>`;
         }).join('')}
       </div>` : '';
+  }
+};
+
+// ── Lista de casos ────────────────────────────────────────────────
+TSR.generarResumenIA = async function() {
+  const el = document.getElementById('tsp-ia-resumen');
+  if (!el) return;
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#6d28d9;padding:16px;"><span style="display:inline-block;width:14px;height:14px;border:2px solid #c4b5fd;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite;"></span> Analizando todos los casos con IA…</div>';
+
+  const total    = TSR.incidencias.length;
+  const urgentes = TSR.incidencias.filter(i => i.estado === 'urgente');
+  const seguim   = TSR.incidencias.filter(i => i.estado === 'en_seguimiento');
+  const tipos    = {};
+  TSR.incidencias.forEach(i => { tipos[i.tipo||'otro'] = (tipos[i.tipo||'otro']||0)+1; });
+  const tipoStr  = Object.entries(tipos).map(([k,v])=>`${k}: ${v}`).join(', ');
+
+  // Alumnos con más de 2 incidencias (casos prioritarios)
+  const conteo = {};
+  TSR.incidencias.forEach(i => { conteo[i.alumno_id] = (conteo[i.alumno_id]||0)+1; });
+  const prioritarios = Object.entries(conteo).filter(([,v])=>v>=2).length;
+
+  const prompt = `Eres trabajador/a social escolar. Analiza este resumen de la escuela:
+Total de casos: ${total}
+Urgentes: ${urgentes.length}
+En seguimiento: ${seguim.length}
+Tipos de incidencias: ${tipoStr}
+Alumnos con 2+ incidencias: ${prioritarios}
+${urgentes.length ? `Casos urgentes: ${urgentes.map(i=>{ const n = i.alumno?`${i.alumno.nombre} ${i.alumno.apellido||''}`.trim():'—'; return `${n} (${i.tipo})`; }).slice(0,5).join(', ')}` : ''}
+
+Genera un resumen ejecutivo para el trabajador/a social con:
+1. Semáforo general de la escuela (🔴/🟡/🟢) y justificación en 1 oración
+2. 3 casos que requieren atención prioritaria esta semana
+3. 2 acciones preventivas recomendadas para el resto del grupo
+Máximo 200 palabras. Lenguaje profesional y directo.`;
+
+  try {
+    const texto = await callAI({
+      feature: 'ts_caso_resumen',
+      prompt,
+      escuela_id: currentPerfil?.escuela_cct,
+    });
+    const html = texto.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    el.innerHTML = `
+      <div style="background:linear-gradient(135deg,#1e1b4b,#4338ca);border-radius:14px;padding:18px;color:white;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:11px;font-weight:800;opacity:.7;text-transform:uppercase;letter-spacing:1px;">🤖 Análisis IA — Resumen global</span>
+          <button onclick="TSR.generarResumenIA()" style="margin-left:auto;padding:4px 10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:white;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;">↺ Actualizar</button>
+        </div>
+        <div style="font-size:13px;line-height:1.7;">${html}</div>
+        <div style="font-size:10px;opacity:.45;margin-top:10px;">⚠️ Referencia pedagógica · No reemplaza valoración profesional · ${new Date().toLocaleDateString('es-MX')}</div>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="background:#fef2f2;border-radius:10px;padding:14px;color:#dc2626;font-size:13px;">❌ ${e.message}</div>`;
   }
 };
 
@@ -10663,16 +10718,16 @@ Tono: profesional, objetivo, sin juicios de valor sobre la familia.`;
     const { data: { session } } = await sb.auth.getSession();
     if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
 
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/ai-router`, {
-      method: 'POST', headers,
-      body: JSON.stringify({ prompt, max_tokens: 300 })
+    const texto = await callAI({
+      feature: 'ts_alerta_analisis',
+      prompt,
+      escuela_id: currentPerfil?.escuela_cct,
     });
 
     const txtEl = document.getElementById(`tsr-ia-texto-${alumnoId}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      if (txtEl) txtEl.innerHTML = `
-        <div style="line-height:1.7;">${(data.text||'').replace(/\n/g,'<br>')}</div>
+    if (texto) {
+      txtEl.innerHTML = `
+        <div style="line-height:1.7;">${texto.replace(/\n/g,'<br>')}</div>
         <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
           <button onclick="TSR.guardarAnalisis('${alumnoId}','${nombre}')"
             style="padding:8px 14px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:white;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;">
@@ -10684,7 +10739,6 @@ Tono: profesional, objetivo, sin juicios de valor sobre la familia.`;
           </button>
         </div>
         <div style="font-size:10px;opacity:.5;margin-top:8px;">⚠️ Solo referencia pedagógica · No es diagnóstico profesional · NEM 2026</div>`;
-    } else throw new Error('AI no disponible');
   } catch(e) {
     const txtEl = document.getElementById(`tsr-ia-texto-${alumnoId}`);
     if (txtEl) txtEl.innerHTML = `<div>Sin conexión a IA. Revisa el expediente manualmente.<br><br><em style="opacity:.6;">Datos disponibles: ${TSR.incidencias.filter(i=>i.alumno_id===alumnoId).length} incidencias registradas.</em></div>`;
@@ -21443,6 +21497,21 @@ async function alertaEnviarTS() {
         created_at:   new Date().toISOString(),
       });
       hubToast('🚨 Alerta enviada a Trabajo Social', 'ok');
+
+      // ── IA analiza la alerta automáticamente ──────────────────
+      try {
+        const prompt = `Analiza esta alerta escolar:\nAlumno: ${alumnoId}\nTipo: ${tipo}\nNivel: ${nivel}\nMateria: ${materia||'N/A'}\nDescripción: ${desc}\n\nClasifica el riesgo (🔴 Urgente / 🟡 Seguimiento / 🟢 Preventivo), sugiere protocolo de intervención y 2 acciones inmediatas. Máximo 100 palabras.`;
+        callAI({ feature: 'ts_alerta_analisis', prompt, escuela_id: cct })
+          .then(analisis => {
+            if (analisis) {
+              sb.from('alertas').update({ analisis_ia: analisis })
+                .eq('alumno_id', alumnoId).eq('resuelta', false)
+                .order('creado_en', { ascending: false }).limit(1)
+                .catch(() => {});
+            }
+          }).catch(() => {});
+      } catch(_) {}
+      // ─────────────────────────────────────────────────────────
     } catch(e) {
       console.warn('[alertaEnviarTS]', e.message);
       hubToast('⚠️ Guardado localmente (sin conexión)', 'warn');
@@ -21548,6 +21617,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <!-- Alertas urgentes -->
         <div id="tsp-alertas-urgentes" style="margin-bottom:22px;"></div>
+
+        <!-- Panel IA resumen global -->
+        <div style="margin-bottom:22px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:13px;font-weight:700;color:var(--ts-azul);">🤖 Análisis IA — Resumen global de la escuela</div>
+            <button onclick="TSR.generarResumenIA()" style="padding:7px 14px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">✨ Generar análisis</button>
+          </div>
+          <div id="tsp-ia-resumen">
+            <div style="background:#f5f3ff;border:1.5px dashed #c4b5fd;border-radius:12px;padding:20px;text-align:center;color:#7c3aed;font-size:13px;">
+              Presiona "Generar análisis" para que la IA analice todos los casos y detecte patrones de riesgo.
+            </div>
+          </div>
+        </div>
 
         <!-- Grid: Casos recientes + Análisis IA pendientes -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
