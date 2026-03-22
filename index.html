@@ -24453,14 +24453,15 @@ ADM.cargarDocentes = async function() {
 };
 
 ADM.cargarAlumnos = async function() {
-  // FIX: resolver CCT con todas las fuentes disponibles
-  let cctA = window.currentPerfil?.escuela_cct || ADM.escuelaCct || ADM.currentPerfil?.escuela_cct || null;
+  // FIX: resolver CCT y sb EN EL MOMENTO de la query (no al inicio)
   const sbRef = window.sb || ADM.sb;
+  let cctA = window.currentPerfil?.escuela_cct || ADM.escuelaCct || ADM.currentPerfil?.escuela_cct || null;
+  const escuelaId = ADM.escuelaId || window.currentPerfil?.escuela_id || null;
+
   // Fallback por escuela_id si no hay CCT
-  if (!cctA && (ADM.escuelaId || window.currentPerfil?.escuela_id) && sbRef) {
+  if (!cctA && escuelaId && sbRef) {
     try {
-      const eid = ADM.escuelaId || window.currentPerfil?.escuela_id;
-      const { data: escRow } = await sbRef.from('escuelas').select('cct').eq('id', eid).maybeSingle();
+      const { data: escRow } = await sbRef.from('escuelas').select('cct').eq('id', escuelaId).maybeSingle();
       if (escRow?.cct) {
         cctA = escRow.cct;
         ADM.escuelaCct = cctA;
@@ -24468,16 +24469,42 @@ ADM.cargarAlumnos = async function() {
       }
     } catch(eFix) { console.warn('[ADM] cargarAlumnos resolve cct:', eFix.message); }
   }
-  if (!sbRef || !cctA) {
-    ADM.alumnos = []; return;
-  }
-  const sb = sbRef;
+
+  if (!sbRef) { console.warn('[ADM] cargarAlumnos: sb no disponible'); ADM.alumnos = []; return; }
+  if (!cctA && !escuelaId) { console.warn('[ADM] cargarAlumnos: sin CCT ni escuelaId'); ADM.alumnos = []; return; }
+
   try {
-    const { data: alumnos } = await sb.from('usuarios')
-      .select('*, alumnos_grupos(grupo_id, grupos(nombre,grado))')
-      .eq('escuela_cct', cctA).eq('rol','alumno').eq('activo',true).order('nombre');
-    ADM.alumnos = alumnos || [];
-  } catch(e) { console.warn("[ADM] cargarAlumnos:", e.message); ADM.alumnos = []; }
+    // Query 1: por escuela_cct
+    let q1Data = [];
+    if (cctA) {
+      const { data: d1, error: e1 } = await sbRef.from('usuarios')
+        .select('*, alumnos_grupos(grupo_id, grupos(nombre,grado,seccion,nivel))')
+        .eq('escuela_cct', cctA).eq('rol', 'alumno').eq('activo', true).order('nombre');
+      if (e1) console.warn('[ADM] cargarAlumnos q1:', e1.message);
+      q1Data = d1 || [];
+    }
+
+    // Query 2: por escuela_id UUID (alumnos que solo tienen ese campo)
+    let q2Data = [];
+    if (escuelaId) {
+      const { data: d2, error: e2 } = await sbRef.from('usuarios')
+        .select('*, alumnos_grupos(grupo_id, grupos(nombre,grado,seccion,nivel))')
+        .eq('escuela_id', escuelaId).eq('rol', 'alumno').eq('activo', true).order('nombre');
+      if (e2) console.warn('[ADM] cargarAlumnos q2:', e2.message);
+      q2Data = d2 || [];
+    }
+
+    // Deduplicar
+    const seen = new Set();
+    const combined = [...q1Data, ...q2Data].filter(a => {
+      if (!a?.id || seen.has(a.id)) return false;
+      seen.add(a.id);
+      return true;
+    });
+
+    ADM.alumnos = combined;
+    console.log('[ADM] Alumnos cargados:', ADM.alumnos.length, '| CCT:', cctA, '| EscuelaId:', escuelaId);
+  } catch(e) { console.warn('[ADM] cargarAlumnos:', e.message); ADM.alumnos = []; }
 };
 
 // Materias predefinidas NEM (SEP primaria y secundaria)
@@ -25664,7 +25691,10 @@ ADM.renderAlumnos = function(filtro = '') {
   const el = document.getElementById('adm-alumnos-list');
   if (!el) return;
   const lista = filtro
-    ? ADM.alumnos.filter(a => (a.nombre + ' ' + (a.apellido||'')).toLowerCase().includes(filtro.toLowerCase()))
+    ? ADM.alumnos.filter(a => {
+        const nom = `${a.nombre||''} ${a.apellido_p||a.apellido||''} ${a.apellido_m||''}`.toLowerCase();
+        return nom.includes(filtro.toLowerCase());
+      })
     : ADM.alumnos;
   if (!lista.length) {
     el.innerHTML = `<div class="adm-empty" style="padding:48px 20px;text-align:center;">
@@ -25673,6 +25703,7 @@ ADM.renderAlumnos = function(filtro = '') {
       <div style="font-size:13px;color:#94a3b8;margin-bottom:16px;">Agrega alumnos uno a uno o importa una lista desde CSV</div>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
         <button onclick="ADM.abrirModalAlumno()" style="padding:10px 20px;background:linear-gradient(135deg,#0d5c2f,#157a40);color:white;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">+ Alta de alumno</button>
+        <button onclick="ADM.cargarAlumnos().then(()=>ADM.renderAlumnos())" style="padding:10px 20px;background:#eff6ff;border:1.5px solid #bfdbfe;color:#1e40af;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">🔄 Recargar padrón</button>
         <button onclick="ADM.navTo('importar')" style="padding:10px 20px;background:#f0fdf4;border:1.5px solid #86efac;color:#166534;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">⬆️ Importar CSV</button>
       </div>
     </div>`; return;
@@ -25684,7 +25715,7 @@ ADM.renderAlumnos = function(filtro = '') {
     </tr></thead>
     <tbody>
     ${lista.map((a, i) => {
-      const nombre = (a.nombre + ' ' + (a.apellido||'')).trim();
+      const nombre = `${a.nombre||''} ${a.apellido_p||a.apellido||''} ${a.apellido_m||''}`.trim().replace(/\s+/g,' ');
       // grupo_id can come from alumnos_grupos (DB) or direct grupo_id (local)
       const grupo = a.alumnos_grupos?.[0]?.grupos?.nombre
         || (a.grupo_id ? (ADM.grupos.find(g=>g.id===a.grupo_id)?.nombre||'Sin nombre') : '—');
