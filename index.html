@@ -3036,11 +3036,18 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
               <div id="cal-rep-texto" style="font-size:13px;color:rgba(255,255,255,.85);line-height:1.7;min-height:60px;">
                 <div style="display:flex;align-items:center;gap:8px;"><div style="width:20px;height:20px;border:2px solid rgba(255,255,255,.4);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;"></div> Generando análisis…</div>
               </div>
-              <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.15);font-size:11px;color:rgba(255,255,255,.45);">
-                ⚖️ Este análisis es orientativo y de apoyo pedagógico. No constituye diagnóstico clínico ni reemplaza la evaluación profesional especializada. Marco legal: Acuerdo SEP 09/08/23 — NEM.
+              <!-- Botón recomendaciones individuales -->
+              <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.15);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+                <div style="font-size:11px;color:rgba(255,255,255,.45);">⚖️ Orientativo y de apoyo pedagógico · NEM · Acuerdo SEP 09/08/23</div>
+                <button onclick="calRecomendacionesPorAlumno()"
+                  style="padding:6px 14px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">
+                  👤 Rec. por alumno
+                </button>
               </div>
             </div>
           </div>
+          <!-- Panel recomendaciones individuales -->
+          <div id="cal-recom-individual-wrap" style="display:none;margin-top:12px;"></div>
 
         </div><!-- /cal-vista-principal -->
 
@@ -9377,12 +9384,71 @@ async function calDetectarRiesgoYNotificar() {
     const als=window._alumnosActivos||[];
     const mat=calMatActual; const trim=calTrimActual;
     if(!als.length) return;
-    const enRiesgo=als.map((_,ai)=>({ai,prom:calPromPonderado(ai,mat,trim)}))
-      .filter(r=>r.prom>0&&r.prom<6)
-      .map(r=>als[r.ai]?.n||'?');
+
+    const enRiesgo = als.map((_,ai)=>({ ai, alumno: als[ai], prom: calPromPonderado(ai,mat,trim) }))
+      .filter(r => r.prom > 0 && r.prom < 6);
+
     if(!enRiesgo.length) return;
-    await sb.from('alertas').insert({tipo:'riesgo_academico',origen:'docente',docente_id:currentPerfil.id,grupo_id:window._grupoActivo,materia:mat,mensaje:'⚠️ Riesgo en '+mat+' T'+trim+': '+enRiesgo.join(', '),escuela_cct:currentPerfil.escuela_cct,ciclo:window.CICLO_ACTIVO,leido:false,creado_en:new Date().toISOString()});
-  } catch(e){console.warn('[riesgo]',e.message);}
+
+    // Guardar alerta en DB
+    const nombres = enRiesgo.map(r => r.alumno?.n || r.alumno?.nombre || '?');
+    await sb.from('alertas').insert({
+      tipo:'riesgo_academico', origen:'docente',
+      docente_id: currentPerfil.id,
+      grupo_id:   window._grupoActivo,
+      materia:    mat,
+      mensaje:    '⚠️ Riesgo en '+mat+' T'+trim+': '+nombres.join(', '),
+      escuela_cct: currentPerfil.escuela_cct,
+      ciclo: window.CICLO_ACTIVO,
+      leido: false, creado_en: new Date().toISOString()
+    }).catch(()=>{});
+
+    // ── IA genera recomendaciones por cada alumno en riesgo ──
+    // Se ejecuta en background, no bloquea al docente
+    const resumenRiesgo = enRiesgo.map(r => {
+      const aspectos = CAL_ASPECTOS[mat] || [];
+      const detalles = aspectos.map((asp,asi) =>
+        `${asp.nombre}: ${CAL_DATA[mat]?.[trim]?.[r.ai]?.[asi] ?? '—'}`
+      ).join(', ');
+      return `${r.alumno?.n || 'Alumno'} (prom ${r.prom.toFixed(1)}): ${detalles}`;
+    }).join('\n');
+
+    callAI({
+      feature: 'ficha_estrategias',
+      prompt: `Soy docente de ${mat} (Trimestre ${trim}). Estos alumnos tienen promedio menor a 6:\n${resumenRiesgo}\n\nGenera para CADA alumno: 1 estrategia pedagógica concreta y 1 ejercicio específico. Formato: "Nombre: [estrategia] | Ejercicio: [descripción]". Máximo 2 oraciones por alumno. NEM 2026.`,
+      escuela_id: currentPerfil.escuela_cct,
+    }).then(texto => {
+      if (!texto) return;
+      // Mostrar en panel de calificaciones si existe
+      let panel = document.getElementById('cal-riesgo-ia-panel');
+      if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'cal-riesgo-ia-panel';
+        // Insertar debajo del botón de guardar
+        const btnGuardar = document.querySelector('[onclick="calGuardar()"]')?.closest('.sec-actions') ||
+                           document.getElementById('cal-header-actions');
+        if (btnGuardar) btnGuardar.insertAdjacentElement('afterend', panel);
+        else {
+          const wrap = document.getElementById('cal-graficas-wrap')?.parentElement ||
+                       document.getElementById('p-calificaciones');
+          if (wrap) wrap.insertAdjacentElement('afterbegin', panel);
+        }
+      }
+      const html = texto.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+      panel.innerHTML = `
+        <div style="background:linear-gradient(135deg,#fef9c3,#fef3c7);border:1.5px solid #f59e0b;border-radius:12px;padding:16px;margin:12px 0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <div style="font-size:13px;font-weight:700;color:#92400e;">🤖 Recomendaciones IA — Alumnos en riesgo (${mat} T${trim})</div>
+            <button onclick="this.closest('#cal-riesgo-ia-panel').remove()"
+              style="background:none;border:none;color:#92400e;cursor:pointer;font-size:16px;opacity:.6;">✕</button>
+          </div>
+          <div style="font-size:12px;color:#78350f;line-height:1.7;">${html}</div>
+          <div style="font-size:10px;color:#a16207;margin-top:8px;opacity:.7;">Estas recomendaciones también se enviaron a Trabajo Social como alerta.</div>
+        </div>`;
+      panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }).catch(()=>{});
+
+  } catch(e){ console.warn('[riesgo]',e.message); }
 }
 
 function calExportar() {
@@ -9493,8 +9559,64 @@ IMPORTANTE: NO hagas diagnósticos clínicos ni psicológicos. Usa lenguaje peda
   wrap.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
-// ══ CONFIGURACIÓN DE ASPECTOS ══
-function calAbrirConfigAspectos() {
+// ── Recomendaciones IA por alumno individual ──────────────────────────
+async function calRecomendacionesPorAlumno() {
+  const wrap = document.getElementById('cal-recom-individual-wrap');
+  if (!wrap) return;
+  wrap.style.display = 'block';
+  wrap.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:16px;background:#f0fdf4;border-radius:10px;font-size:13px;color:#0d5c2f;">
+    <span style="display:inline-block;width:14px;height:14px;border:2px solid #86efac;border-top-color:#0d5c2f;border-radius:50%;animation:spin .8s linear infinite;"></span>
+    Generando recomendaciones individuales…
+  </div>`;
+
+  const mat  = calMatActual;
+  const trim = calTrimActual;
+  const als  = window._alumnosActivos || alumnos;
+  if (!als.length) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
+
+  const datos = als.map((a, ai) => {
+    const prom = calPromPonderado(ai, mat, trim);
+    const aspectos = CAL_ASPECTOS[mat] || [];
+    const detalles = aspectos.map((asp,asi) => `${asp.nombre}: ${CAL_DATA[mat]?.[trim]?.[ai]?.[asi] ?? '—'}`).join(', ');
+    return `${a.n||a.nombre} (${prom.toFixed(1)}): ${detalles}`;
+  }).join('\n');
+
+  const promGrupo = (als.map((_,ai)=>calPromPonderado(ai,mat,trim)).reduce((s,p)=>s+p,0)/als.length).toFixed(1);
+
+  try {
+    const texto = await callAI({
+      feature: 'ficha_estrategias',
+      prompt: `Soy docente de ${mat} Trimestre ${trim}. Promedio grupal: ${promGrupo}.\n\nDesempeño por alumno:\n${datos}\n\nGenera para CADA alumno una recomendación pedagógica concreta de máximo 2 oraciones. Enfócate en los que tienen promedio menor a 8. Formato:\n[Nombre]: [recomendación] | Ejercicio sugerido: [descripción breve]\n\nNEM 2026. Sin diagnósticos clínicos.`,
+      escuela_id: currentPerfil?.escuela_cct,
+    });
+
+    const html = texto
+      .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+      .replace(/^(.+?):/gm,'<strong>$1</strong>:')
+      .replace(/\n/g,'<br>');
+
+    wrap.innerHTML = `
+      <div style="background:white;border-radius:12px;border:1.5px solid #e2e8f0;padding:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div style="font-size:14px;font-weight:700;color:#0f172a;">👤 Recomendaciones IA por alumno · ${mat} T${trim}</div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="navigator.clipboard.writeText(document.getElementById('cal-recom-texto').innerText);hubToast('✅ Copiado','ok')"
+              style="padding:5px 10px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:7px;font-size:11px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">📋 Copiar</button>
+            <button onclick="document.getElementById('cal-recom-individual-wrap').style.display='none'"
+              style="padding:5px 10px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:7px;font-size:11px;color:#94a3b8;cursor:pointer;">✕</button>
+          </div>
+        </div>
+        <div id="cal-recom-texto" style="font-size:13px;color:#334155;line-height:1.9;">${html}</div>
+        <div style="font-size:10px;color:#94a3b8;margin-top:12px;padding-top:10px;border-top:1px solid #f1f5f9;">
+          ⚖️ Orientativo · NEM 2026 · No constituye diagnóstico profesional
+        </div>
+      </div>`;
+    wrap.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  } catch(e) {
+    wrap.innerHTML = `<div style="background:#fef2f2;border-radius:10px;padding:14px;color:#dc2626;font-size:13px;">❌ ${e.message}</div>`;
+  }
+}
+window.calRecomendacionesPorAlumno = calRecomendacionesPorAlumno;
   const ov = document.getElementById('modal-aspectos-ov');
   ov.style.display = 'flex';
   // Poblar selector de materias
@@ -25112,8 +25234,63 @@ async function coordGuardarEvaluacion(idx) {
       COORD_DOCENTES[idx].promedio = parseFloat(promedio.toFixed(1));
       if (typeof coordRenderVisitasLista === 'function') coordRenderVisitasLista();
     }
+    const coordCalificaciones_backup = { ...coordCalificaciones };
     coordCalificaciones = {};
     hubToast(`✅ Evaluación de ${d.nombre} guardada · Promedio: ${promedio.toFixed(1)}`, 'ok');
+
+    // ── IA genera resumen de la visita automáticamente ──────────────
+    const criterios = Object.entries(coordCalificaciones_backup || {})
+      .filter(([,v]) => typeof v === 'number')
+      .map(([k,v]) => `${k.split('_').pop()}: ${v}/4`).join(', ');
+
+    callAI({
+      feature: 'coord_eval_docente',
+      prompt: `Coordinador evaluó al docente ${d.nombre} con promedio ${promedio.toFixed(1)}/10.
+Observaciones del coordinador: "${obs || 'Sin observaciones adicionales'}"
+Criterios evaluados: ${criterios || 'Planeación, actividades y libretas'}
+Planeación correcta: ${(coordCalificaciones['p_'+idx+'_planeacion_0']||0)>=3 ? 'Sí':'No'}
+Actividades correctas: ${(coordCalificaciones['p_'+idx+'_actividades_0']||0)>=3 ? 'Sí':'No'}
+Libretas al corriente: ${(coordCalificaciones['p_'+idx+'_libretas_0']||0)>=3 ? 'Sí':'No'}
+
+Genera el resumen de la visita de acompañamiento para el expediente del docente.`,
+      escuela_id: currentPerfil?.escuela_cct,
+    }).then(async textoIA => {
+      if (!textoIA || !window.sb) return;
+      // Guardar análisis IA en la evaluación más reciente
+      await sb.from('evaluaciones_coordinador')
+        .update({ analisis_ia: textoIA })
+        .eq('coordinador_id', currentPerfil.id)
+        .eq('docente_id', d.id || null)
+        .eq('fecha_visita', new Date().toISOString().split('T')[0])
+        .catch(()=>{});
+
+      // Mostrar en panel de visitas
+      const panelId = 'coord-ia-visita-' + (d.id || idx);
+      let panel = document.getElementById(panelId);
+      if (!panel) {
+        panel = document.createElement('div');
+        panel.id = panelId;
+        const container = document.getElementById('coord-p-visitas') ||
+                          document.getElementById('coord-visitas-lista');
+        if (container) container.insertAdjacentElement('afterbegin', panel);
+      }
+      const html = textoIA.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+      panel.innerHTML = `
+        <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;border-radius:12px;padding:16px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:13px;font-weight:700;color:#0d5c2f;">🤖 Resumen IA — Visita a ${d.nombre} (${promedio.toFixed(1)}/10)</div>
+            <button onclick="this.closest('div[style]').parentElement.remove()"
+              style="background:none;border:none;color:#0d5c2f;cursor:pointer;opacity:.6;font-size:16px;">✕</button>
+          </div>
+          <div style="font-size:12px;color:#166534;line-height:1.7;">${html}</div>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <button onclick="navigator.clipboard.writeText('${textoIA.replace(/'/g,"\\'")}');hubToast('✅ Copiado','ok')"
+              style="padding:5px 12px;background:white;border:1.5px solid #86efac;border-radius:7px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;color:#0d5c2f;cursor:pointer;">
+              📋 Copiar para expediente
+            </button>
+          </div>
+        </div>`;
+    }).catch(()=>{});
   } catch(e) {
     hubToast('❌ Error al guardar: ' + e.message, 'err');
   }
