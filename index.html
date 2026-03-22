@@ -24493,11 +24493,14 @@ ADM.cargarMaterias = async function() {
     const nivelFiltro = ADM.escuelaNivel || window._admNivelActivo || window._nivelActivo || 'secundaria';
     console.log('[ADM] cargarMaterias — nivel filtro:', nivelFiltro, '| ADM.escuelaNivel:', ADM.escuelaNivel);
 
-    // Buscar materias en BD filtradas por nivel
-    const { data, error } = await sb.from('materias').select('*')
-      .eq('activo', true)
-      .or(`nivel.eq.${nivelFiltro},nivel.eq.ambos`)
-      .order('nombre');
+    // Buscar materias en BD filtradas por escuela + nivel
+    let qMaterias = sb.from('materias').select('*').eq('activo', true);
+    if (cctM) {
+      // Primero intentar con filtro de escuela
+      qMaterias = qMaterias.or(`escuela_cct.eq.${cctM},escuela_cct.is.null`);
+    }
+    qMaterias = qMaterias.or(`nivel.eq.${nivelFiltro},nivel.eq.ambos,nivel.is.null`);
+    const { data, error } = await qMaterias.order('nombre');
 
     if (error) console.warn('[ADM] materias query error:', error.message);
 
@@ -25828,58 +25831,40 @@ ADM.guardarAlumno = async function() {
 
     if (sbRef) {
       // ── PASO 1: Insertar alumno en usuarios ──
-      // Intentar con payload completo; si falla por columna inexistente, reintentar con payload mínimo
-      let inserted = null, insertErr = null;
-      ({ data: inserted, error: insertErr } = await sbRef.from('usuarios')
-        .insert(payload).select().single());
-
-      if (insertErr && (insertErr.message?.includes('column') || insertErr.code === '42703')) {
-        // Alguna columna no existe en este schema — usar solo columnas base garantizadas
-        console.warn('[ADM] Columna inexistente, reintentando con payload mínimo:', insertErr.message);
-        const payloadMinimo = {
-          nombre, apellido_p, apellido_m,
-          curp: curp || null,
-          email: emailAlumno || null,
-          rol: 'alumno', activo: true,
-          escuela_id:  escuelaId  || null,
-          escuela_cct: escuelaCct || null,
-        };
-        // Agregar campos opcionales uno por uno para saber cuáles existen
-        for (const [k, v] of Object.entries({ fecha_nac: fechaNac||null, num_lista: numLista, codigo_vinculacion: codigo })) {
-          try {
-            const testPayload = { ...payloadMinimo, [k]: v };
-            const { data: testD, error: testE } = await sbRef.from('usuarios')
-              .insert(testPayload).select().single();
-            if (!testE) { inserted = testD; insertErr = null; break; }
-            if (testE.message?.includes(k) || testE.code === '42703') continue; // esa col no existe
-            // Otro error distinto
-            throw testE;
-          } catch(e2) {
-            if (!e2.message?.includes('column') && e2.code !== '42703') throw e2;
-          }
-        }
-        if (!inserted) {
-          ({ data: inserted, error: insertErr } = await sbRef.from('usuarios')
-            .insert(payloadMinimo).select().single());
-        }
-      }
+      const { data: inserted, error: insertErr } = await sbRef.from('usuarios')
+        .insert(payload).select().single();
 
       if (insertErr) {
-        // Si hay duplicado de email, actualizar en lugar de fallar
-        if (insertErr.code === '23505' && emailAlumno) {
-          const { data: existing } = await sbRef.from('usuarios')
-            .select('*').eq('email', emailAlumno).maybeSingle();
-          if (existing) {
-            alumnoId   = existing.id;
-            alumnoData = existing;
-            ADM.toast(`ℹ️ ${nombre} ya existía — cuenta actualizada`, 'ok');
+        // Duplicado: buscar el existente y actualizarlo
+        if (insertErr.code === '23505') {
+          let busca;
+          if (emailAlumno) {
+            ({ data: busca } = await sbRef.from('usuarios').select('*').eq('email', emailAlumno).maybeSingle());
+          }
+          if (!busca) {
+            ({ data: busca } = await sbRef.from('usuarios').select('*')
+              .eq('nombre', nombre).eq('apellido_p', apellido_p)
+              .eq('escuela_cct', escuelaCct).maybeSingle());
+          }
+          if (busca) {
+            alumnoId   = busca.id;
+            alumnoData = busca;
+            ADM.toast(`ℹ️ ${nombre} ya estaba registrado — actualizando`, 'ok');
+            await sbRef.from('usuarios').update({
+              apellido_p, apellido_m,
+              curp: curp || busca.curp || null,
+              tutor_nombre: tutor || null,
+              telefono_tutor: telefono || null,
+              escuela_id:  escuelaId  || busca.escuela_id  || null,
+              escuela_cct: escuelaCct || busca.escuela_cct || null,
+            }).eq('id', busca.id);
           } else {
             throw insertErr;
           }
         } else {
           throw insertErr;
         }
-      } else if (inserted) {
+      } else {
         alumnoId   = inserted.id;
         alumnoData = inserted;
       }
@@ -25973,7 +25958,7 @@ ADM.guardarAlumno = async function() {
       // 6b. Invitación padre/tutor
       if (emailPadre) {
         const tokenPadre = ADM._generarToken();
-        linkPadre = `${location.origin}/index.html?invite=${tokenPadre}`;
+        linkPadre = `${location.origin}/padres.html?invite=${tokenPadre}`;
         try {
           await sbRef.from('invitaciones').insert({
             token:          tokenPadre,
@@ -28231,6 +28216,146 @@ window.handleAction     = handleAction;
 window.recolectarDatos  = recolectarDatos;
 window.siembraDispatch  = siembraDispatch;
 window.siembraOtorgarXP = siembraOtorgarXP;
+
+// ══════════════════════════════════════════════════════════════════════
+// SIEMBRA CONECTAR — Sincroniza materias, alumnos y calificaciones
+// entre todos los portales (docente, alumno, padre, subdir, coord)
+// ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Carga las materias reales de la escuela desde la BD
+ * y las expone globalmente para que todos los portales las usen.
+ */
+async function siembraCargarMateriasEscuela(escuelaCct, nivel) {
+  if (!window.sb || !escuelaCct) return [];
+  try {
+    let q = window.sb.from('materias').select('*').eq('activo', true);
+    // Materias de esta escuela O materias globales (sin escuela)
+    q = q.or(`escuela_cct.eq.${escuelaCct},escuela_cct.is.null`);
+    if (nivel && nivel !== 'ambos') {
+      q = q.or(`nivel.eq.${nivel},nivel.eq.ambos,nivel.is.null`);
+    }
+    const { data } = await q.order('nombre');
+    if (data?.length) {
+      window._siembraMaterias = data;
+      console.log('[SIEMBRA] Materias cargadas:', data.length, 'para', escuelaCct);
+      return data;
+    }
+  } catch(e) { console.warn('[SIEMBRA] cargarMaterias:', e.message); }
+  return window._siembraMaterias || [];
+}
+
+/**
+ * Carga las materias asignadas a un docente específico
+ * desde docente_grupos (fuente de verdad para el docente)
+ */
+async function siembraCargarMateriasDocente(docenteId) {
+  if (!window.sb || !docenteId) return [];
+  try {
+    const { data } = await window.sb.from('docente_grupos')
+      .select('materia, campo_formativo, grupo_id, grupos(nombre,grado,seccion,nivel,turno), ciclo')
+      .eq('docente_id', docenteId).eq('activo', true)
+      .eq('ciclo', window.CICLO_ACTIVO || '2025-2026');
+    if (data?.length) {
+      // Materias únicas
+      const mats = [...new Set(data.map(r => r.materia).filter(Boolean))];
+      window._materiasDocente  = mats;
+      window._materiasFiltered = mats;
+      window._docenteGruposData = data;
+      // Actualizar label en portal docente si existe
+      const matEl = document.getElementById('doc-materias-label');
+      if (matEl) matEl.textContent = mats.join(' · ') || 'Sin materias asignadas';
+      console.log('[SIEMBRA] Materias docente:', mats.length);
+      return mats;
+    }
+  } catch(e) { console.warn('[SIEMBRA] cargarMateriasDocente:', e.message); }
+  return [];
+}
+
+/**
+ * Carga calificaciones de un alumno y las expone para
+ * el portal del alumno y el portal de padres
+ */
+async function siembraCargarCalificacionesAlumno(alumnoId, ciclo) {
+  if (!window.sb || !alumnoId) return [];
+  try {
+    const c = ciclo || window.CICLO_ACTIVO || '2025-2026';
+    const { data } = await window.sb.from('calificaciones')
+      .select('materia, trimestre, aspecto, calificacion, observacion, ciclo')
+      .eq('alumno_id', alumnoId).eq('ciclo', c).order('materia');
+    if (data) {
+      window._calificacionesAlumno = window._calificacionesAlumno || {};
+      window._calificacionesAlumno[alumnoId] = data;
+      return data;
+    }
+  } catch(e) { console.warn('[SIEMBRA] cargarCalificaciones:', e.message); }
+  return [];
+}
+
+/**
+ * Propaga los datos cargados por ADM a todos los portales.
+ * Se llama después de que ADM termina de cargar.
+ */
+function siembraPropagar() {
+  const datos = {
+    alumnos:  window.ADM?.alumnos  || window._siembraAlumnos  || [],
+    grupos:   window.ADM?.grupos   || window._siembraGrupos   || [],
+    docentes: window.ADM?.docentes || window._siembraDocentes || [],
+    materias: window.ADM?.materias || window._siembraMaterias || [],
+  };
+  window._siembraAlumnos  = datos.alumnos;
+  window._siembraGrupos   = datos.grupos;
+  window._siembraDocentes = datos.docentes;
+  window._siembraMaterias = datos.materias;
+
+  // Poblar selectores de alumno en TODOS los portales
+  const alumOpts = datos.alumnos.map(a => {
+    const nom = `${a.nombre||''} ${a.apellido_p||a.apellido||''}`.trim();
+    const grp = a.alumnos_grupos?.[0]?.grupos?.nombre || '';
+    return `<option value="${a.id}">${nom}${grp?' · '+grp:''}</option>`;
+  }).join('');
+  document.querySelectorAll('.siembra-alumno-select').forEach(sel => {
+    const val = sel.value;
+    sel.innerHTML = `<option value="">Seleccionar alumno…</option>${alumOpts}`;
+    if (val) sel.value = val;
+  });
+
+  // Poblar selectores de grupo en TODOS los portales
+  const grpOpts = datos.grupos.map(g =>
+    `<option value="${g.id}">${g.nombre||g.grado+'°'+(g.seccion||'')}</option>`
+  ).join('');
+  document.querySelectorAll('.siembra-grupo-select').forEach(sel => {
+    const val = sel.value;
+    sel.innerHTML = `<option value="">Seleccionar grupo…</option>${grpOpts}`;
+    if (val) sel.value = val;
+  });
+
+  // Poblar selectores de materia en TODOS los portales
+  const matOpts = datos.materias.map(m =>
+    `<option value="${m.nombre||m}">${m.nombre||m}</option>`
+  ).join('');
+  document.querySelectorAll('.siembra-materia-select').forEach(sel => {
+    const val = sel.value;
+    sel.innerHTML = `<option value="">Seleccionar materia…</option>${matOpts}`;
+    if (val) sel.value = val;
+  });
+
+  window.dispatchEvent(new CustomEvent('siembra:datos-propagados', { detail: datos }));
+  console.log('[SIEMBRA] Datos propagados —', datos.alumnos.length, 'alumnos,', datos.grupos.length, 'grupos,', datos.materias.length, 'materias');
+}
+window.siembraCargarMateriasEscuela   = siembraCargarMateriasEscuela;
+window.siembraCargarMateriasDocente   = siembraCargarMateriasDocente;
+window.siembraCargarCalificacionesAlumno = siembraCargarCalificacionesAlumno;
+window.siembraPropagar                = siembraPropagar;
+
+// Escuchar cuando ADM termina de cargar para propagar automáticamente
+window.addEventListener('siembra:datos-cargados', () => {
+  siembraPropagar();
+  // Si hay un docente activo, cargar sus materias reales
+  if (window.currentPerfil?.rol === 'docente' && window.currentPerfil?.id) {
+    siembraCargarMateriasDocente(window.currentPerfil.id);
+  }
+});
 
 // ══════════════════════════════════════════════════════════════════════
 // PADRÓN ESCOLAR — Sub-tabs (Padrón / Ficha de inscripción)
