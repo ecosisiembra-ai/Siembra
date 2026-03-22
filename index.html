@@ -29206,9 +29206,9 @@ async function handleAction(action, payload = {}) {
         const resumen = cals.map(c => `${c.materia} T${c.trimestre}: ${c.calificacion}`).join(', ');
         const prompt = `Analiza el desempeño académico de este alumno y da 3 recomendaciones concretas. Calificaciones: ${resumen}. Responde en español, máximo 200 palabras.`;
         if (typeof callAI === 'function') {
-          const resp = await callAI('analisis_alumno', prompt);
+          const resp = await callAI({ feature: 'analisis_alumno', prompt });
           const el = document.getElementById('ia-analisis-resultado') || document.getElementById('alumno-ia-result');
-          if (el) el.innerHTML = `<div style="background:#f0fdf4;border-radius:10px;padding:14px;font-size:13px;line-height:1.6;">${resp?.replace(/\n/g,'<br>') || 'Sin respuesta'}</div>`;
+          if (el) el.innerHTML = `<div style="background:#f0fdf4;border-radius:10px;padding:14px;font-size:13px;line-height:1.6;">${(resp||'').replace(/\n/g,'<br>') || 'Sin respuesta'}</div>`;
           hubToast('✅ Análisis generado', 'ok');
         }
         siembraDispatch('analisis_generado', { alumno_id: alumnoId });
