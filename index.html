@@ -6354,6 +6354,30 @@ async function dirCargarInvitaciones() {
           </div>
         </div>
       </div>
+
+      <!-- Panel Reporte Ejecutivo IA — Director -->
+      <div class="card" style="margin-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div class="card-title" style="margin:0;">🤖 Reporte ejecutivo IA</div>
+            <div style="font-size:12px;color:#64748b;margin-top:2px;">Análisis global de la escuela generado por IA para presentar al supervisor SEP</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="dirGenerarReporteIA()" id="dir-btn-reporte-ia"
+              style="padding:8px 16px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+              ✨ Generar reporte
+            </button>
+            <button onclick="dirExportarReporteWord()" id="dir-btn-reporte-word" style="display:none;padding:8px 16px;background:#166534;color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+              📝 Exportar Word
+            </button>
+          </div>
+        </div>
+        <div id="dir-ia-reporte">
+          <div style="background:#eff6ff;border:1.5px dashed #bfdbfe;border-radius:12px;padding:20px;text-align:center;color:#1d4ed8;font-size:13px;">
+            Presiona "Generar reporte" para que la IA analice todos los indicadores de la escuela y genere un resumen ejecutivo listo para supervisión.
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ── DOCENTES ── -->
@@ -6556,7 +6580,10 @@ async function dirCargarInvitaciones() {
     </div>
 
     <div class="page" id="dir-p-reportes">
-      <div class="sec-header"><h2>Estadísticas del ciclo</h2></div>
+      <div class="sec-header">
+        <h2>Estadísticas del ciclo</h2>
+        <button onclick="dirGenerarReporteIA()" style="padding:8px 18px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🤖 Generar reporte ejecutivo IA</button>
+      </div>
       <div class="grid-4">
         <div class="stat-card"><div class="stat-ico" style="background:#dbeafe;">📚</div><div><div class="stat-val">48</div><div class="stat-lbl">Horas semanales totales</div></div></div>
         <div class="stat-card"><div class="stat-ico" style="background:#dcfce7;">👩‍🏫</div><div><div class="stat-val">4.2</div><div class="stat-lbl">Grupos promedio/docente</div></div></div>
@@ -30982,6 +31009,201 @@ async function dirCargarAvancePEMC() {
   } catch(e) { console.warn('[PEMC director]', e.message); }
 }
 window.dirCargarAvancePEMC = dirCargarAvancePEMC;
+
+// ── Reporte Ejecutivo IA — Director ───────────────────────────────────
+async function dirGenerarReporteIA() {
+  const el  = document.getElementById('dir-ia-reporte');
+  const btn = document.getElementById('dir-btn-reporte-ia');
+  const wordBtn = document.getElementById('dir-btn-reporte-word');
+  if (!el) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Analizando…'; }
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:20px;color:#1d4ed8;font-size:13px;">
+    <span style="display:inline-block;width:16px;height:16px;border:2px solid #bfdbfe;border-top-color:#1d4ed8;border-radius:50%;animation:spin .8s linear infinite;"></span>
+    Recopilando indicadores y generando reporte ejecutivo con IA…
+  </div>`;
+
+  try {
+    const cct    = currentPerfil?.escuela_cct;
+    const escNom = currentPerfil?.escuela_nombre || window._escuelaCfg?.nombre || 'Escuela';
+    const ciclo  = window.CICLO_ACTIVO || '2025-2026';
+
+    // Recopilar datos reales en paralelo
+    const [
+      { data: alumnos,    count: totalAlumnos },
+      { data: docentes  },
+      { data: incidencias },
+      { data: califs    },
+      { data: asistencias },
+      { data: pemc      },
+    ] = await Promise.all([
+      sb.from('usuarios').select('id', { count:'exact', head:true })
+        .eq('escuela_cct', cct).eq('rol','alumno').eq('activo',true),
+      sb.from('usuarios').select('id,rol')
+        .eq('escuela_cct', cct).in('rol',['docente','tutor']).eq('activo',true),
+      sb.from('incidencias').select('id,estado,tipo')
+        .eq('escuela_cct', cct)
+        .gte('created_at', new Date(Date.now()-90*24*60*60*1000).toISOString()),
+      sb.from('calificaciones').select('calificacion,materia')
+        .eq('escuela_cct', cct).eq('ciclo', ciclo),
+      sb.from('asistencia').select('presente')
+        .eq('escuela_cct', cct)
+        .gte('fecha', new Date(Date.now()-30*24*60*60*1000).toISOString().split('T')[0]),
+      sb.from('pemc').select('plan_json,updated_at')
+        .eq('escuela_cct', cct).eq('ciclo', ciclo).maybeSingle(),
+    ]).catch(() => Array(6).fill({ data: null, count: 0 }));
+
+    // Calcular indicadores
+    const numAlumnos  = totalAlumnos || 0;
+    const numDocentes = docentes?.length || 0;
+    const incAbiertas = incidencias?.filter(i => i.estado !== 'cerrada').length || 0;
+    const incUrgentes = incidencias?.filter(i => i.estado === 'urgente').length || 0;
+
+    let promedio = '—', materiasRiesgo = [];
+    if (califs?.length) {
+      const nums = califs.map(c => parseFloat(c.calificacion)).filter(n => !isNaN(n));
+      promedio = nums.length ? (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(1) : '—';
+      const porMateria = {};
+      califs.forEach(c => {
+        if (!porMateria[c.materia]) porMateria[c.materia] = [];
+        const n = parseFloat(c.calificacion);
+        if (!isNaN(n)) porMateria[c.materia].push(n);
+      });
+      materiasRiesgo = Object.entries(porMateria)
+        .map(([m,vs]) => ({ materia:m, prom:(vs.reduce((a,b)=>a+b,0)/vs.length) }))
+        .filter(x => x.prom < 7)
+        .sort((a,b) => a.prom-b.prom)
+        .slice(0,3)
+        .map(x => `${x.materia} (${x.prom.toFixed(1)})`);
+    }
+
+    let pctAsistencia = '—';
+    if (asistencias?.length) {
+      const presentes = asistencias.filter(a => a.presente).length;
+      pctAsistencia = Math.round((presentes/asistencias.length)*100) + '%';
+    }
+
+    const pemcInfo = pemc?.plan_json
+      ? (() => {
+          try {
+            const p = JSON.parse(pemc.plan_json);
+            const comp = p.meses?.filter(m=>m.completada).length || 0;
+            return `${comp}/${p.meses?.length||0} meses completados`;
+          } catch { return 'Plan generado'; }
+        })()
+      : 'No generado';
+
+    // Construir prompt con datos reales
+    const prompt = `Genera un REPORTE EJECUTIVO ESCOLAR en formato oficial para el director de "${escNom}" (CCT: ${cct||'—'}, Ciclo ${ciclo}).
+
+INDICADORES REALES DE LA ESCUELA:
+- Total alumnos activos: ${numAlumnos}
+- Docentes activos: ${numDocentes}
+- Promedio general de calificaciones: ${promedio}
+- Materias con promedio bajo (<7): ${materiasRiesgo.join(', ') || 'Ninguna detectada'}
+- Asistencia promedio (últimos 30 días): ${pctAsistencia}
+- Incidencias abiertas: ${incAbiertas} (${incUrgentes} urgentes)
+- PEMC / Ruta de Mejora: ${pemcInfo}
+
+ESTRUCTURA DEL REPORTE (usa este formato exacto):
+## 1. Datos generales
+## 2. Indicadores clave del ciclo
+## 3. Áreas de logro
+## 4. Áreas de atención prioritaria
+## 5. Acciones recomendadas para el director
+## 6. Mensaje para el supervisor SEP
+
+Lenguaje formal SEP México. Sé específico con los números. Máximo 600 palabras.`;
+
+    const texto = await callAI({
+      feature: 'director_reporte_global',
+      prompt,
+      escuela_id: cct,
+      ciclo,
+    });
+
+    // Guardar para exportar
+    window._dirUltimoReporte = { texto, escNom, ciclo };
+
+    // Formatear HTML
+    const html = texto
+      .replace(/^## (.+)$/gm, '<h3 style="font-size:14px;font-weight:700;color:#1e3a5f;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #e2e8f0;">$1</h3>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^- (.+)$/gm, '<li style="margin-bottom:5px;">$1</li>')
+      .replace(/(<li.*<\/li>\n?)+/g, m => `<ul style="margin:8px 0 12px 18px;">${m}</ul>`)
+      .replace(/\n\n/g, '</p><p style="margin-bottom:10px;">')
+      .replace(/\n/g, '<br>');
+
+    el.innerHTML = `
+      <div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:24px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid #1e3a5f;">
+          <div style="width:40px;height:40px;background:#1e3a5f;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🏫</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#0f172a;">${escNom}</div>
+            <div style="font-size:12px;color:#64748b;">Reporte ejecutivo · Ciclo ${ciclo} · Generado ${new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})}</div>
+          </div>
+          <button onclick="navigator.clipboard.writeText(document.getElementById('dir-reporte-texto').innerText);hubToast('✅ Copiado','ok')"
+            style="margin-left:auto;padding:6px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;color:#475569;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">📋 Copiar</button>
+        </div>
+        <div id="dir-reporte-texto" style="font-size:13px;color:#334155;line-height:1.8;">
+          <p style="margin-bottom:10px;">${html}</p>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0;font-size:11px;color:#15803d;">
+          ⚠️ Este reporte fue generado con IA a partir de los datos reales del sistema. Revisa y ajusta antes de presentar a supervisión.
+        </div>
+      </div>`;
+
+    if (wordBtn) wordBtn.style.display = 'block';
+
+  } catch(e) {
+    el.innerHTML = `<div style="background:#fef2f2;border-radius:12px;padding:16px;color:#dc2626;font-size:13px;">❌ ${e.message}</div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Generar reporte'; }
+  }
+}
+window.dirGenerarReporteIA = dirGenerarReporteIA;
+
+// ── Exportar reporte director a Word ─────────────────────────────────
+function dirExportarReporteWord() {
+  const rep = window._dirUltimoReporte;
+  const el  = document.getElementById('dir-reporte-texto');
+  if (!rep || !el) { hubToast('Genera el reporte primero','warn'); return; }
+  const fecha = new Date().toLocaleDateString('es-MX');
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+       xmlns:w="urn:schemas-microsoft-com:office:word"
+       xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="utf-8"><title>Reporte Ejecutivo ${rep.escNom}</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12pt;line-height:1.7;margin:2.5cm;}
+    h3{font-size:13pt;font-weight:bold;color:#1e3a5f;margin:14pt 0 6pt;border-bottom:1pt solid #e2e8f0;padding-bottom:4pt;}
+    p{margin-bottom:8pt;} ul{margin:6pt 0 10pt 20pt;} li{margin-bottom:3pt;}
+    .header{text-align:center;border-bottom:2pt solid #1e3a5f;padding-bottom:16pt;margin-bottom:24pt;}
+    .footer{font-size:9pt;color:#666;border-top:1pt solid #ccc;padding-top:8pt;margin-top:24pt;text-align:center;}
+    .badge{display:inline-block;background:#f0fdf4;border:1pt solid #bbf7d0;padding:4pt 10pt;border-radius:4pt;font-size:9pt;color:#15803d;}
+  </style></head><body>
+  <div class="header">
+    <div style="font-size:10pt;color:#64748b;text-transform:uppercase;letter-spacing:2pt;">SIEMBRA — Sistema Educativo</div>
+    <div style="font-size:18pt;font-weight:bold;color:#1e3a5f;margin:8pt 0;">Reporte Ejecutivo Escolar</div>
+    <div style="font-size:12pt;">${rep.escNom}</div>
+    <div style="font-size:10pt;color:#64748b;">Ciclo ${rep.ciclo} · ${fecha}</div>
+  </div>
+  ${el.innerHTML}
+  <div class="footer">
+    <span class="badge">⚠️ Generado con IA — Revisar antes de presentar a supervisión SEP</span><br>
+    SIEMBRA · ${fecha}
+  </div>
+  </body></html>`;
+
+  const blob = new Blob([html], { type:'application/msword' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `Reporte-Ejecutivo-${rep.escNom.replace(/\s+/g,'-')}-${rep.ciclo}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
+  hubToast('✅ Descargando reporte Word…','ok');
+}
+window.dirExportarReporteWord = dirExportarReporteWord;
 
 // Cargar avance PEMC cuando el director entra a su dashboard
 window.addEventListener('siembra:datos-cargados', () => {
