@@ -23948,10 +23948,10 @@ ADM.escuelaCct = null;
 ADM.escuelaId  = null;
 
 // ── Estado del módulo ─────────────────────────────────────────────
-ADM.grupos    = [];
-ADM.docentes  = [];
-ADM.alumnos   = [];
-ADM.materias  = [];
+ADM.grupos    = ADM.grupos   || [];
+ADM.docentes  = ADM.docentes || [];
+ADM.alumnos   = ADM.alumnos  || [];
+ADM.materias  = ADM.materias || [];
 ADM.paginaActual = 'adm-dashboard';
 
 // ── Inicialización ────────────────────────────────────────────────
