@@ -32353,4 +32353,618 @@ window.admCargarSolicitudesVinculacion = async function() {
 };
 
 console.log('[SIEMBRA Engine] Action engine cargado ✅');
+// ══════════════════════════════════════════════════════════════════
+// BLOQUE C — 5 AGENTES DOCENTE UX
+// ══════════════════════════════════════════════════════════════════
+
+// ── Agente 1: Popup retroalimentación IA al guardar calificaciones ─
+// Se inyecta después del calGuardar() exitoso
+(function() {
+  const _calGuardarOrig = window.calGuardar;
+  window.calGuardar = async function() {
+    await _calGuardarOrig.apply(this, arguments);
+    // Mostrar popup retro IA para alumnos en riesgo
+    setTimeout(bloqueC_popupRetro, 600);
+  };
+})();
+
+async function bloqueC_popupRetro() {
+  const alumnosList = window._alumnosActivos || alumnos || [];
+  const mat  = calMatActual;
+  const trim = calTrimActual;
+  if (!alumnosList.length || !mat) return;
+
+  // Alumnos con promedio < 7 en esta materia
+  const enRiesgo = alumnosList.map((a,ai) => ({
+    nombre: a.n || a.nombre || '—',
+    prom:   typeof calPromPonderado === 'function' ? calPromPonderado(ai, mat, trim) : 7
+  })).filter(a => a.prom > 0 && a.prom < 7).slice(0, 3);
+
+  if (!enRiesgo.length) return;
+
+  // Crear popup si no existe
+  let popup = document.getElementById('bloquec-retro-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'bloquec-retro-popup';
+    popup.style.cssText = 'position:fixed;bottom:24px;right:24px;width:320px;background:white;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.18);border:1.5px solid #e2e8f0;z-index:9000;animation:slideInRight .3s ease;';
+    document.body.appendChild(popup);
+  }
+
+  popup.innerHTML = `
+    <div style="padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;animation:pulse 2s infinite;"></div>
+          <span style="font-size:12px;font-weight:700;color:#0f172a;">🤖 Retroalimentación IA</span>
+        </div>
+        <button onclick="document.getElementById('bloquec-retro-popup').remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:16px;padding:0;">✕</button>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:10px;">${enRiesgo.length} alumno${enRiesgo.length>1?'s':''} con promedio bajo en <strong>${mat}</strong>:</div>
+      <div id="bloquec-retro-lista" style="margin-bottom:12px;">
+        ${enRiesgo.map(a => `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#fef2f2;border-radius:8px;margin-bottom:6px;"><span style="font-size:12px;font-weight:600;">${a.nombre}</span><span style="font-size:13px;font-weight:800;color:#b91c1c;">${a.prom.toFixed(1)}</span></div>`).join('')}
+      </div>
+      <div id="bloquec-retro-ia" style="background:#f5f3ff;border-radius:10px;padding:12px;font-size:12px;color:#5b21b6;line-height:1.6;margin-bottom:12px;">
+        <span style="opacity:.6;">✨ Generando sugerencia pedagógica…</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="document.getElementById('bloquec-retro-popup').remove()" style="flex:1;padding:8px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;color:#475569;cursor:pointer;">Cerrar</button>
+        <button onclick="dNav('observaciones');document.getElementById('bloquec-retro-popup').remove()" style="flex:1;padding:8px;background:#7c3aed;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">📝 Agregar obs.</button>
+      </div>
+    </div>`;
+
+  // Generar sugerencia IA
+  const iaEl = document.getElementById('bloquec-retro-ia');
+  const nombres = enRiesgo.map(a => `${a.nombre} (${a.prom.toFixed(1)})`).join(', ');
+  callAI({
+    feature: 'ficha_estrategias',
+    prompt: `Soy docente de ${mat} Trimestre ${trim}. Alumnos con promedio bajo: ${nombres}. Dame 1 estrategia pedagógica concreta que pueda aplicar ESTA SEMANA con ellos. NEM 2026. Máximo 2 oraciones.`
+  }).then(txt => {
+    if (iaEl) iaEl.innerHTML = txt.replace(/\n/g,'<br>');
+  }).catch(() => {
+    if (iaEl) iaEl.innerHTML = `Organiza una sesión de repaso grupal de 15 min centrada en los aspectos con menor puntaje. Luego retroalimenta individualmente a cada alumno en riesgo.`;
+  });
+}
+
+// ── Agente 2: Badge rojo en sidebar cuando hay alumnos en riesgo ──
+function bloqueC_actualizarBadgeSidebar() {
+  const alumnosList = window._alumnosActivos || alumnos || [];
+  if (!alumnosList.length) return;
+
+  const enRiesgo = alumnosList.map((a,ai) => {
+    if (typeof calPromPonderado !== 'function') return 7;
+    const proms = (MATERIAS_NEM||[]).map(m => calPromPonderado(ai,m,calTrimActual||1));
+    return proms.reduce((s,p)=>s+p,0)/(proms.length||1);
+  }).filter(p => p > 0 && p < 7).length;
+
+  // Badge en botón de calificaciones
+  const btnCal = [...document.querySelectorAll('#doc-portal .nav-btn')].find(b=>b.getAttribute('onclick')?.includes("'calificaciones'"));
+  if (btnCal) {
+    let badge = btnCal.querySelector('.bloquec-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'bloquec-badge';
+      badge.style.cssText = 'display:inline-block;background:#ef4444;color:white;font-size:9px;font-weight:800;padding:2px 5px;border-radius:99px;margin-left:auto;';
+      btnCal.appendChild(badge);
+    }
+    if (enRiesgo > 0) { badge.textContent = enRiesgo; badge.style.display = 'inline-block'; }
+    else badge.style.display = 'none';
+  }
+
+  // Badge en botón de fichas
+  const btnFicha = [...document.querySelectorAll('#doc-portal .nav-btn')].find(b=>b.getAttribute('onclick')?.includes("'fichas'"));
+  if (btnFicha && enRiesgo > 0) {
+    let badge = btnFicha.querySelector('.bloquec-badge-ficha');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'bloquec-badge-ficha';
+      badge.style.cssText = 'display:inline-block;background:#f59e0b;color:white;font-size:9px;font-weight:800;padding:2px 5px;border-radius:99px;margin-left:auto;';
+      btnFicha.appendChild(badge);
+    }
+    badge.textContent = '!'; badge.style.display = 'inline-block';
+  }
+}
+
+// ── Agente 3: Modo oscuro ya existe — mejorar toggle visual ──────
+// Solo mejora el botón existente si no fue mejorado aún
+(function() {
+  const dmBtn = document.getElementById('dm-toggle');
+  if (dmBtn && !dmBtn.dataset.enhanced) {
+    dmBtn.dataset.enhanced = '1';
+    dmBtn.style.cssText += 'width:36px;height:36px;border:1.5px solid var(--gris-20);border-radius:9px;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:.2s;';
+    // Restaurar estado guardado
+    if (localStorage.getItem('siembra_dark') === '1') {
+      document.body.classList.add('dark-mode');
+      dmBtn.textContent = '🌙';
+    }
+  }
+  // Patch toggleDarkMode para guardar preferencia
+  const _toggleDark = window.toggleDarkMode;
+  window.toggleDarkMode = function() {
+    _toggleDark && _toggleDark();
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('siembra_dark', isDark ? '1' : '0');
+    const btn = document.getElementById('dm-toggle');
+    if (btn) btn.textContent = isDark ? '🌙' : '☀️';
+  };
+})();
+
+// ── Agente 4: Exportar reporte grupal Word/PDF ────────────────────
+function bloqueC_exportarReporteGrupo() {
+  const alumnosList = window._alumnosActivos || alumnos || [];
+  if (!alumnosList.length) { hubToast('⚠️ Carga tu grupo primero', 'warn'); return; }
+
+  const btn = document.getElementById('bloquec-btn-exportar');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando…'; }
+
+  const mat  = calMatActual || MATERIAS_NEM?.[0] || 'Matemáticas';
+  const trim = calTrimActual || 1;
+  const nombre = currentPerfil?.nombre || 'Docente';
+  const escuela = currentPerfil?.escuela_nombre || window._escuelaCfg?.nombre || 'SIEMBRA';
+
+  const promedios = alumnosList.map((a,ai) => ({
+    nombre: a.n || a.nombre || '—',
+    prom:   typeof calPromPonderado === 'function' ? calPromPonderado(ai,mat,trim) : 7
+  }));
+  const promGrupo = (promedios.reduce((s,a)=>s+a.prom,0)/promedios.length).toFixed(1);
+  const enRiesgo  = promedios.filter(a=>a.prom<6);
+  const enSeguim  = promedios.filter(a=>a.prom>=6&&a.prom<7);
+  const excelente = promedios.filter(a=>a.prom>=9);
+
+  const prompt = `Genera un reporte grupal breve de ${mat} Trimestre ${trim} para el docente ${nombre} de ${escuela}.
+Total alumnos: ${promedios.length}. Promedio: ${promGrupo}.
+En riesgo (<6): ${enRiesgo.map(a=>a.nombre).join(', ')||'ninguno'}.
+En seguimiento: ${enSeguim.map(a=>a.nombre).join(', ')||'ninguno'}.
+Excelentes (≥9): ${excelente.map(a=>a.nombre).join(', ')||'ninguno'}.
+Incluye: diagnóstico del grupo, fortalezas, alumnos prioritarios y 2 recomendaciones pedagógicas NEM. Máximo 300 palabras.`;
+
+  callAI({ feature: 'cal_reporte', prompt }).then(texto => {
+    const fecha = new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+    const tablaAlumnos = promedios.map(a =>
+      `<tr><td style="padding:6pt 10pt;">${a.nombre}</td><td style="padding:6pt 10pt;text-align:center;font-weight:bold;color:${a.prom>=8?'#15803d':a.prom>=6?'#b45309':'#b91c1c'};">${a.prom.toFixed(1)}</td><td style="padding:6pt 10pt;text-align:center;">${a.prom>=9?'Excelente':a.prom>=8?'Muy bien':a.prom>=7?'Regular':a.prom>=6?'Apoyo':' Urgente'}</td></tr>`
+    ).join('');
+
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Reporte ${mat} T${trim}</title>
+<style>body{font-family:Arial,sans-serif;font-size:11pt;line-height:1.6;margin:2cm;}
+h2{font-size:13pt;font-weight:bold;color:#0d5c2f;margin:12pt 0 6pt;border-bottom:1pt solid #e2e8f0;padding-bottom:3pt;}
+table{width:100%;border-collapse:collapse;margin:10pt 0;}
+th{background:#0d5c2f;color:white;padding:7pt 10pt;font-size:10pt;text-align:left;}
+tr:nth-child(even){background:#f8fafb;}
+.header{text-align:center;border-bottom:2pt solid #0d5c2f;padding-bottom:12pt;margin-bottom:18pt;}
+.footer{font-size:9pt;color:#64748b;border-top:1pt solid #e2e8f0;padding-top:8pt;margin-top:18pt;text-align:center;}
+</style></head><body>
+<div class="header">
+  <div style="font-size:10pt;color:#64748b;text-transform:uppercase;letter-spacing:1.5pt;">SIEMBRA — Reporte de Calificaciones</div>
+  <div style="font-size:17pt;font-weight:bold;color:#0d5c2f;margin:6pt 0;">${mat} · Trimestre ${trim}</div>
+  <div style="font-size:11pt;color:#475569;">${escuela} · Docente: ${nombre} · ${fecha}</div>
+  <div style="font-size:11pt;color:#0d5c2f;font-weight:bold;margin-top:4pt;">Promedio grupal: ${promGrupo}</div>
+</div>
+<h2>Análisis IA del grupo</h2>
+<p>${texto.replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</p>
+<h2>Calificaciones individuales</h2>
+<table><thead><tr><th>Alumno</th><th style="text-align:center;">Promedio</th><th style="text-align:center;">Nivel</th></tr></thead><tbody>${tablaAlumnos}</tbody></table>
+<div class="footer">Generado con SIEMBRA · ${fecha} · Solo referencia pedagógica NEM</div>
+</body></html>`;
+
+    const blob = new Blob([html], { type:'application/msword' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `Reporte-${mat.replace(/\s+/g,'-')}-T${trim}-SIEMBRA.doc`;
+    a.click(); URL.revokeObjectURL(url);
+    hubToast('✅ Reporte descargado', 'ok');
+  }).catch(e => hubToast('❌ Error: '+e.message, 'err'))
+  .finally(() => {
+    if (btn) { btn.disabled = false; btn.innerHTML = '📄 Exportar reporte del grupo'; }
+  });
+}
+
+// ── Agente 5: Inyectar botón exportar en dashboard docente ────────
+function bloqueC_inyectarBotonesExtra() {
+  // Botón exportar en dashboard
+  const dashPage = document.getElementById('p-dashboard');
+  if (dashPage && !document.getElementById('bloquec-btn-exportar')) {
+    const btnDiv = document.createElement('div');
+    btnDiv.style.cssText = 'margin-top:14px;';
+    btnDiv.innerHTML = `
+      <button id="bloquec-btn-exportar" onclick="bloqueC_exportarReporteGrupo()"
+        style="width:100%;padding:12px;background:linear-gradient(135deg,#0d5c2f,#16a34a);color:white;border:none;border-radius:12px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+        📄 Exportar reporte del grupo
+      </button>`;
+    dashPage.appendChild(btnDiv);
+  }
+  // Actualizar badge sidebar
+  bloqueC_actualizarBadgeSidebar();
+}
+
+// ── Hook: disparar agentes al cargar datos ────────────────────────
+window.addEventListener('siembra:datos-cargados', () => {
+  if (window.currentPerfil?.rol === 'docente' || window.currentPerfil?.rol === 'tutor') {
+    setTimeout(bloqueC_inyectarBotonesExtra, 700);
+  }
+});
+
+// También al renderizar dashboard
+const _dRenderDashOrig = window.dRenderDash;
+window.dRenderDash = function() {
+  if (typeof _dRenderDashOrig === 'function') _dRenderDashOrig();
+  setTimeout(bloqueC_actualizarBadgeSidebar, 300);
+  setTimeout(bloqueC_inyectarBotonesExtra, 400);
+};
+
+// ══════════════════════════════════════════════════════════════════
+// BLOQUE D — 5 AGENTES DIRECTOR BI
+// ══════════════════════════════════════════════════════════════════
+
+// ── Agente 1: KPIs visuales con tendencia ↑↓ ─────────────────────
+async function bloqueD_kpisTendencia() {
+  if (!sb || !currentPerfil?.escuela_cct) return;
+  const cct = currentPerfil.escuela_cct;
+  const dash = document.getElementById('dir-p-dashboard');
+  if (!dash || document.getElementById('bloqueD-kpis')) return;
+
+  try {
+    const [
+      { count: totalAlumnos },
+      { count: totalDocentes },
+      { count: totalGrupos },
+      { data: calRecientes },
+    ] = await Promise.all([
+      sb.from('usuarios').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).eq('rol','alumno').eq('activo',true),
+      sb.from('usuarios').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).in('rol',['docente','tutor']).eq('activo',true),
+      sb.from('grupos').select('id',{count:'exact',head:true}).eq('escuela_cct',cct),
+      sb.from('calificaciones').select('calificacion').eq('escuela_cct',cct).eq('ciclo', window.CICLO_ACTIVO||'2025-2026').limit(200),
+    ]);
+
+    const calArr   = calRecientes?.map(c=>c.calificacion).filter(v=>v>0) || [];
+    const promedio = calArr.length ? (calArr.reduce((s,v)=>s+v,0)/calArr.length).toFixed(1) : '—';
+    const enRiesgo = calArr.filter(v=>v<6).length;
+    const pctRiesgo= calArr.length ? Math.round((enRiesgo/calArr.length)*100) : 0;
+
+    // Inyectar KPIs reales encima del grid existente
+    const grid4    = dash.querySelector('.grid-4');
+    const kpiDiv   = document.createElement('div');
+    kpiDiv.id      = 'bloqueD-kpis';
+    kpiDiv.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;';
+    kpiDiv.innerHTML = [
+      { icon:'👥', val: totalAlumnos||'—', lbl:'Alumnos activos',   color:'#dbeafe', trend:'', trendColor:'' },
+      { icon:'👩‍🏫', val: totalDocentes||'—', lbl:'Docentes',          color:'#dcfce7', trend:'', trendColor:'' },
+      { icon:'📊', val: promedio,            lbl:'Promedio escuela', color:'#f5f3ff',
+        trend: parseFloat(promedio)>=8?'↑ Buen nivel':parseFloat(promedio)<7?'↓ Atención':'→ Estable',
+        trendColor: parseFloat(promedio)>=8?'#15803d':parseFloat(promedio)<7?'#b91c1c':'#b45309' },
+      { icon:'⚠️', val: pctRiesgo+'%',      lbl:'Alumnos en riesgo',color:'#fef3c7',
+        trend: pctRiesgo>15?'↑ Alto':pctRiesgo>8?'→ Medio':'↓ Bajo',
+        trendColor: pctRiesgo>15?'#b91c1c':pctRiesgo>8?'#b45309':'#15803d' },
+    ].map(k=>`
+      <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:16px;">
+        <div style="width:36px;height:36px;border-radius:9px;background:${k.color};display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:10px;">${k.icon}</div>
+        <div style="font-size:26px;font-weight:900;color:#0f172a;font-family:'Fraunces',serif;">${k.val}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px;">${k.lbl}</div>
+        ${k.trend?`<div style="font-size:11px;font-weight:700;color:${k.trendColor};margin-top:4px;">${k.trend}</div>`:''}
+      </div>`).join('');
+
+    if (grid4) dash.insertBefore(kpiDiv, grid4);
+    else dash.insertBefore(kpiDiv, dash.firstChild);
+  } catch(e) { console.warn('[bloqueD_kpis]', e.message); }
+}
+
+// ── Agente 2: Gráfica evolución mensual Chart.js ──────────────────
+async function bloqueD_graficaEvolucion() {
+  const reportesPage = document.getElementById('dir-p-reportes');
+  if (!reportesPage || document.getElementById('bloqueD-chart-evol')) return;
+  if (!sb || !currentPerfil?.escuela_cct) return;
+
+  try {
+    const cct = currentPerfil.escuela_cct;
+    // Intentar cargar calificaciones agrupadas por mes (últimos 6 meses)
+    const { data: cals } = await sb.from('calificaciones')
+      .select('calificacion, actualizado_en')
+      .eq('escuela_cct', cct)
+      .gte('actualizado_en', new Date(Date.now()-180*24*60*60*1000).toISOString())
+      .limit(500);
+
+    if (!cals?.length) return;
+
+    // Agrupar por mes
+    const porMes = {};
+    cals.forEach(c => {
+      const mes = new Date(c.actualizado_en).toLocaleDateString('es-MX',{month:'short',year:'2-digit'});
+      if (!porMes[mes]) porMes[mes] = [];
+      porMes[mes].push(c.calificacion);
+    });
+    const labels  = Object.keys(porMes).slice(-6);
+    const valores  = labels.map(m => {
+      const vals = porMes[m];
+      return vals.length ? (vals.reduce((s,v)=>s+v,0)/vals.length).toFixed(1) : 0;
+    });
+
+    const grafDiv = document.createElement('div');
+    grafDiv.id = 'bloqueD-chart-evol';
+    grafDiv.style.cssText = 'background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;margin-top:16px;';
+    grafDiv.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">📈 Evolución del promedio escolar — últimos 6 meses</div>
+      <div style="height:200px;position:relative;"><canvas id="bloqueD-canvas-evol"></canvas></div>`;
+    reportesPage.appendChild(grafDiv);
+
+    const initChart = () => {
+      if (typeof Chart === 'undefined') { setTimeout(initChart, 400); return; }
+      const ctx = document.getElementById('bloqueD-canvas-evol');
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Promedio',
+            data: valores,
+            borderColor: '#0d5c2f',
+            backgroundColor: 'rgba(13,92,46,0.08)',
+            tension: 0.4,
+            pointBackgroundColor: '#0d5c2f',
+            pointRadius: 5,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { min:5, max:10, ticks:{ font:{size:10} }, grid:{color:'#f1f5f9'} },
+            x: { ticks:{ font:{size:10} }, grid:{display:false} }
+          }
+        }
+      });
+    };
+    setTimeout(initChart, 300);
+  } catch(e) { console.warn('[bloqueD_grafica]', e.message); }
+}
+
+// ── Agente 3: Comparación de grupos — tabla ranking ───────────────
+async function bloqueD_comparacionGrupos() {
+  const reportesPage = document.getElementById('dir-p-reportes');
+  if (!reportesPage || document.getElementById('bloqueD-ranking-grupos')) return;
+  if (!sb || !currentPerfil?.escuela_cct) return;
+
+  try {
+    const cct = currentPerfil.escuela_cct;
+    const { data: grupos } = await sb.from('grupos')
+      .select('id, nombre, grado, seccion')
+      .eq('escuela_cct', cct)
+      .limit(15);
+    if (!grupos?.length) return;
+
+    // Para cada grupo, obtener promedio de calificaciones
+    const gruposConStats = await Promise.all(grupos.map(async g => {
+      const { data: cals } = await sb.from('calificaciones')
+        .select('calificacion').eq('grupo_id', g.id)
+        .eq('ciclo', window.CICLO_ACTIVO||'2025-2026').limit(100);
+      const vals = cals?.map(c=>c.calificacion).filter(v=>v>0) || [];
+      const prom = vals.length ? (vals.reduce((s,v)=>s+v,0)/vals.length) : 0;
+      const riesgo = vals.filter(v=>v<6).length;
+      return { ...g, prom: prom.toFixed(1), riesgo, total: vals.length };
+    }));
+
+    const ordenados = gruposConStats.filter(g=>g.total>0).sort((a,b)=>parseFloat(b.prom)-parseFloat(a.prom));
+    if (!ordenados.length) return;
+
+    const rankDiv = document.createElement('div');
+    rankDiv.id = 'bloqueD-ranking-grupos';
+    rankDiv.style.cssText = 'background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;margin-top:16px;';
+    rankDiv.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:14px;">🏆 Ranking de grupos por promedio</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="border-bottom:2px solid #f1f5f9;">
+            <th style="padding:8px;text-align:left;color:#64748b;font-weight:600;">#</th>
+            <th style="padding:8px;text-align:left;color:#64748b;font-weight:600;">Grupo</th>
+            <th style="padding:8px;text-align:center;color:#64748b;font-weight:600;">Promedio</th>
+            <th style="padding:8px;text-align:center;color:#64748b;font-weight:600;">En riesgo</th>
+            <th style="padding:8px;color:#64748b;font-weight:600;">Nivel</th>
+          </tr></thead>
+          <tbody>
+            ${ordenados.map((g,i)=>{
+              const col = parseFloat(g.prom)>=8?'#15803d':parseFloat(g.prom)>=7?'#b45309':'#b91c1c';
+              const bg  = i===0?'#f0fdf4':i===1?'#f8fafb':i===2?'#fffbeb':'white';
+              return `<tr style="border-bottom:1px solid #f1f5f9;background:${bg};">
+                <td style="padding:10px 8px;font-weight:800;color:${i<3?'#f59e0b':'#94a3b8'};">${i+1}</td>
+                <td style="padding:10px 8px;font-weight:600;">${g.nombre||g.grado+'° '+g.seccion||'—'}</td>
+                <td style="padding:10px 8px;text-align:center;font-weight:900;font-size:15px;color:${col};">${g.prom}</td>
+                <td style="padding:10px 8px;text-align:center;color:${g.riesgo>0?'#b91c1c':'#15803d'};font-weight:700;">${g.riesgo>0?g.riesgo+' ⚠️':'✅ 0'}</td>
+                <td style="padding:10px 8px;">
+                  <div style="height:6px;width:80px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+                    <div style="height:100%;width:${Math.min(100,(parseFloat(g.prom)-5)*20)}%;background:${col};border-radius:99px;"></div>
+                  </div>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    reportesPage.appendChild(rankDiv);
+  } catch(e) { console.warn('[bloqueD_grupos]', e.message); }
+}
+
+// ── Agente 4: Semáforo global escuela ─────────────────────────────
+async function bloqueD_semaforoGlobal() {
+  const dash = document.getElementById('dir-p-dashboard');
+  if (!dash || document.getElementById('bloqueD-semaforo')) return;
+  if (!sb || !currentPerfil?.escuela_cct) return;
+
+  try {
+    const cct = currentPerfil.escuela_cct;
+    const [
+      { data: cals },
+      { count: incUrgentes },
+      { data: asistencias },
+    ] = await Promise.all([
+      sb.from('calificaciones').select('calificacion').eq('escuela_cct',cct).eq('ciclo',window.CICLO_ACTIVO||'2025-2026').limit(300),
+      sb.from('incidencias').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).eq('estado','urgente'),
+      sb.from('asistencia').select('presente').eq('escuela_cct',cct).gte('fecha', new Date(Date.now()-7*24*60*60*1000).toISOString().split('T')[0]).limit(500),
+    ]);
+
+    const calVals  = cals?.map(c=>c.calificacion).filter(v=>v>0)||[];
+    const promCal  = calVals.length?(calVals.reduce((s,v)=>s+v,0)/calVals.length):0;
+    const pctRiesg = calVals.length?Math.round(calVals.filter(v=>v<6).length/calVals.length*100):0;
+    const pctAsist = asistencias?.length?Math.round(asistencias.filter(a=>a.presente).length/asistencias.length*100):0;
+
+    // Calcular semáforo global
+    let semaforo, semColor, semBg, semMsg;
+    const score = (promCal>=8?2:promCal>=7?1:0) + (pctRiesg<10?2:pctRiesg<20?1:0) + ((incUrgentes||0)===0?2:(incUrgentes||0)<3?1:0);
+    if (score>=5) { semaforo='🟢'; semColor='#15803d'; semBg='#f0fdf4'; semMsg='Escuela en buen estado general'; }
+    else if (score>=3) { semaforo='🟡'; semColor='#b45309'; semBg='#fffbeb'; semMsg='Atención en algunos indicadores'; }
+    else { semaforo='🔴'; semColor='#b91c1c'; semBg='#fef2f2'; semMsg='Se requiere intervención directiva'; }
+
+    const semDiv = document.createElement('div');
+    semDiv.id = 'bloqueD-semaforo';
+    semDiv.style.cssText = `background:${semBg};border-radius:16px;border:2px solid ${semColor}33;padding:16px;margin-bottom:16px;`;
+    semDiv.innerHTML = `
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="font-size:42px;line-height:1;">${semaforo}</div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:800;color:${semColor};">${semMsg}</div>
+          <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;">
+            <span style="font-size:12px;color:#64748b;">📊 Promedio: <strong style="color:${promCal>=8?'#15803d':promCal>=7?'#b45309':'#b91c1c'};">${promCal.toFixed(1)}</strong></span>
+            <span style="font-size:12px;color:#64748b;">⚠️ Riesgo: <strong style="color:${pctRiesg<10?'#15803d':pctRiesg<20?'#b45309':'#b91c1c'};">${pctRiesg}%</strong></span>
+            <span style="font-size:12px;color:#64748b;">✅ Asistencia: <strong style="color:${pctAsist>=90?'#15803d':pctAsist>=80?'#b45309':'#b91c1c'};">${pctAsist||'—'}%</strong></span>
+            <span style="font-size:12px;color:#64748b;">🚨 Urgentes: <strong style="color:${(incUrgentes||0)===0?'#15803d':'#b91c1c'};">${incUrgentes||0}</strong></span>
+          </div>
+        </div>
+        <button onclick="bloqueD_semaforoGlobal()" style="padding:6px 12px;background:${semColor}22;border:1px solid ${semColor}44;color:${semColor};border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">↺</button>
+      </div>`;
+
+    // Insertar al principio del dashboard director
+    const firstChild = dash.querySelector('.grid-4') || dash.querySelector('[id="bloqueD-kpis"]') || dash.firstChild;
+    dash.insertBefore(semDiv, firstChild);
+  } catch(e) { console.warn('[bloqueD_semaforo]', e.message); }
+}
+
+// ── Agente 5: Reporte supervisor SEP ─────────────────────────────
+function bloqueD_inyectarBotonSEP() {
+  const reportesPage = document.getElementById('dir-p-reportes');
+  if (!reportesPage || document.getElementById('bloqueD-btn-sep')) return;
+
+  const btnDiv = document.createElement('div');
+  btnDiv.style.cssText = 'margin-top:16px;';
+  btnDiv.innerHTML = `
+    <button id="bloqueD-btn-sep" onclick="bloqueD_generarReporteSEP()"
+      style="width:100%;padding:14px;background:linear-gradient(135deg,#1e3a5f,#1d4ed8);color:white;border:none;border-radius:14px;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+      📑 Generar reporte oficial para Supervisión SEP
+    </button>`;
+  reportesPage.appendChild(btnDiv);
+}
+
+async function bloqueD_generarReporteSEP() {
+  const btn = document.getElementById('bloqueD-btn-sep');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando reporte SEP…'; }
+  if (!sb || !currentPerfil?.escuela_cct) {
+    hubToast('⚠️ Inicia sesión como director', 'warn');
+    if (btn) { btn.disabled = false; btn.innerHTML = '📑 Generar reporte oficial para Supervisión SEP'; }
+    return;
+  }
+  const cct      = currentPerfil.escuela_cct;
+  const nombre   = currentPerfil.nombre || 'Director/a';
+  const escuela  = currentPerfil.escuela_nombre || window._escuelaCfg?.nombre || 'Escuela SIEMBRA';
+  const fecha    = new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+
+  try {
+    const [
+      { count: totalAlumnos },
+      { count: totalDocentes },
+      { count: totalGrupos },
+      { data: cals },
+    ] = await Promise.all([
+      sb.from('usuarios').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).eq('rol','alumno').eq('activo',true),
+      sb.from('usuarios').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).in('rol',['docente','tutor']).eq('activo',true),
+      sb.from('grupos').select('id',{count:'exact',head:true}).eq('escuela_cct',cct),
+      sb.from('calificaciones').select('calificacion').eq('escuela_cct',cct).eq('ciclo',window.CICLO_ACTIVO||'2025-2026').limit(300),
+    ]);
+    const calVals  = cals?.map(c=>c.calificacion).filter(v=>v>0)||[];
+    const promedio = calVals.length?(calVals.reduce((s,v)=>s+v,0)/calVals.length).toFixed(1):'N/D';
+    const enRiesgo = calVals.filter(v=>v<6).length;
+
+    const prompt = `Genera un reporte oficial para Supervisión de Zona SEP México de la escuela ${escuela} (CCT: ${cct}).
+Director/a: ${nombre}. Ciclo escolar: ${window.CICLO_ACTIVO||'2025-2026'}. Fecha: ${fecha}.
+Estadísticas: ${totalAlumnos} alumnos, ${totalDocentes} docentes, ${totalGrupos} grupos, promedio escolar: ${promedio}, alumnos en riesgo: ${enRiesgo}.
+Genera el reporte con: 1) Encabezado oficial NEM, 2) Diagnóstico del plantel, 3) Indicadores de calidad educativa, 4) Acciones de mejora implementadas, 5) Compromisos y metas del siguiente período. Lenguaje formal SEP, alineado a NEM 2026. Máximo 500 palabras.`;
+
+    const texto = await callAI({ feature: 'director_reporte_global', prompt });
+
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Reporte SEP ${escuela}</title>
+<style>
+body{font-family:Arial,sans-serif;font-size:11pt;line-height:1.7;margin:2.5cm;}
+.encabezado{text-align:center;border-bottom:2pt solid #1e3a5f;padding-bottom:16pt;margin-bottom:20pt;}
+.sello{font-size:9pt;color:#475569;letter-spacing:1.5pt;text-transform:uppercase;}
+h1{font-size:14pt;font-weight:bold;color:#1e3a5f;margin:8pt 0;}
+h2{font-size:12pt;font-weight:bold;color:#1e3a5f;margin:12pt 0 4pt;border-bottom:1pt solid #e2e8f0;padding-bottom:3pt;}
+.grid{display:table;width:100%;border-collapse:collapse;margin:10pt 0;}
+.celda{display:table-cell;width:25%;padding:8pt;border:1pt solid #e2e8f0;text-align:center;}
+.num{font-size:20pt;font-weight:bold;color:#1e3a5f;}
+.lbl{font-size:9pt;color:#64748b;}
+.firma{margin-top:40pt;display:flex;justify-content:space-between;}
+.firma-bloque{text-align:center;width:200pt;}
+.firma-linea{border-top:1pt solid #0f172a;padding-top:6pt;font-size:10pt;}
+.footer{font-size:9pt;color:#64748b;border-top:1pt solid #e2e8f0;padding-top:8pt;margin-top:20pt;text-align:center;}
+</style></head><body>
+<div class="encabezado">
+  <div class="sello">Secretaría de Educación Pública — Sistema SIEMBRA</div>
+  <h1>${escuela}</h1>
+  <div style="font-size:11pt;color:#334155;">CCT: ${cct} · Ciclo ${window.CICLO_ACTIVO||'2025-2026'} · ${fecha}</div>
+  <div style="font-size:10pt;color:#475569;margin-top:4pt;">Directivo responsable: ${nombre}</div>
+</div>
+<div class="grid">
+  <div class="celda"><div class="num">${totalAlumnos||'—'}</div><div class="lbl">Alumnos</div></div>
+  <div class="celda"><div class="num">${totalDocentes||'—'}</div><div class="lbl">Docentes</div></div>
+  <div class="celda"><div class="num">${promedio}</div><div class="lbl">Promedio</div></div>
+  <div class="celda"><div class="num">${enRiesgo}</div><div class="lbl">En riesgo</div></div>
+</div>
+${texto.replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/^# (.+)$/gm,'<h1>$1</h1>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}
+<div class="firma">
+  <div class="firma-bloque"><div class="firma-linea">${nombre}<br>Director/a del plantel</div></div>
+  <div class="firma-bloque"><div class="firma-linea">Supervisor/a de Zona<br>Firma y sello</div></div>
+</div>
+<div class="footer">Documento generado con SIEMBRA · NEM 2026 · ${fecha}</div>
+</body></html>`;
+
+    const blob = new Blob([html], { type:'application/msword' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `Reporte-SEP-${escuela.replace(/\s+/g,'-')}-${new Date().getFullYear()}.doc`;
+    a.click(); URL.revokeObjectURL(url);
+    hubToast('✅ Reporte SEP descargado', 'ok');
+  } catch(e) {
+    hubToast('❌ Error: '+e.message, 'err');
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = '📑 Generar reporte oficial para Supervisión SEP'; }
+}
+window.bloqueD_generarReporteSEP = bloqueD_generarReporteSEP;
+
+// ── Hook: disparar al cargar portal director ──────────────────────
+window.addEventListener('siembra:datos-cargados', () => {
+  if (window.currentPerfil?.rol === 'director') {
+    setTimeout(bloqueD_semaforoGlobal, 1200);
+    setTimeout(bloqueD_kpisTendencia,  1400);
+    setTimeout(bloqueD_inyectarBotonSEP, 500);
+  }
+});
+
+const _dirRenderDashOrig = window.dirRenderDash;
+window.dirRenderDash = function() {
+  if (typeof _dirRenderDashOrig === 'function') _dirRenderDashOrig();
+  setTimeout(bloqueD_semaforoGlobal, 600);
+  setTimeout(bloqueD_kpisTendencia,  800);
+  setTimeout(bloqueD_inyectarBotonSEP, 400);
+};
+
+// Para la página de reportes
+const _dirNavOrig2 = window.dirNav;
+window.dirNav = function(page) {
+  if (typeof _dirNavOrig2 === 'function') _dirNavOrig2(page);
+  if (page === 'reportes') {
+    setTimeout(bloqueD_graficaEvolucion, 600);
+    setTimeout(bloqueD_comparacionGrupos, 900);
+    setTimeout(bloqueD_inyectarBotonSEP, 400);
+  }
+};
+
 </script>
