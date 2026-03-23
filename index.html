@@ -15452,7 +15452,23 @@ async function planStreamContenido(selItem, params, fileParts, idx) {
 - Evidencias: cuaderno de trabajo, dibujos, maquetas, reportes orales
 - Evaluación procesual: considera el esfuerzo y el avance individual`;
 
-  const system = `Eres experto en planeación didáctica de la Nueva Escuela Mexicana (NEM/NME), Fase 6, SEP 2024. Generas planeaciones semanales detalladas para ${nivel}, alineadas al Programa Sintético oficial. ${esSecundaria ? 'Usa la estructura de 5 Momentos didácticos: 1-Saberes comunitarios, 2-Plan y acción, 3-Respuesta a la indagación, 4-Comunicación y aplicación, 5-Reflexión.' : 'Usa la estructura de Inicio, Desarrollo y Cierre con actividades lúdicas y concretas apropiadas para primaria.'} ${hasFiles ? 'Analiza los archivos adjuntos y extrae temas, páginas y actividades específicas para personalizar la planeación.' : ''} Escribe en español, de forma clara y práctica.`;
+  // ── Sistema NEM PRO v2 ────────────────────────────────────────
+  const system = `Eres experto en planeación didáctica de la Nueva Escuela Mexicana (NEM 2026), Fase 6, SEP. Tu planeación debe ser PROFUNDA, PRÁCTICA y DIFERENCIADA.
+
+PRINCIPIOS NEM que SIEMPRE incluyes:
+1. ENFOQUE HUMANISTA: el alumno como ser integral (cognitivo, emocional, social)
+2. APRENDIZAJE SIGNIFICATIVO: partir del contexto real del alumno y la comunidad
+3. INCLUSIÓN Y DIVERSIDAD: adaptaciones para alumnos con rezago y alumnos avanzados
+4. COMPONENTE SOCIOEMOCIONAL: actividades de regulación emocional, escucha activa, integración grupal
+5. TRABAJO COLABORATIVO: dinámicas de equipo, roles definidos, coevaluación entre pares
+6. EVALUACIÓN FORMATIVA CON RÚBRICA: criterios claros en 3 niveles (Alto/Medio/En proceso)
+7. EVIDENCIAS DE APRENDIZAJE: productos concretos, no solo "observación"
+
+${esSecundaria ? 'ESTRUCTURA: 5 Momentos NEM — 1-Saberes comunitarios, 2-Plan y acción, 3-Respuesta a la indagación, 4-Comunicación y aplicación, 5-Reflexión.' : 'ESTRUCTURA: Inicio (activación + socioemocional), Desarrollo (colaborativo y práctico), Cierre (reflexión y metacognición).'}
+
+${hasFiles ? 'IMPORTANTE: Analiza los archivos adjuntos. Extrae temas, páginas y actividades específicas del libro para personalizar.' : ''}
+
+Responde en español. Lenguaje claro para docentes de educación básica en México. Incluye emojis para facilitar la lectura.`;
 
   const textPrompt = `Genera una planeación semanal completa para ${nivel}:
 
@@ -15513,8 +15529,39 @@ Evidencias y productos esperados por sesión/momento.
 
 ${esSecundaria ? evalSecundaria : evalPrimaria}
 
-## 📝 OBSERVACIONES
-Espacio para anotaciones del docente y ajustes posteriores.`;
+## 🌱 COMPONENTE SOCIOEMOCIONAL
+Describe cómo se integra el bienestar emocional en las actividades:
+- Momento de conexión al inicio (¿cómo se sienten hoy?)
+- Actividad de trabajo colaborativo con roles definidos
+- Reflexión emocional al cierre (¿qué aprendí?, ¿cómo me sentí trabajando en equipo?)
+- Estrategia de inclusión: ¿cómo integrar al alumno que se resiste a participar?
+
+## 🎯 EVALUACIÓN DIFERENCIADA CON RÚBRICA
+Genera una rúbrica de 3 niveles para los productos de aprendizaje:
+
+| Criterio | Alto (3) | Medio (2) | En proceso (1) |
+|----------|----------|-----------|----------------|
+| [criterio 1] | [descriptor] | [descriptor] | [descriptor] |
+| [criterio 2] | [descriptor] | [descriptor] | [descriptor] |
+| [criterio 3] | [descriptor] | [descriptor] | [descriptor] |
+
+Incluye: autoevaluación del alumno (1 pregunta) y coevaluación entre pares.
+
+## 🧩 ADAPTACIONES PARA LA DIVERSIDAD
+
+**Alumnos con rezago o BAP:**
+- Ajuste 1: [actividad simplificada, mismo objetivo]
+- Ajuste 2: [apoyo visual, material concreto]
+
+**Alumnos avanzados:**
+- Reto 1: [extensión del aprendizaje]
+- Reto 2: [profundización o aplicación creativa]
+
+## 📦 MATERIALES Y RECURSOS
+Lista específica de materiales por sesión.
+
+## 📝 OBSERVACIONES DEL DOCENTE
+Espacio para anotaciones, ajustes y seguimiento.`;
 
   const userContent = [...fileParts, {type:'text',text:textPrompt}];
   const key = selItem.selId;
@@ -33966,5 +34013,397 @@ window.callAI = async function({ feature, prompt, system, context, stream, force
     // Si force_refresh=true, omitir cache del servidor también
     ...(force_refresh ? { skip_cache: true } : {}) });
 };
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 1 — Planeación: filtrar materias por grupo/grado/escuela
+// Solo muestra materias del docente en ese grupo/año específico
+// ══════════════════════════════════════════════════════════════════
+function planFiltrarMateriasByGrupo() {
+  const grupoActivo = (window._gruposDocente||[]).find(g => g.id === window._grupoActivo)
+                   || window._gruposDocente?.[0];
+  if (!grupoActivo) return null;
+
+  const grado  = String(grupoActivo.grado||'1').replace(/[°\s]/g,'').trim();
+  const nivel  = grupoActivo.nivel || window._nivelActivo || 'secundaria';
+  const nombre = grupoActivo.nombre || '';
+
+  // Materias asignadas al docente en ese grupo específico
+  const asignadas = (window._docenteAsignaciones||[])
+    .filter(a => a.grupo_id === grupoActivo.id)
+    .map(a => a.materia)
+    .filter(Boolean);
+
+  // Si hay asignaciones específicas, usar esas
+  if (asignadas.length > 0) return { grado, nivel, nombre, materias: [...new Set(asignadas)] };
+
+  // Fallback: materias del grado según plan SEP
+  const materiasPorGrado = nivel === 'secundaria'
+    ? (MATERIAS_SECUNDARIA_POR_GRADO?.[grado] || MATERIAS_SECUNDARIA_POR_GRADO?.['1'] || [])
+    : getMateriasByNivel('primaria');
+
+  return { grado, nivel, nombre, materias: materiasPorGrado };
+}
+
+// Parche sobre planMostrarFormulario para auto-rellenar nivel/grado del grupo activo
+const _planMostrarFormularioOrig = window.planMostrarFormulario;
+window.planMostrarFormulario = function() {
+  _planMostrarFormularioOrig?.();
+
+  const info = planFiltrarMateriasByGrupo();
+  if (!info) return;
+
+  // Auto-set nivel
+  if (info.nivel && typeof planSetNivel === 'function') {
+    setTimeout(() => planSetNivel(info.nivel), 80);
+  }
+
+  // Auto-set grado
+  if (info.grado) {
+    window.planGradoActivo = info.grado;
+    setTimeout(() => {
+      const btn = document.querySelector(`[onclick="planGradoTab('${info.grado}')"]`);
+      if (btn) btn.click();
+    }, 120);
+  }
+
+  // Auto-rellenar datos del docente
+  const docenteEl = document.getElementById('plan-docente');
+  if (docenteEl && !docenteEl.value && window.currentPerfil?.nombre) {
+    docenteEl.value = `${window.currentPerfil.nombre} ${window.currentPerfil.apellido_p||''}`.trim();
+  }
+  const escuelaEl = document.getElementById('plan-escuela');
+  if (escuelaEl && !escuelaEl.value) {
+    escuelaEl.value = window.currentPerfil?.escuela_nombre || window._escuelaCfg?.nombre || '';
+  }
+  const gradoEl = document.getElementById('plan-grado');
+  if (gradoEl && !gradoEl.value) {
+    gradoEl.value = info.nombre || (info.grado + '° ' + (info.nivel==='secundaria'?'Secundaria':'Primaria'));
+  }
+
+  // Mostrar badge con materias disponibles
+  setTimeout(() => planMostrarBadgeMaterias(info), 200);
+};
+
+function planMostrarBadgeMaterias(info) {
+  const existing = document.getElementById('plan-materias-badge-container');
+  if (existing) existing.remove();
+
+  const formHeader = document.querySelector('#plan-vista-form .plan-form-section');
+  if (!formHeader || !info.materias.length) return;
+
+  const div = document.createElement('div');
+  div.id = 'plan-materias-badge-container';
+  div.style.cssText = 'background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:12px 16px;margin-bottom:16px;';
+  div.innerHTML = `
+    <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">
+      📚 Materias de ${info.nombre||info.grado+'°'} (${info.nivel}) — asignadas a ti
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      ${info.materias.map(m => `<span style="background:white;border:1.5px solid #86efac;color:#166534;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;">${m}</span>`).join('')}
+    </div>
+    <div style="font-size:11px;color:#64748b;margin-top:8px;">
+      💡 Los campos formativos ya están filtrados para estas materias. Selecciona los contenidos a trabajar esta semana.
+    </div>`;
+
+  formHeader.parentNode.insertBefore(div, formHeader);
+
+  // Ocultar campos formativos que no corresponden a las materias asignadas
+  planFiltrarCamposSegunMaterias(info.materias, info.nivel, info.grado);
+}
+
+function planFiltrarCamposSegunMaterias(materiasAsig, nivel, grado) {
+  // Mapeo: materia → campo formativo
+  const MAP_MATERIA_CAMPO = {
+    'Español':               'lenguajes',
+    'Inglés':                'lenguajes',
+    'Artes':                 'lenguajes',
+    'Lenguaje':              'lenguajes',
+    'Matemáticas':           'saberes',
+    'Biología':              'saberes',
+    'Física':                'saberes',
+    'Química':               'saberes',
+    'Ciencias':              'saberes',
+    'Tecnología':            'saberes',
+    'Ciencias Naturales':    'saberes',
+    'Historia':              'etica',
+    'Geografía':             'etica',
+    'Formación Cívica y Ética': 'etica',
+    'FCyE':                  'etica',
+    'Formación Cívica':      'etica',
+    'Educación Física':      'humano',
+    'Tutoría':               'humano',
+    'Ed. Física':            'humano',
+    'Artes (Música)':        'humano',
+  };
+
+  const camposPermitidos = new Set(
+    materiasAsig.map(m => MAP_MATERIA_CAMPO[m] || MAP_MATERIA_CAMPO[m.split(' ')[0]]).filter(Boolean)
+  );
+
+  // Si no hay restricción clara, mostrar todos
+  if (!camposPermitidos.size) return;
+
+  const campos = getCamposByNivel(nivel);
+  campos.forEach((campo, idx) => {
+    const btn = document.getElementById(`pct-${idx}`);
+    if (!btn) return;
+    const visible = camposPermitidos.has(campo.id);
+    btn.style.opacity  = visible ? '1' : '0.35';
+    btn.style.cursor   = visible ? 'pointer' : 'not-allowed';
+    btn.title = visible ? '' : 'No tienes materias asignadas en este campo';
+  });
+}
+window.planFiltrarMateriasByGrupo   = planFiltrarMateriasByGrupo;
+window.planMostrarBadgeMaterias     = planMostrarBadgeMaterias;
+window.planFiltrarCamposSegunMaterias = planFiltrarCamposSegunMaterias;
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 3 — Planeación: UI tipo tarjetas con secciones
+// Parsea el resultado de IA y lo muestra en cards coloreadas
+// ══════════════════════════════════════════════════════════════════
+
+function planParsearSecciones(texto) {
+  // Divide el texto en secciones por encabezados ## o ###
+  const secciones = [];
+  const lineas = texto.split('\n');
+  let seccionActual = null;
+
+  for (const linea of lineas) {
+    const m2 = linea.match(/^#{2,3}\s+(.+)/);
+    if (m2) {
+      if (seccionActual) secciones.push(seccionActual);
+      seccionActual = { titulo: m2[1].trim(), contenido: [] };
+    } else if (seccionActual) {
+      seccionActual.contenido.push(linea);
+    }
+  }
+  if (seccionActual) secciones.push(seccionActual);
+  return secciones;
+}
+
+const PLAN_SECCION_CONFIG = {
+  'ENCABEZADO':        { color:'#1e3a5f', bg:'#eff6ff', emoji:'📌', border:'#bfdbfe' },
+  'SITUACIÓN PROBLEMA':{ color:'#7c3aed', bg:'#f5f3ff', emoji:'🧠', border:'#c4b5fd' },
+  'CONTENIDO':         { color:'#166534', bg:'#f0fdf4', emoji:'📚', border:'#86efac' },
+  'EJES ARTICULADORES':{ color:'#b45309', bg:'#fffbeb', emoji:'🔗', border:'#fde68a' },
+  'SECUENCIA':         { color:'#0f172a', bg:'#f8fafc', emoji:'📅', border:'#e2e8f0' },
+  'SOCIOEMOCIONAL':    { color:'#0e7490', bg:'#ecfeff', emoji:'🌱', border:'#a5f3fc' },
+  'EVALUACIÓN':        { color:'#9f1239', bg:'#fff1f2', emoji:'🎯', border:'#fecdd3' },
+  'ADAPTACIONES':      { color:'#6d28d9', bg:'#faf5ff', emoji:'🧩', border:'#ddd6fe' },
+  'AJUSTES RAZONABLES':{ color:'#6d28d9', bg:'#faf5ff', emoji:'♿', border:'#ddd6fe' },
+  'PRODUCTOS':         { color:'#065f46', bg:'#ecfdf5', emoji:'📦', border:'#6ee7b7' },
+  'MATERIALES':        { color:'#1e40af', bg:'#eff6ff', emoji:'🛠️', border:'#bfdbfe' },
+  'OBSERVACIONES':     { color:'#475569', bg:'#f8fafc', emoji:'📝', border:'#cbd5e1' },
+};
+
+function planGetSeccionConfig(titulo) {
+  const titu = titulo.toUpperCase();
+  for (const [key, cfg] of Object.entries(PLAN_SECCION_CONFIG)) {
+    if (titu.includes(key)) return cfg;
+  }
+  return { color:'#374151', bg:'#f8fafc', emoji:'📋', border:'#e2e8f0' };
+}
+
+function planRenderTarjetas(texto) {
+  const secciones = planParsearSecciones(texto);
+  if (secciones.length < 2) {
+    // Fallback: mostrar como markdown plano si no hay secciones claras
+    return `<div style="font-family:'Sora',sans-serif;font-size:13px;line-height:1.8;color:#374151;">${planFmtMD(texto)}</div>`;
+  }
+
+  return secciones.map(sec => {
+    const cfg = planGetSeccionConfig(sec.titulo);
+    const cuerpo = sec.contenido.join('\n').trim();
+    if (!cuerpo) return '';
+
+    // Detectar si es tabla
+    const esTabla = cuerpo.includes('|---') || cuerpo.includes('| ---');
+    const contenidoHTML = esTabla ? planFmtTabla(cuerpo) : planFmtMD(cuerpo);
+
+    return `<div style="background:${cfg.bg};border:1.5px solid ${cfg.border};border-radius:14px;padding:18px 20px;margin-bottom:14px;break-inside:avoid;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:18px;">${cfg.emoji}</span>
+        <span style="font-size:13px;font-weight:800;color:${cfg.color};text-transform:uppercase;letter-spacing:.5px;">${sec.titulo.replace(/^[^a-zA-ZáéíóúÁÉÍÓÚñÑ]*/,'').trim()}</span>
+      </div>
+      <div style="font-size:13px;line-height:1.85;color:#374151;">${contenidoHTML}</div>
+    </div>`;
+  }).join('');
+}
+
+function planFmtTabla(texto) {
+  const lineas = texto.split('\n').filter(l => l.trim().startsWith('|'));
+  if (lineas.length < 2) return planFmtMD(texto);
+  const header = lineas[0].split('|').filter(c => c.trim()).map(c => `<th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;">${c.trim()}</th>`).join('');
+  const rows = lineas.slice(2).map(l => {
+    const celdas = l.split('|').filter(c => c.trim()).map(c => `<td style="padding:8px 12px;font-size:12px;border-bottom:1px solid #f1f5f9;vertical-align:top;">${c.trim()}</td>`).join('');
+    return `<tr>${celdas}</tr>`;
+  }).join('');
+  return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden;">`
+    + `<thead><tr style="background:#f8fafc;">${header}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// Parche sobre planRenderActiveTab para usar tarjetas cuando la generación termina
+const _planRenderActiveTabOrig = window.planRenderActiveTab;
+window.planRenderActiveTab = function() {
+  const s = planActualMats[planActiveMateriaTab];
+  if (!s) return;
+  const box = document.getElementById('plan-streaming-box');
+  const actions = document.getElementById('plan-result-actions');
+  if (!box) return;
+
+  const texto = planActualResults[s.selId] || '';
+  const isDone = planActualDone[s.selId];
+
+  if (isDone && texto.length > 200) {
+    // Mostrar en tarjetas una vez completado
+    box.innerHTML = planRenderTarjetas(texto);
+  } else {
+    // Durante streaming: mostrar como markdown plano
+    box.innerHTML = planFmtMD(texto);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  if (actions) actions.style.display = isDone ? 'flex' : 'none';
+};
+
+// Botón para toggle entre vista tarjetas y vista texto
+function planToggleVista() {
+  const s = planActualMats[planActiveMateriaTab];
+  if (!s) return;
+  const box = document.getElementById('plan-streaming-box');
+  if (!box) return;
+  const texto = planActualResults[s.selId] || '';
+  const esTarjetas = box.querySelector('[style*="border-radius:14px"]');
+  if (esTarjetas) {
+    box.innerHTML = `<pre style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.8;">${texto}</pre>`;
+  } else {
+    box.innerHTML = planRenderTarjetas(texto);
+  }
+}
+window.planToggleVista    = planToggleVista;
+window.planRenderTarjetas = planRenderTarjetas;
+window.planParsearSecciones = planParsearSecciones;
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 4 — Planeación inteligente con datos reales del grupo
+// Detecta materias débiles y personaliza el prompt con esos datos
+// ══════════════════════════════════════════════════════════════════
+
+async function planObtenerContextoGrupo() {
+  if (!sb || !window._grupoActivo) return null;
+  try {
+    // Obtener promedios del grupo por materia
+    const { data: cals } = await sb.from('calificaciones')
+      .select('materia, calificacion, alumno_id')
+      .eq('grupo_id', window._grupoActivo)
+      .eq('ciclo', window.CICLO_ACTIVO || '2025-2026')
+      .not('calificacion', 'is', null);
+
+    if (!cals?.length) return null;
+
+    // Calcular promedio por materia
+    const porMateria = {};
+    cals.forEach(c => {
+      const m = c.materia || 'Sin materia';
+      if (!porMateria[m]) porMateria[m] = { suma: 0, n: 0 };
+      porMateria[m].suma += parseFloat(c.calificacion) || 0;
+      porMateria[m].n++;
+    });
+
+    const promedios = Object.entries(porMateria).map(([mat, d]) => ({
+      materia: mat,
+      promedio: (d.suma / d.n).toFixed(1),
+    })).sort((a, b) => a.promedio - b.promedio);
+
+    const bajas  = promedios.filter(p => parseFloat(p.promedio) < 7);
+    const altas  = promedios.filter(p => parseFloat(p.promedio) >= 9);
+    const nAlumnos = new Set(cals.map(c => c.alumno_id)).size;
+
+    return { promedios, bajas, altas, nAlumnos };
+  } catch(e) {
+    return null;
+  }
+}
+
+// Parche sobre planGenerar para inyectar contexto del grupo
+const _planGenerarOrig = window.planGenerar;
+window.planGenerar = async function() {
+  // Obtener contexto del grupo antes de generar
+  const ctx = await planObtenerContextoGrupo();
+  if (ctx) {
+    window._planContextoGrupo = ctx;
+
+    // Mostrar banner con datos del grupo
+    planMostrarBannerContexto(ctx);
+
+    // Auto-rellenar el campo de contexto si está vacío
+    const ctxEl = document.getElementById('plan-contexto');
+    if (ctxEl && !ctxEl.value.trim() && ctx.bajas.length > 0) {
+      const materiasDebiles = ctx.bajas.map(b => `${b.materia} (${b.promedio})`).join(', ');
+      ctxEl.value = `El grupo tiene ${ctx.nAlumnos} alumnos. Materias con promedio bajo: ${materiasDebiles}. La planeación debe reforzar estas áreas con actividades de apoyo diferenciado.`;
+    }
+  }
+
+  return _planGenerarOrig?.();
+};
+
+function planMostrarBannerContexto(ctx) {
+  const existing = document.getElementById('plan-contexto-banner');
+  if (existing) existing.remove();
+
+  const resultArea = document.getElementById('plan-resultado-area');
+  if (!resultArea || !ctx.promedios?.length) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'plan-contexto-banner';
+  banner.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1d4ed8);border-radius:14px;padding:16px 20px;margin-bottom:16px;color:white;';
+  banner.innerHTML = `
+    <div style="font-size:12px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">
+      🧠 Planeación personalizada — Datos reales del grupo
+    </div>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;">
+      ${ctx.bajas.length ? `<div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">⚠️ MATERIAS DÉBILES (a reforzar)</div>
+        ${ctx.bajas.map(b => `<span style="background:rgba(239,68,68,.25);border:1px solid rgba(239,68,68,.4);color:white;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;margin-right:4px;">${b.materia} ${b.promedio}</span>`).join('')}</div>` : ''}
+      ${ctx.altas.length ? `<div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">⭐ MATERIAS FUERTES</div>
+        ${ctx.altas.map(a => `<span style="background:rgba(34,197,94,.25);border:1px solid rgba(34,197,94,.4);color:white;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;margin-right:4px;">${a.materia} ${a.promedio}</span>`).join('')}</div>` : ''}
+      <div><div style="font-size:10px;opacity:.6;margin-bottom:4px;">👥 ALUMNOS</div>
+        <span style="font-size:14px;font-weight:800;">${ctx.nAlumnos}</span></div>
+    </div>`;
+  resultArea.parentNode.insertBefore(banner, resultArea);
+}
+
+// Inyectar contexto del grupo en el prompt de planStreamContenido
+const _planStreamContenidoOrig = window.planStreamContenido;
+window.planStreamContenido = async function(selItem, params, fileParts, idx) {
+  // Enriquecer params.contexto con datos reales si los hay
+  const ctx = window._planContextoGrupo;
+  if (ctx?.bajas?.length && !params.contexto?.includes('promedio bajo')) {
+    const materiasDebiles = ctx.bajas.map(b => `${b.materia} (promedio ${b.promedio})`).join(', ');
+    params = {
+      ...params,
+      contexto: (params.contexto ? params.contexto + '\n\n' : '') +
+        `DATOS REALES DEL GRUPO (${ctx.nAlumnos} alumnos):\n` +
+        `- Materias que necesitan refuerzo: ${materiasDebiles}\n` +
+        (ctx.altas.length ? `- Materias con buen desempeño: ${ctx.altas.map(a => a.materia).join(', ')}\n` : '') +
+        `Genera actividades de refuerzo específico para las materias débiles e incluye retos para los alumnos avanzados.`
+    };
+  }
+  return _planStreamContenidoOrig?.(selItem, params, fileParts, idx);
+};
+
+// Añadir botón "🎯 Vista tarjetas" en las acciones del resultado
+document.addEventListener('siembra:datos-cargados', () => {
+  const actions = document.getElementById('plan-result-actions');
+  if (actions && !document.getElementById('btn-toggle-vista-plan')) {
+    const btn = document.createElement('button');
+    btn.id = 'btn-toggle-vista-plan';
+    btn.className = 'btn btn-outline btn-sm';
+    btn.innerHTML = '🎨 Cambiar vista';
+    btn.onclick = planToggleVista;
+    actions.appendChild(btn);
+  }
+});
+window.planObtenerContextoGrupo = planObtenerContextoGrupo;
+window.planMostrarBannerContexto = planMostrarBannerContexto;
 
 </script>
