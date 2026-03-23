@@ -1961,6 +1961,19 @@ html, body {
       <div class="logros-scroll" id="logros-scroll"></div>
     </div>
 
+    <!-- ══ MISIÓN DEL DÍA (Coach IA) ══ -->
+    <div id="mision-dia-card" class="fade-in fade-in-3" style="margin-top:16px;display:none;">
+      <div class="section-title">🎯 Tu misión de hoy</div>
+      <div style="background:linear-gradient(135deg,#1e1b4b,#4338ca);border-radius:18px;padding:18px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#a5b4fc;animation:pulse 2s infinite;"></div>
+          <span style="font-size:11px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;">Coach IA SIEMBRA</span>
+        </div>
+        <div id="mision-dia-texto" style="color:rgba(255,255,255,.9);font-size:13px;line-height:1.7;"></div>
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;" id="mision-chips"></div>
+      </div>
+    </div>
+
     <!-- Tarea pendiente -->
     <div style="margin-top:16px;" class="fade-in fade-in-4">
       <div class="section-title">📌 Pendiente hoy</div>
@@ -5005,6 +5018,171 @@ function bibAgregarDeOL(workKey) {
   bibRenderGrid();
   toast('📚 "' + nuevoLibro.titulo + '" agregado · +50 XP');
 }
+
+// ══════════════════════════════════════════════════════════════════
+// BLOQUE A — 5 AGENTES
+// ══════════════════════════════════════════════════════════════════
+
+// ── Agente 1: Coach IA diario ─────────────────────────────────────
+async function agente1MisionDia() {
+  const card  = document.getElementById('mision-dia-card');
+  const texto = document.getElementById('mision-dia-texto');
+  const chips = document.getElementById('mision-chips');
+  if (!card || !texto) return;
+  card.style.display = 'block';
+  texto.innerHTML = '<span style="opacity:.6;">🤖 Preparando tu misión de hoy…</span>';
+  const nombre = currentPerfil?.nombre?.split(' ')[0] || 'estudiante';
+  const mats   = window._materiasAlumno || materias || [];
+  const bajas  = mats.filter(m => m.cal < 8).map(m => m.nombre).slice(0,2);
+  const xpHoy  = alumnoData.xp || 0;
+  const racha  = alumnoData.streak || 0;
+  const prompt = `Soy tutor de ${nombre}. Sus materias: ${mats.map(m=>m.nombre+': '+m.cal).join(', ')}. XP: ${xpHoy}. Racha: ${racha} días. ${bajas.length?'Necesita reforzar: '+bajas.join(', '):''} Genera la misión de hoy en JSON: {"mensaje":"1 oración motivadora","tareas":["tarea 1","tarea 2","tarea 3"],"xp_total":120} Solo JSON.`;
+  try {
+    const txt  = await callAI({ feature: 'plan_semanal_alumno', prompt, system: 'Responde SOLO con el JSON. Sin markdown.' });
+    const data = JSON.parse(txt.replace(/```json|```/g,'').trim());
+    texto.innerHTML = `<div style="font-size:14px;margin-bottom:10px;">${data.mensaje}</div>`;
+    if (chips && data.tareas) {
+      chips.innerHTML = data.tareas.map(t => `<span style="padding:7px 13px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;font-size:12px;font-weight:700;color:white;">${t}</span>`).join('');
+      chips.innerHTML += `<span style="margin-left:auto;padding:7px 13px;background:rgba(255,215,0,.2);border:1px solid rgba(255,215,0,.4);border-radius:20px;font-size:12px;font-weight:700;color:#ffd700;">+${data.xp_total} XP</span>`;
+    }
+  } catch(e) {
+    const mat = bajas[0] || 'tus materias';
+    texto.innerHTML = `<div style="font-size:14px;margin-bottom:10px;">¡Hola ${nombre}! Hoy practica ${mat} por 15 minutos. 💪</div>`;
+    if (chips) chips.innerHTML = `<span style="padding:7px 13px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:20px;font-size:12px;font-weight:700;color:white;">📖 Repasar ${mat}</span><span style="margin-left:auto;padding:7px 13px;background:rgba(255,215,0,.2);border:1px solid rgba(255,215,0,.4);border-radius:20px;font-size:12px;font-weight:700;color:#ffd700;">+100 XP</span>`;
+  }
+}
+
+// ── Agente 2: Gamificación pro — nivel con mapa visual ────────────
+function agente2NivelPro() {
+  const xp = alumnoData.xp || currentPerfil?.perfil_alumno?.xp_total || 0;
+  const nivelIdx   = [...NIVELES].reduce((best,n,i) => xp >= n.min ? i : best, 0);
+  const nivelActual = NIVELES[nivelIdx];
+  const nivelSig    = NIVELES[nivelIdx + 1];
+  const xpSig       = nivelSig?.min || nivelActual.min + 600;
+  const pct         = nivelSig ? Math.min(100, Math.round(((xp - nivelActual.min) / (xpSig - nivelActual.min)) * 100)) : 100;
+  const iconEl  = document.getElementById('nivel-icon');
+  const nomEl   = document.getElementById('nivel-nombre');
+  const subEl   = document.getElementById('nivel-sub');
+  const barEl   = document.getElementById('nivel-bar');
+  const xpTxtEl = document.getElementById('nivel-xp-text');
+  if (iconEl)  iconEl.textContent  = nivelActual.icon;
+  if (nomEl)   nomEl.textContent   = nivelActual.nombre;
+  if (subEl)   subEl.textContent   = `Nivel ${nivelIdx + 1} · ${pct}% al siguiente`;
+  if (barEl)   { barEl.style.width = '0%'; setTimeout(() => barEl.style.width = pct + '%', 300); }
+  if (xpTxtEl) xpTxtEl.textContent = nivelSig ? `${xp.toLocaleString()} / ${xpSig.toLocaleString()} XP para ${nivelSig.nombre}` : `${xp.toLocaleString()} XP · ¡Nivel máximo! 🏆`;
+  // Mini mapa de niveles
+  const nivelCard = document.querySelector('.nivel-card');
+  if (nivelCard && !document.getElementById('nivel-mapa')) {
+    const mapa = document.createElement('div');
+    mapa.id = 'nivel-mapa';
+    mapa.style.cssText = 'display:flex;align-items:center;gap:4px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.15);';
+    mapa.innerHTML = NIVELES.map((n, i) => {
+      const ok = xp >= n.min; const esAct = i === nivelIdx;
+      return `<div style="flex:1;text-align:center;" title="${n.nombre}"><div style="font-size:${esAct?'20px':'14px'};opacity:${ok?'1':'0.3'};transition:.3s;">${n.icon}</div>${esAct?`<div style="width:6px;height:6px;border-radius:50%;background:#22c55e;margin:3px auto 0;"></div>`:''}</div>`;
+    }).join('');
+    nivelCard.appendChild(mapa);
+  }
+}
+
+// ── Agente 3: Objetivos por materia ──────────────────────────────
+function agente3ObjetivosMaterias() {
+  const pg = document.getElementById('page-materias');
+  if (!pg || document.getElementById('objetivos-materias')) return;
+  const mats = window._materiasAlumno || materias || [];
+  const bajas = mats.filter(m => m.cal < 9).slice(0, 3);
+  if (!bajas.length) return;
+  const div = document.createElement('div');
+  div.id = 'objetivos-materias';
+  div.style.cssText = 'margin-top:20px;';
+  div.innerHTML = `<div class="section-title" style="margin-bottom:12px;">🎯 Mis objetivos</div>` +
+    bajas.map(m => {
+      const meta = Math.min(10, Math.ceil(m.cal) + 1);
+      const pct  = Math.round((m.cal / meta) * 100);
+      const col  = m.cal >= 8 ? '#22c55e' : m.cal >= 6 ? '#f59e0b' : '#ef4444';
+      return `<div style="background:var(--card);border-radius:14px;border:1.5px solid var(--border);padding:14px 16px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:18px;">${m.icon||'📚'}</span>
+            <div><div style="font-size:13px;font-weight:700;color:var(--texto);">${m.nombre}</div><div style="font-size:11px;color:var(--texto-2);">Meta: llegar a <strong>${meta}.0</strong></div></div>
+          </div>
+          <div style="text-align:right;"><div style="font-size:20px;font-weight:900;color:${col};">${m.cal.toFixed(1)}</div><div style="font-size:10px;color:var(--texto-2);">${pct}% hacia meta</div></div>
+        </div>
+        <div style="height:8px;background:var(--border-2);border-radius:99px;overflow:hidden;"><div style="height:100%;width:${pct}%;background:${col};border-radius:99px;transition:.8s;"></div></div>
+      </div>`;
+    }).join('');
+  pg.appendChild(div);
+}
+
+// ── Agente 4: Alerta automática si materia < 6 ───────────────────
+function agente4AlertaRiesgo() {
+  const mats   = window._materiasAlumno || materias || [];
+  const riesgo = mats.filter(m => m.cal < 6);
+  if (!riesgo.length || document.getElementById('alerta-riesgo-alumno')) return;
+  const pg = document.getElementById('page-inicio');
+  if (!pg) return;
+  const nombre = currentPerfil?.nombre?.split(' ')[0] || 'estudiante';
+  const alerta = document.createElement('div');
+  alerta.id = 'alerta-riesgo-alumno';
+  alerta.style.cssText = 'margin-top:16px;';
+  alerta.innerHTML = `<div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #fca5a5;border-radius:16px;padding:16px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <span style="font-size:24px;">⚠️</span>
+      <div><div style="font-size:14px;font-weight:700;color:#b91c1c;">Necesitas reforzar ${riesgo.map(m=>m.nombre).join(', ')}</div><div style="font-size:12px;color:#991b1b;">La IA te da una estrategia personalizada</div></div>
+    </div>
+    <div id="alerta-riesgo-ia" style="font-size:13px;color:#7f1d1d;line-height:1.6;margin-bottom:10px;"><span style="opacity:.6;">Generando recomendación…</span></div>
+    <button onclick="navTo('practicar')" style="width:100%;padding:10px;background:#b91c1c;color:white;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">💪 Practicar ahora</button>
+  </div>`;
+  const heroCard = pg.querySelector('.nivel-card') || pg.querySelector('.hero-card');
+  if (heroCard?.nextSibling) pg.insertBefore(alerta, heroCard.nextSibling);
+  else pg.appendChild(alerta);
+  callAI({ feature: 'analisis_alumno', prompt: `${nombre} tiene calificación menor a 6 en: ${riesgo.map(m=>m.nombre+' ('+m.cal+')').join(', ')}. En 2 oraciones dile exactamente qué hacer esta semana. Tono motivador, usa "tú".` })
+    .then(txt => { const el=document.getElementById('alerta-riesgo-ia'); if(el) el.textContent=txt; })
+    .catch(() => { const el=document.getElementById('alerta-riesgo-ia'); if(el) el.textContent=`Dedica 15 minutos diarios a repasar ${riesgo[0].nombre}. ¡Con práctica constante puedes mejorar!`; });
+}
+
+// ── Agente 5: Progreso visual biblioteca tipo Duolingo ────────────
+function agente5ProgresoLectura() {
+  const pg = document.getElementById('page-biblioteca');
+  if (!pg || document.getElementById('lect-streak-banner')) return;
+  const terminados = LIBROS.filter(l => l.estado==='terminado' || l.progreso>=100).length;
+  const leyendo    = LIBROS.filter(l => l.progreso>0 && l.progreso<100).length;
+  const totalPags  = LIBROS.reduce((s,l) => s + Math.round((l.paginas||200)*(l.progreso||0)/100), 0);
+  const hero = pg.querySelector('.bib-hero');
+  if (!hero) return;
+  const banner = document.createElement('div');
+  banner.id = 'lect-streak-banner';
+  banner.style.cssText = 'margin-bottom:14px;';
+  banner.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div style="background:linear-gradient(135deg,#0369a1,#0ea5e9);border-radius:14px;padding:14px;text-align:center;color:white;"><div style="font-size:26px;font-weight:900;font-family:'Fraunces',serif;">${terminados}</div><div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Terminados</div></div>
+      <div style="background:linear-gradient(135deg,#0d5c2f,#16a34a);border-radius:14px;padding:14px;text-align:center;color:white;"><div style="font-size:26px;font-weight:900;font-family:'Fraunces',serif;">${totalPags}</div><div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Páginas leídas</div></div>
+      <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:14px;padding:14px;text-align:center;color:white;"><div style="font-size:26px;font-weight:900;font-family:'Fraunces',serif;">${leyendo}</div><div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Leyendo</div></div>
+    </div>
+    <div style="background:var(--card);border-radius:14px;border:1.5px solid var(--border);padding:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;font-weight:700;color:var(--texto);">📚 Meta lectora del ciclo</span><span style="font-size:12px;font-weight:700;color:#0369a1;">${terminados}/5 libros</span></div>
+      <div style="height:10px;background:var(--border-2);border-radius:99px;overflow:hidden;"><div id="lect-meta-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#0369a1,#0ea5e9);border-radius:99px;transition:1s;"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;">${[1,2,3,4,5].map(n=>`<span style="font-size:16px;opacity:${terminados>=n?'1':'0.25'};">📗</span>`).join('')}</div>
+    </div>`;
+  pg.insertBefore(banner, hero);
+  setTimeout(() => { const bar=document.getElementById('lect-meta-bar'); if(bar) bar.style.width=Math.min(100,(terminados/5)*100)+'%'; }, 400);
+}
+
+// ── Hook navTo para disparar agentes ─────────────────────────────
+const _navToOrig = window.navTo;
+window.navTo = function(page) {
+  _navToOrig(page);
+  if (page === 'inicio')    { setTimeout(agente1MisionDia,500); setTimeout(agente2NivelPro,100); setTimeout(agente4AlertaRiesgo,200); }
+  if (page === 'materias')  { setTimeout(agente3ObjetivosMaterias,300); }
+  if (page === 'biblioteca'){ setTimeout(agente5ProgresoLectura,200); }
+};
+// Disparar también en initApp
+const _initAppBlqA = window.initApp;
+window.initApp = function() {
+  if (typeof _initAppBlqA === 'function') _initAppBlqA();
+  setTimeout(agente2NivelPro,300);
+  setTimeout(agente4AlertaRiesgo,400);
+  setTimeout(agente1MisionDia,800);
+};
 
 </script>
 </body>
