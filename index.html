@@ -8338,13 +8338,14 @@ async function initApp() {
         const nameEl = document.querySelector('#doc-portal .user-name');
         const roleEl = document.querySelector('#doc-portal .user-role');
         const avatarEl = document.getElementById('sidebar-doc-avatar');
+        const nomGrupo = typeof resolverNombreGrupo==='function' ? resolverNombreGrupo(g) : (g.nombre||`${g.grado}°A`);
         if (nameEl) nameEl.textContent = nombreDocente || 'Docente';
-        if (roleEl) roleEl.textContent = `Docente · ${g.nombre}`;
+        if (roleEl) roleEl.textContent = `Docente · ${nomGrupo}`;
         if (avatarEl) avatarEl.textContent = (nombreDocente||'D').split(' ').map(p=>p[0]||'').join('').toUpperCase().slice(0,2);
 
         // 3. Actualizar título en módulo calificaciones
         const calTit = document.getElementById('cal-titulo-h2');
-        if (calTit) calTit.textContent = `Calificaciones · ${g.nombre}`;
+        if (calTit) calTit.textContent = `Calificaciones · ${nomGrupo}`;
 
         // 4. Cargar alumnos del primer grupo
         const alumnosDB = await calCargarAlumnosGrupo(g.id);
@@ -8354,20 +8355,39 @@ async function initApp() {
           alumnosDB.forEach(a => alumnos.push(a));
         }
 
-        // 5. Materias del docente — REGLA CRÍTICA: SOLO materias asignadas en docente_grupos
-        // Nunca mostrar MATERIAS_NEM completo — siempre filtrar por asignación real
+        // 5. Materias del docente — SOLO del grupo activo actual
         try {
+          const grupoActivoId = window._grupoActivo || gruposDB[0]?.id;
           const { data: asignaciones } = await sb.from('docente_grupos')
-            .select('materia, campo_formativo, grupo_id, grupos(nombre,grado)')
+            .select('materia, campo_formativo, grupo_id, grupos(id,nombre,grado,seccion,nivel)')
             .eq('docente_id', currentPerfil.id)
             .eq('activo', true)
             .eq('ciclo', window.CICLO_ACTIVO || '2025-2026');
 
           if (asignaciones?.length) {
-            // Materias únicas del docente (todas sus asignaciones)
-            const mats = [...new Set(asignaciones.map(r => r.materia).filter(Boolean))];
-            window._materiasDocente   = mats;
-            window._materiasFiltered  = mats;
+            // Filtrar asignaciones del grupo activo primero
+            const asigGrupoActivo = grupoActivoId
+              ? asignaciones.filter(a => a.grupo_id === grupoActivoId)
+              : asignaciones;
+
+            // Materias del grupo activo; si no hay asignaciones específicas, usar todas
+            const mats = asigGrupoActivo.length
+              ? [...new Set(asigGrupoActivo.map(r => r.materia).filter(Boolean))]
+              : [...new Set(asignaciones.map(r => r.materia).filter(Boolean))];
+
+            // Si aún no hay materias, usar fallback por grado
+            if (!mats.length) {
+              const g = gruposDB[0];
+              const gr = String(g?.grado||'1').replace(/[°\s]/g,'').trim();
+              const nivelG = g?.nivel || 'secundaria';
+              window._materiasDocente = nivelG === 'secundaria'
+                ? (window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr] || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1'] || [])
+                : getMateriasByNivel('primaria');
+            } else {
+              window._materiasDocente   = mats;
+            }
+            window._materiasFiltered  = window._materiasDocente;
+            window._docenteAsignaciones = asignaciones;
             window._docenteAsignaciones = asignaciones; // guardar para filtros por grupo
 
             const matEl = document.getElementById('doc-materias-label');
@@ -34796,7 +34816,7 @@ function calRenderSelectorGrupos() {
   sel.innerHTML = `
     <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">Grupo:</span>
     ${gruposDocente.map(g => {
-      const nom = g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`;
+      const nom = typeof resolverNombreGrupo==='function' ? resolverNombreGrupo(g) : (g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`);
       const activo = g.id === window._grupoActivo;
       return `<button onclick="calCambiarGrupo('${g.id}')"
         style="padding:6px 14px;border-radius:99px;border:1.5px solid ${activo?'var(--verde)':'var(--gris-20)'};
@@ -34819,7 +34839,7 @@ async function calCambiarGrupo(grupoId) {
   const g = (window._gruposDocente||[]).find(x => x.id === grupoId);
   if (!g) return;
 
-  const nom = g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`;
+  const nom = typeof resolverNombreGrupo==='function' ? resolverNombreGrupo(g) : (g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`);
 
   // ── Limpiar datos del grupo anterior ANTES de cargar el nuevo ──
   window._alumnosActivos = [];
@@ -34895,7 +34915,7 @@ window.dNav = function(page) {
       // Fix título "undefined"
       const g = (window._gruposDocente||[]).find(x => x.id === window._grupoActivo) || window._gruposDocente?.[0];
       if (g) {
-        const nom = g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`;
+        const nom = typeof resolverNombreGrupo==='function' ? resolverNombreGrupo(g) : (g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`);
         const calH2 = document.getElementById('cal-titulo-h2');
         if (calH2 && calH2.textContent.includes('undefined')) {
           calH2.textContent = `Calificaciones · ${nom}`;
@@ -35588,6 +35608,63 @@ window.admCargarAsignaciones = async function() {
   // Después de cargar, re-render catálogo si está visible
   if (ADM.paginaActual === 'asignaciones') {
     ADM.renderMaterias();
+  }
+};
+
+// ── DEBUG + FIX: Nombre de grupo siempre resuelto ────────────────
+function resolverNombreGrupo(g) {
+  if (!g) return '—';
+  // Intentar todas las propiedades posibles
+  if (g.nombre && !g.nombre.includes('undefined')) return g.nombre;
+  const grado   = g.grado   || '';
+  const seccion = g.seccion || g.grupo || g.letra || g.seccion_id || '';
+  const nivel   = g.nivel   ? (g.nivel === 'secundaria' ? '°' : '° Prim') : '°';
+  if (grado && seccion) return `${grado}${nivel} ${seccion}`;
+  if (grado) return `${grado}° A`;
+  return g.id ? g.id.slice(0,8) : '—';
+}
+window.resolverNombreGrupo = resolverNombreGrupo;
+
+// Parche sobre cambiarGrupo y dNav para siempre resolver nombre correctamente
+const _dNavOrig3 = window.dNav;
+window.dNav = function(page) {
+  _dNavOrig3?.(page);
+  if (page === 'calificaciones') {
+    setTimeout(() => {
+      const g = (window._gruposDocente||[]).find(x => x.id === window._grupoActivo)
+             || window._gruposDocente?.[0];
+      if (!g) return;
+      const nom = resolverNombreGrupo(g);
+      // Fix topbar
+      const topEl = document.getElementById('page-title');
+      if (topEl && topEl.textContent.includes('undefined')) {
+        topEl.textContent = 'Calificaciones · ' + nom;
+      }
+      // Fix h2
+      const h2 = document.getElementById('cal-titulo-h2');
+      if (h2 && h2.textContent.includes('undefined')) {
+        h2.textContent = 'Calificaciones · ' + nom;
+      }
+      // Actualizar sidebar role text
+      const roleEl = document.querySelector('#doc-portal .user-role');
+      if (roleEl && roleEl.textContent.includes('undefined')) {
+        roleEl.textContent = `Docente · ${nom}`;
+      }
+      // Forzar materias correctas del grupo activo
+      if (g.nivel) {
+        window._nivelActivo = g.nivel;
+        window._gradoActivo = String(g.grado||'1').replace(/[°\s]/g,'').trim();
+        // Si no hay materias asignadas, usar fallback por grado
+        if (!window._materiasDocente?.length) {
+          const gr = window._gradoActivo;
+          window._materiasDocente = g.nivel === 'secundaria'
+            ? (window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr] || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1'] || [])
+            : getMateriasByNivel('primaria');
+          window._materiasFiltered = window._materiasDocente;
+          if (typeof calRenderMatTabs === 'function') calRenderMatTabs();
+        }
+      }
+    }, 200);
   }
 };
 
