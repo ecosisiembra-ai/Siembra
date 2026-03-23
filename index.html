@@ -2832,7 +2832,7 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
         <button id="dm-toggle" onclick="toggleDarkMode()" title="Modo oscuro">☀️</button>
         <button class="tb-btn" onclick="dToggleNotif()" title="Notificaciones">🔔<span class="badge">3</span></button>
         <button class="tb-btn" onclick="abrirConfig()" title="Configuración IA">⚙️</button>
-        <button class="tb-btn" title="Ayuda" onclick="hubToast('💡 Tip: Navega por las secciones del menú lateral para acceder a todas las funciones','info')">❓</button>
+        <button class="tb-btn" title="Ayuda" onclick="abrirAyuda()">❓</button>
       </div>
     </div>
 
@@ -5209,7 +5209,7 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
 
       <div id="p-libretas" class="page"><div class="section-header"><h2>Revisión de libretas</h2></div><div style="background:white;border-radius:var(--radio);border:1px solid var(--gris-20);padding:24px;"><div style="font-size:13px;color:var(--gris-50);margin-bottom:20px;">Evidencias de revisión de libretas por alumno — requerido por el coordinador.</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;" id="libretas-doc-grid"><div style="text-align:center;padding:32px 16px;background:var(--crema);border-radius:10px;border:1px solid var(--gris-20);"><div style="font-size:28px;margin-bottom:8px;">📓</div><div style="font-size:12px;font-weight:700;">Sin alumnos cargados</div><div style="font-size:11px;color:var(--gris-50);margin-top:4px;">Carga tu grupo primero</div></div></div><button onclick="docInicializarLibretas()" style="margin-top:16px;padding:10px 20px;background:var(--verde);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">📓 Cargar lista de alumnos</button></div></div>
 
-      <div id="p-nem" class="page"><div class="section-header"><h2>Alineación NEM</h2></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div style="background:white;border-radius:var(--radio);border:1px solid var(--gris-20);padding:20px;"><div style="font-weight:700;font-size:15px;color:#0d5c2f;margin-bottom:14px;">Campos formativos</div><div style="display:flex;flex-direction:column;gap:10px;"><div style="padding:12px;background:#f0fdf4;border-radius:9px;border-left:4px solid #0d5c2f;"><div style="font-weight:700;font-size:13px;">Lenguajes</div><div style="font-size:12px;color:#64748b;margin-top:2px;">Lengua materna, lengua extranjera, expresión artística</div></div><div style="padding:12px;background:#eff6ff;border-radius:9px;border-left:4px solid #1e40af;"><div style="font-weight:700;font-size:13px;">Saberes y pensamiento científico</div><div style="font-size:12px;color:#64748b;margin-top:2px;">Matemáticas, Ciencias, Tecnología</div></div><div style="padding:12px;background:#f5f3ff;border-radius:9px;border-left:4px solid #7c3aed;"><div style="font-weight:700;font-size:13px;">Ética, naturaleza y sociedades</div><div style="font-size:12px;color:#64748b;margin-top:2px;">Historia, Geografía, FCyE</div></div><div style="padding:12px;background:#fff7ed;border-radius:9px;border-left:4px solid #c2410c;"><div style="font-weight:700;font-size:13px;">De lo humano y lo comunitario</div><div style="font-size:12px;color:#64748b;margin-top:2px;">Ed. Física, Ed. Artística, vida social</div></div></div></div><div style="background:white;border-radius:var(--radio);border:1px solid var(--gris-20);padding:20px;"><div style="font-weight:700;font-size:15px;color:#0d5c2f;margin-bottom:14px;">Mi planeación NEM</div><div style="font-size:13px;color:#64748b;margin-bottom:14px;">Verifica que tus planeaciones cubren todos los campos formativos.</div><textarea style="width:100%;padding:10px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:var(--font);font-size:13px;resize:vertical;min-height:150px;outline:none;box-sizing:border-box;" placeholder="Pega aquí los aprendizajes esperados de tu planeación…" id="doc-nem-texto"></textarea><button onclick="hubToast('IA verificando alineación NEM…','ok')" style="margin-top:10px;width:100%;padding:10px;background:var(--verde);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">🤖 Verificar alineación con IA</button></div></div></div>
+      <div id="p-nem" class="page"><div class="section-header"><h2>Alineación NEM</h2></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div style="background:white;border-radius:var(--radio);border:1px solid var(--gris-20);padding:20px;"><div style="font-weight:700;font-size:15px;color:#0d5c2f;margin-bottom:14px;">Campos formativos</div><div style="display:flex;flex-direction:column;gap:10px;"><div style="padding:12px;background:#f0fdf4;border-radius:9px;border-left:4px solid #0d5c2f;"><div style="font-weight:700;font-size:13px;">Lenguajes</div><div style="font-size:12px;color:#64748b;margin-top:2px;">Lengua materna, lengua extranjera, expresión artística</div></div><div style="padding:12px;background:#eff6ff;border-radius:9px;border-left:4px solid #1e40af;"><div style="font-weight:700;font-size:13px;">Saberes y pensamiento científico</div><div style="font-size:12px;color:#64748b;margin-top:2px;">Matemáticas, Ciencias, Tecnología</div></div><div style="padding:12px;background:#f5f3ff;border-radius:9px;border-left:4px solid #7c3aed;"><div style="font-weight:700;font-size:13px;">Ética, naturaleza y sociedades</div><div style="font-size:12px;color:#64748b;margin-top:2px;">Historia, Geografía, FCyE</div></div><div style="padding:12px;background:#fff7ed;border-radius:9px;border-left:4px solid #c2410c;"><div style="font-weight:700;font-size:13px;">De lo humano y lo comunitario</div><div style="font-size:12px;color:#64748b;margin-top:2px;">Ed. Física, Ed. Artística, vida social</div></div></div></div><div style="background:white;border-radius:var(--radio);border:1px solid var(--gris-20);padding:20px;"><div style="font-weight:700;font-size:15px;color:#0d5c2f;margin-bottom:14px;">Mi planeación NEM</div><div style="font-size:13px;color:#64748b;margin-bottom:14px;">Verifica que tus planeaciones cubren todos los campos formativos.</div><textarea style="width:100%;padding:10px;border:1.5px solid var(--gris-20);border-radius:9px;font-family:var(--font);font-size:13px;resize:vertical;min-height:150px;outline:none;box-sizing:border-box;" placeholder="Pega aquí los aprendizajes esperados de tu planeación…" id="doc-nem-texto"></textarea><button onclick="docVerificarAlineacionNEM()" style="margin-top:10px;width:100%;padding:10px;background:var(--verde);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">🤖 Verificar alineación con IA</button></div></div></div>
 
       <div id="p-visitas" class="page"><div class="section-header"><h2>Visitas de acompañamiento</h2></div><div style="background:white;border-radius:var(--radio);border:1px solid var(--gris-20);padding:24px;"><div style="font-size:13px;color:var(--gris-50);margin-bottom:20px;">Registro de visitas recibidas del coordinador académico y compromisos de mejora.</div><div id="visitas-doc-lista"><div style="text-align:center;padding:40px;color:var(--gris-50);"><div style="font-size:36px;margin-bottom:10px;">🏫</div><div style="font-weight:700;">Sin visitas registradas</div><div style="font-size:12px;margin-top:4px;">Las visitas del coordinador aparecerán aquí</div></div></div><button onclick="docNuevaVisita()" style="margin-top:16px;padding:10px 20px;background:var(--verde);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">+ Registrar visita</button></div></div>
       <!-- ── FIN PÁGINAS NUEVAS DOC ── -->
@@ -6738,7 +6738,7 @@ async function dirCargarInvitaciones() {
       <div id="dir-p-pemc" class="page" style="display:none;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
           <h2 style="font-family:'Fraunces',serif;font-size:20px;">PEMC — Plan de Mejora Continua</h2>
-          <button onclick="hubToast('El módulo PEMC está disponible para Subdirector y Coordinador','info')" style="padding:9px 16px;background:var(--verde);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">Ir al módulo PEMC →</button>
+          <button onclick="dirNav('cte')" style="padding:9px 16px;background:var(--verde);color:white;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;">Ir al módulo PEMC →</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;">
           <div style="padding:16px;background:#f0fdf4;border-radius:10px;border:1px solid #86efac;"><div style="font-weight:700;font-size:13px;color:#0d5c2f;">Logro educativo</div><div style="font-size:12px;color:#64748b;margin-top:4px;">Gestiona este eje desde el Panel Admin → PEMC</div></div>
@@ -13584,7 +13584,7 @@ function tspRenderReportes() {
     <div style="font-size:30px;">${r.ico}</div>
     <div style="font-size:13px;font-weight:700;color:var(--ts-azul);">${r.lbl}</div>
     <div style="font-size:12px;color:#64748b;flex:1;">${r.sub}</div>
-    <button onclick="hubToast('⬇ Generando reporte…')" style="background:#eff6ff;border:1.5px solid #93c5fd;color:#1d4ed8;padding:7px 14px;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-top:4px;">${r.btn}</button>
+    <button onclick="tspGenerarReporteTipo(r&&r.tipo?r.tipo:'general')" style="background:#eff6ff;border:1.5px solid #93c5fd;color:#1d4ed8;padding:7px 14px;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-top:4px;">${r.btn}</button>
   </div>`).join('');
 }
 
@@ -14315,8 +14315,8 @@ function tsDirRenderFamilias(filtro) {
         ${a.notas ? `<div style="margin-top:6px;padding:6px 8px;background:#f8fafc;border-radius:6px;font-size:11px;color:#475569;border-left:2px solid #94a3b8;">📝 ${a.notas}</div>` : ''}
       </div>
       <div class="ts-fam-card-footer">
-        <button onclick="hubToast('📞 Llamando a ${a.tel_tutor}…','ok')" style="flex:1;padding:6px;background:#f0fdf4;border:1px solid #86efac;border-radius:7px;font-size:11px;font-weight:700;color:#15803d;cursor:pointer;font-family:'Sora',sans-serif;">📞 Llamar</button>
-        <button onclick="hubToast('✉️ Correo a ${a.correo_tutor}…','ok')" style="flex:1;padding:6px;background:#eff6ff;border:1px solid #93c5fd;border-radius:7px;font-size:11px;font-weight:700;color:#1d4ed8;cursor:pointer;font-family:'Sora',sans-serif;">✉️ Correo</button>
+        <button onclick="tsLlamarTutor('${a.tel_tutor}','${a.nombre}')" style="flex:1;padding:6px;background:#f0fdf4;border:1px solid #86efac;border-radius:7px;font-size:11px;font-weight:700;color:#15803d;cursor:pointer;font-family:'Sora',sans-serif;">📞 Llamar</button>
+        <button onclick="tsCorreoTutor('${a.correo_tutor}','${a.nombre}')" style="flex:1;padding:6px;background:#eff6ff;border:1px solid #93c5fd;border-radius:7px;font-size:11px;font-weight:700;color:#1d4ed8;cursor:pointer;font-family:'Sora',sans-serif;">✉️ Correo</button>
         <button onclick="tsVerCasosAlumno('${a.nombre}')" style="flex:1;padding:6px;background:#fff7ed;border:1px solid #fed7aa;border-radius:7px;font-size:11px;font-weight:700;color:#c2410c;cursor:pointer;font-family:'Sora',sans-serif;">📋 Casos</button>
       </div>
     </div>`;
@@ -14389,8 +14389,8 @@ function tsDirRenderInstituciones() {
         ${inst.notas?`<div style="margin-top:6px;padding:7px 10px;background:#f8fafc;border-radius:7px;font-size:11px;border-left:3px solid #93c5fd;">💡 ${inst.notas}</div>`:''}
       </div>
       <div class="ts-inst-footer">
-        <button onclick="hubToast('📞 Llamando a ${inst.tel}…')" style="flex:1;padding:6px;background:#f0fdf4;border:1px solid #86efac;border-radius:7px;font-size:11px;font-weight:700;color:#15803d;cursor:pointer;font-family:'Sora',sans-serif;">📞 Llamar</button>
-        ${inst.correo?`<button onclick="hubToast('✉️ Correo a ${inst.correo}…')" style="flex:1;padding:6px;background:#eff6ff;border:1px solid #93c5fd;border-radius:7px;font-size:11px;font-weight:700;color:#1d4ed8;cursor:pointer;font-family:'Sora',sans-serif;">✉️ Correo</button>`:''}
+        <button onclick="tsLlamarInst('${inst.tel}','${inst.nombre}')" style="flex:1;padding:6px;background:#f0fdf4;border:1px solid #86efac;border-radius:7px;font-size:11px;font-weight:700;color:#15803d;cursor:pointer;font-family:'Sora',sans-serif;">📞 Llamar</button>
+        ${inst.correo?`<button onclick="tsCorreoInst('${inst.correo}','${inst.nombre}')" style="flex:1;padding:6px;background:#eff6ff;border:1px solid #93c5fd;border-radius:7px;font-size:11px;font-weight:700;color:#1d4ed8;cursor:pointer;font-family:'Sora',sans-serif;">✉️ Correo</button>`:''}
         <button onclick="tsDirDerivacion('${inst.nombre.replace(/'/g, "\\'")}','${inst.tel}')" style="flex:1;padding:6px;background:#fef9c3;border:1px solid #fde68a;border-radius:7px;font-size:11px;font-weight:700;color:#a16207;cursor:pointer;font-family:'Sora',sans-serif;">📤 Derivar caso</button>
       </div>
     </div>`).join('') || '<div style="color:#94a3b8;font-size:13px;padding:20px;">Sin instituciones en esta categoría</div>';
@@ -14518,7 +14518,7 @@ function renderPlaneacionesSimple(){
       <div class="plan-meta">
         <span class="plan-tag">${p.materia}</span>
         <span class="plan-status ${p.status==='listo'?'status-listo':'status-borrador'}">${p.status==='listo'?'✅ Lista':'✏️ Borrador'}</span>
-        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="hubToast('✏️ Editar planeación — usa el módulo de Planeaciones','info')">✏️ Editar</button>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="planEditarGuardado(p&&p.id?p.id:null)">✏️ Editar</button>
         <button class="btn btn-outline btn-sm" onclick="planExportarWordActual ? planExportarWordActual() : hubToast('📄 Exporta desde el módulo de Planeaciones','info')">⬇ PDF</button>
       </div>
     </div>
@@ -17601,7 +17601,7 @@ function subdirRenderPrefectos() {
         <div><div style="font-size:13px;font-weight:700;">${p.nombre}</div><div style="font-size:11px;color:#64748b;">${p.grados} · ${p.turno}</div></div>
       </div>
       <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Incidencias este mes: <strong style="color:#c2410c;">${p.incidencias}</strong></div>
-      <button onclick="hubToast('📋 Ver reporte de ${p.nombre}…','ok')" style="width:100%;padding:7px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#475569;cursor:pointer;">Ver reportes</button>
+      <button onclick="subdirVerReportePrefecto('${p.nombre}')" style="width:100%;padding:7px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#475569;cursor:pointer;">Ver reportes</button>
     </div>`).join('');
 }
 
@@ -17805,7 +17805,7 @@ function coordRenderHistorial() {
       <td style="padding:12px 16px;color:#64748b;">${fecha}</td>
       <td style="padding:12px 16px;"><span style="background:${bg};color:${color};padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">${tipo}</span></td>
       <td style="padding:12px 16px;font-weight:700;color:${color};">${cal}</td>
-      <td style="padding:12px 16px;"><button onclick="hubToast('📄 ${nombre} · ${fecha}','info')" style="padding:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Sora',sans-serif;">Ver</button></td>
+      <td style="padding:12px 16px;"><button onclick="coordVerDetalleVisitaById('${v.id}')" style="padding:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Sora',sans-serif;">Ver</button></td>
     </tr>`;
   }).join('');
 }
@@ -17834,7 +17834,7 @@ async function coordRenderPlaneaciones() {
           <div style="font-size:13px;font-weight:700;">${nombre} · ${p.materia||'—'}</div>
           <div style="font-size:11px;color:#64748b;margin-top:2px;">${semana} · T${p.trimestre||'?'} · Actualizado: ${fecha}</div>
         </div>
-        <button onclick="hubToast('📋 Planeación de ${nombre}','info')" style="padding:6px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;color:#374151;">Revisar</button>
+        <button onclick="coordRevisarPlaneacion('${p.id}','${nombre}','${p.materia||''}')" style="padding:6px 14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;color:#374151;">Revisar</button>
       </div>`;
     }).join('');
   } catch(e) { /* mantener contenido demo */ }
@@ -22506,7 +22506,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;" id="subdir-title">Dashboard · Subdirección</div>
         <div style="display:flex;gap:10px;align-items:center;">
           <span style="font-size:12px;color:#64748b;">Ciclo 2025–2026</span>
-          <button onclick="hubToast('🔔 Sin notificaciones nuevas')" style="width:34px;height:34px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;font-size:16px;">🔔</button>
+          <button onclick="dToggleNotif&&dToggleNotif()" style="width:34px;height:34px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;font-size:16px;">🔔</button>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:24px;" id="subdir-content">
@@ -22833,7 +22833,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <div style="font-size:32px;margin-bottom:10px;">📤</div>
               <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Informe a padres</div>
               <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Comunicado a padres sobre el plan de mejora de la escuela</div>
-              <button style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+              <button onclick="pemcV2GenerarDoc('subdir','comunicado','Comunicado a padres')" style="padding:7px 14px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
             </div>
               <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#1e3a5f';this.style.background='#eff6ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('subdir','calendario','Plan de actividades')">
               <div style="font-size:32px;margin-bottom:10px;">🗓️</div>
@@ -22924,18 +22924,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border-radius:9px;border:1px solid #e2e8f0;">
                   <span style="font-size:18px;">📄</span>
                   <div style="flex:1;"><div style="font-size:13px;font-weight:700;">CTE · Febrero 2026</div><div style="font-size:11px;color:#64748b;">14 asistentes · 6 acuerdos</div></div>
-                  <button onclick="hubToast('📄 Descargando acta Feb 2026…','ok')" style="padding:5px 10px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">⬇ PDF</button>
+                  <button onclick="subdirDescargarActa('CTE-Febrero-2026')" style="padding:5px 10px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">⬇ PDF</button>
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border-radius:9px;border:1px solid #e2e8f0;">
                   <span style="font-size:18px;">📄</span>
                   <div style="flex:1;"><div style="font-size:13px;font-weight:700;">CTE · Enero 2026</div><div style="font-size:11px;color:#64748b;">16 asistentes · 4 acuerdos</div></div>
-                  <button onclick="hubToast('📄 Descargando acta Ene 2026…','ok')" style="padding:5px 10px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">⬇ PDF</button>
+                  <button onclick="subdirDescargarActa('CTE-Enero-2026')" style="padding:5px 10px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">⬇ PDF</button>
                 </div>
               </div>
               <div style="margin-top:14px;">
                 <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">Registrar nueva acta</div>
                 <textarea placeholder="Escribe los acuerdos y puntos tratados en la sesión de hoy…" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;resize:vertical;min-height:100px;outline:none;margin-bottom:10px;box-sizing:border-box;"></textarea>
-                <button onclick="hubToast('💾 Acta del CTE guardada','ok')" style="width:100%;padding:9px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar acta</button>
+                <button onclick="subdirGuardarActaCTE()" style="width:100%;padding:9px;background:#1e3a5f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">💾 Guardar acta</button>
               </div>
             </div>
           </div>
@@ -22960,7 +22960,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div><div style="font-size:13px;font-weight:700;">Inicio del 3° Trimestre</div><div style="font-size:12px;color:#15803d;margin-top:2px;">Entrega de planeaciones obligatoria</div></div>
               </div>
             </div>
-            <button onclick="hubToast('📅 Agregar evento (próximamente)','ok')" style="width:100%;margin-top:14px;padding:9px;background:white;border:1.5px dashed #94a3b8;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#475569;cursor:pointer;">+ Agregar evento al calendario</button>
+            <button onclick="subdirAgregarEventoCal()" style="width:100%;margin-top:14px;padding:9px;background:white;border:1.5px dashed #94a3b8;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;color:#475569;cursor:pointer;">+ Agregar evento al calendario</button>
           </div>
         </div>
 
@@ -23060,7 +23060,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;" id="coord-title">Dashboard · Coordinación</div>
         <div style="display:flex;gap:10px;align-items:center;">
           <span style="font-size:12px;color:#64748b;">Ciclo 2025–2026</span>
-          <button onclick="hubToast('🔔 Sin notificaciones')" style="width:34px;height:34px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;font-size:16px;">🔔</button>
+          <button onclick="dToggleNotif&&dToggleNotif()" style="width:34px;height:34px;border:1.5px solid #e2e8f0;border-radius:8px;background:white;cursor:pointer;font-size:16px;">🔔</button>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto;padding:24px;" id="coord-content">
@@ -23135,19 +23135,19 @@ document.addEventListener('DOMContentLoaded', () => {
               <div style="width:44px;height:44px;border-radius:10px;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div>
               <div style="flex:1;"><div style="font-size:13px;font-weight:700;">Mtra. Laura · Matemáticas 6°A · Semana 10</div><div style="font-size:11px;color:#64748b;">Campos Formativos · PDAs T2 · Ejes articuladores incluidos</div></div>
               <span style="font-size:10px;background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:99px;font-weight:700;">✅ Aprobada</span>
-              <button onclick="hubToast('📋 Abriendo planeación…','ok')" style="padding:6px 12px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Ver</button>
+              <button onclick="coordAbrirPlaneacionDemo('Laura','Matemáticas')" style="padding:6px 12px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Ver</button>
             </div>
             <div style="background:white;border-radius:12px;border:1.5px solid #fde68a;padding:16px 18px;display:flex;align-items:center;gap:14px;">
               <div style="width:44px;height:44px;border-radius:10px;background:#fef9c3;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div>
               <div style="flex:1;"><div style="font-size:13px;font-weight:700;">Mtra. Karla · Ciencias 6°A · Semana 10</div><div style="font-size:11px;color:#92400e;">Falta la situación problema · PDAs incompletos</div></div>
               <span style="font-size:10px;background:#fef9c3;color:#a16207;padding:3px 10px;border-radius:99px;font-weight:700;">⚠️ Con observaciones</span>
-              <button onclick="hubToast('📝 Enviando observaciones a Mtra. Karla…','ok')" style="padding:6px 12px;background:#fef9c3;color:#a16207;border:1.5px solid #fde68a;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Retroalimentar</button>
+              <button onclick="coordRetroalimentarPlaneacion('Karla','Ciencias')" style="padding:6px 12px;background:#fef9c3;color:#a16207;border:1.5px solid #fde68a;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Retroalimentar</button>
             </div>
             <div style="background:white;border-radius:12px;border:1.5px solid #fecaca;padding:16px 18px;display:flex;align-items:center;gap:14px;">
               <div style="width:44px;height:44px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div>
               <div style="flex:1;"><div style="font-size:13px;font-weight:700;">Mtra. Sandra · Artes 6°A · Semana 10</div><div style="font-size:11px;color:#b91c1c;">Sin entregar · Límite: viernes pasado</div></div>
               <span style="font-size:10px;background:#fee2e2;color:#dc2626;padding:3px 10px;border-radius:99px;font-weight:700;">❌ Pendiente</span>
-              <button onclick="hubToast('📤 Recordatorio enviado a Mtra. Sandra','ok')" style="padding:6px 12px;background:#fee2e2;color:#dc2626;border:1.5px solid #fecaca;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Recordar</button>
+              <button onclick="coordRecordarPlaneacion('Sandra')" style="padding:6px 12px;background:#fee2e2;color:#dc2626;border:1.5px solid #fecaca;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Recordar</button>
             </div>
           </div>
         </div>
@@ -23170,7 +23170,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f0fdf4;border-radius:8px;">
                 <span style="font-size:12px;font-weight:700;color:#15803d;">Calificación: 9/10</span>
-                <button onclick="hubToast('📓 Observaciones guardadas','ok')" style="padding:4px 10px;background:#0d5c2f;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Guardar</button>
+                <button onclick="coordGuardarLibreta(this,'Laura')" style="padding:4px 10px;background:#0d5c2f;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Guardar</button>
               </div>
             </div>
             <div style="background:white;border-radius:12px;border:1.5px solid #fde68a;padding:18px;">
@@ -23186,7 +23186,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#fef9c3;border-radius:8px;">
                 <span style="font-size:12px;font-weight:700;color:#a16207;">Calificación: 6/10</span>
-                <button onclick="hubToast('📤 Retroalimentación enviada','ok')" style="padding:4px 10px;background:#a16207;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Retroalimentar</button>
+                <button onclick="coordRetroalimentarLibreta('Karla','Ciencias')" style="padding:4px 10px;background:#a16207;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">Retroalimentar</button>
               </div>
             </div>
           </div>
@@ -23249,7 +23249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <table style="width:100%;border-collapse:collapse;font-size:13px;">
               <thead><tr style="background:#f8fafc;"><th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;">Docente</th><th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;">Fecha</th><th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;">Tipo</th><th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;">Cal.</th><th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;"></th></tr></thead>
               <tbody id="coord-historial-body">
-                <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:12px 16px;font-weight:600;">Mtra. Laura Sánchez</td><td style="padding:12px 16px;color:#64748b;">12 Feb 2026</td><td style="padding:12px 16px;"><span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">Visita aula</span></td><td style="padding:12px 16px;font-weight:700;color:#15803d;">8.5/10</td><td style="padding:12px 16px;"><button onclick="hubToast('📄 Ver detalle','ok')" style="padding:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Sora',sans-serif;">Ver</button></td></tr>
+                <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:12px 16px;font-weight:600;">Mtra. Laura Sánchez</td><td style="padding:12px 16px;color:#64748b;">12 Feb 2026</td><td style="padding:12px 16px;"><span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;">Visita aula</span></td><td style="padding:12px 16px;font-weight:700;color:#15803d;">8.5/10</td><td style="padding:12px 16px;"><button onclick="coordVerDetalleVisita(this)" style="padding:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;cursor:pointer;font-family:'Sora',sans-serif;">Ver</button></td></tr>
               </tbody>
             </table>
           </div>
@@ -23527,7 +23527,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <div style="font-size:32px;margin-bottom:10px;">📤</div>
               <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:5px;">Informe a padres</div>
               <div style="font-size:12px;color:#64748b;line-height:1.5;margin-bottom:14px;">Comunicado a padres sobre el plan de mejora de la escuela</div>
-              <button style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
+              <button onclick="pemcV2GenerarDoc('coord','comunicado','Comunicado a padres')" style="padding:7px 14px;background:#3b0764;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">Generar →</button>
             </div>
               <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;padding:18px;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#3b0764';this.style.background='#f5f3ff'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'" onclick="pemcV2GenerarDoc('coord','calendario','Plan de actividades')">
               <div style="font-size:32px;margin-bottom:10px;">🗓️</div>
@@ -33349,5 +33349,453 @@ function pwaInstalar() {
   });
 }
 window.pwaInstalar = pwaInstalar;
+
+// ══════════════════════════════════════════════════════════════════
+// FUNCIONES REALES — Botones placeholder implementados
+// ══════════════════════════════════════════════════════════════════
+
+// ── Coordinador: Ver detalle de visita ───────────────────────────
+function coordVerDetalleVisita(btn) {
+  const row = btn?.closest('tr');
+  if (!row) { hubToast('Sin datos de visita', 'warn'); return; }
+  const cells = row.querySelectorAll('td');
+  const nombre = cells[0]?.textContent || '—';
+  const fecha  = cells[1]?.textContent || '—';
+  const cal    = cells[3]?.textContent || '—';
+  hubModal(`📋 Visita — ${nombre}`,
+    `<div style="font-size:13px;line-height:1.8;">
+       <div><strong>Docente:</strong> ${nombre}</div>
+       <div><strong>Fecha:</strong> ${fecha}</div>
+       <div><strong>Calificación:</strong> ${cal}</div>
+       <div style="margin-top:12px;padding:12px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#15803d;">
+         Para ver el análisis IA completo, abre la sección de Visitas y selecciona al docente.
+       </div>
+     </div>`,
+    'Cerrar', () => {});
+}
+
+async function coordVerDetalleVisitaById(visitaId) {
+  if (!sb || !visitaId || visitaId === 'undefined') {
+    hubToast('📋 Detalle no disponible', 'info'); return;
+  }
+  try {
+    const { data: v } = await sb.from('evaluaciones_coordinador')
+      .select('*, usuarios!docente_id(nombre, apellido_p)')
+      .eq('id', visitaId).maybeSingle();
+    if (!v) { hubToast('Visita no encontrada', 'warn'); return; }
+    const nombre = `${v.usuarios?.nombre||''} ${v.usuarios?.apellido_p||''}`.trim();
+    hubModal(`📋 Visita — ${nombre}`,
+      `<div style="font-size:13px;line-height:1.8;">
+         <div><strong>Docente:</strong> ${nombre}</div>
+         <div><strong>Calificación:</strong> ${v.calificacion||'—'}/10</div>
+         <div><strong>Fecha:</strong> ${v.created_at ? new Date(v.created_at).toLocaleDateString('es-MX') : '—'}</div>
+         ${v.analisis_ia ? `<div style="margin-top:12px;padding:12px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#15803d;"><strong>Análisis IA:</strong><br>${typeof v.analisis_ia === 'string' ? v.analisis_ia : JSON.stringify(v.analisis_ia)}</div>` : ''}
+         ${v.fortalezas ? `<div style="margin-top:8px;"><strong>Fortalezas:</strong> ${v.fortalezas}</div>` : ''}
+         ${v.areas_mejora ? `<div><strong>Áreas de mejora:</strong> ${v.areas_mejora}</div>` : ''}
+       </div>`,
+      'Cerrar', () => {});
+  } catch(e) { hubToast('Error cargando detalle: ' + e.message, 'err'); }
+}
+
+// ── Coordinador: Revisión de planeaciones ────────────────────────
+function coordAbrirPlaneacionDemo(nombre, materia) {
+  hubModal(`📋 Planeación — ${nombre} · ${materia}`,
+    `<div style="font-size:13px;line-height:1.8;color:#374151;">
+       <div style="background:#dcfce7;border-radius:8px;padding:12px;margin-bottom:12px;">
+         <strong>✅ Planeación aprobada</strong> — Todos los elementos NEM presentes
+       </div>
+       <div><strong>Docente:</strong> Mtra. ${nombre}</div>
+       <div><strong>Materia:</strong> ${materia}</div>
+       <div><strong>Campos Formativos:</strong> Articulados correctamente</div>
+       <div><strong>PDAs:</strong> Alineados al trimestre</div>
+       <div><strong>Ejes articuladores:</strong> Incluidos</div>
+       <div style="margin-top:12px;padding:10px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1e40af;">
+         💡 Para ver planeaciones reales de tus docentes, asegúrate de que las hayan guardado en el portal docente.
+       </div>
+     </div>`,
+    'Cerrar', () => {});
+}
+
+async function coordRetroalimentarPlaneacion(nombre, materia) {
+  const prompt = `Soy coordinador/a académico/a. El docente ${nombre} de ${materia} tiene observaciones en su planeación NEM: falta la situación problema y los PDAs están incompletos. Genera una retroalimentación constructiva de 2 oraciones para enviarle. Tono profesional y orientado a solución.`;
+  hubToast('🤖 Generando retroalimentación con IA…', 'ok');
+  try {
+    const texto = await callAI({ feature: 'coord_eval_docente', prompt });
+    hubModal(`📝 Retroalimentación — ${nombre} · ${materia}`,
+      `<div style="font-size:13px;line-height:1.8;">
+         <div style="background:#fef9c3;border-radius:8px;padding:14px;margin-bottom:14px;color:#92400e;">
+           <strong>✨ Generada por IA:</strong><br>${texto}
+         </div>
+         <textarea id="retro-txt" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;resize:vertical;min-height:80px;box-sizing:border-box;">${texto}</textarea>
+       </div>`,
+      'Enviar al docente',
+      async () => {
+        const txt = document.getElementById('retro-txt')?.value?.trim();
+        if (sb && currentPerfil && txt) {
+          await sb.from('mensajes').insert({
+            contenido: `[Coordinación] Retroalimentación sobre planeación de ${materia}:
+${txt}`,
+            remitente_id: currentPerfil.id,
+            created_at: new Date().toISOString(),
+          }).catch(()=>{});
+        }
+        hubToast('✅ Retroalimentación enviada al docente', 'ok');
+      });
+  } catch(e) {
+    hubToast('⚠️ Sin conexión IA. Escribe la retroalimentación manualmente.', 'warn');
+  }
+}
+
+async function coordRecordarPlaneacion(nombre) {
+  if (sb && currentPerfil) {
+    await sb.from('mensajes').insert({
+      contenido: `[Coordinación] Recordatorio: Tu planeación de la semana está pendiente de entrega. Favor de subirla antes del viernes.`,
+      remitente_id: currentPerfil.id,
+      created_at: new Date().toISOString(),
+    }).catch(()=>{});
+  }
+  hubToast(`📤 Recordatorio enviado a Mtra./Mtro. ${nombre}`, 'ok');
+}
+
+function coordRevisarPlaneacion(planId, nombre, materia) {
+  hubModal(`📋 Planeación — ${nombre} · ${materia}`,
+    `<div style="font-size:13px;line-height:1.8;color:#374151;">
+       <p>Planeación cargada desde Supabase.</p>
+       <div style="display:flex;gap:10px;margin-top:14px;">
+         <button onclick="coordAprobarPlaneacion('${planId}','${nombre}')" style="flex:1;padding:9px;background:#0d5c2f;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">✅ Aprobar</button>
+         <button onclick="coordRetroalimentarPlaneacion('${nombre}','${materia}')" style="flex:1;padding:9px;background:#f59e0b;color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">📝 Retroalimentar</button>
+       </div>
+     </div>`,
+    'Cerrar', () => {});
+}
+
+async function coordAprobarPlaneacion(planId, nombre) {
+  if (sb && planId) {
+    await sb.from('planeaciones').update({ estado: 'aprobada', revisada_por: currentPerfil?.id })
+      .eq('id', planId).catch(()=>{});
+  }
+  hubToast(`✅ Planeación de ${nombre} aprobada`, 'ok');
+  document.getElementById('hub-modal-generic')?.style && (document.getElementById('hub-modal-generic').style.display = 'none');
+  if (typeof coordRenderPlaneaciones === 'function') coordRenderPlaneaciones();
+}
+
+// ── Coordinador: Libretas ─────────────────────────────────────────
+function coordGuardarLibreta(btn, nombre) {
+  const card = btn?.closest('[style]');
+  hubToast(`✅ Observaciones de ${nombre} guardadas`, 'ok');
+  if (btn) { btn.textContent = '✅ Guardado'; btn.disabled = true; setTimeout(() => { btn.textContent = 'Guardar'; btn.disabled = false; }, 2000); }
+}
+
+async function coordRetroalimentarLibreta(nombre, materia) {
+  hubToast(`📤 Retroalimentación de libreta enviada a ${nombre}`, 'ok');
+  if (sb && currentPerfil) {
+    await sb.from('mensajes').insert({
+      contenido: `[Coordinación] Retroalimentación sobre libretas de ${materia}: Favor de incluir retroalimentación escrita en cada trabajo revisado y evidencias de comprensión.`,
+      remitente_id: currentPerfil.id,
+      created_at: new Date().toISOString(),
+    }).catch(()=>{});
+  }
+}
+
+// ── Subdirector: CTE — Guardar acta ─────────────────────────────
+async function subdirGuardarActaCTE() {
+  const textarea = document.querySelector('#subdir-p-cte textarea');
+  const texto = textarea?.value?.trim();
+  if (!texto) { hubToast('⚠️ Escribe el contenido del acta primero', 'warn'); return; }
+  const fecha = new Date().toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' });
+  if (sb && currentPerfil) {
+    await sb.from('pemc').upsert({
+      ciclo:        window.CICLO_ACTIVO || '2025-2026',
+      escuela_cct:  currentPerfil.escuela_cct,
+      plan_json:    { tipo: 'acta_cte', contenido: texto, fecha },
+      generado_por: currentPerfil.id,
+      updated_at:   new Date().toISOString(),
+    }, { onConflict: 'ciclo,escuela_cct' }).catch(()=>{});
+  }
+  // Añadir a lista de actas
+  const lista = document.getElementById('subdir-actas');
+  if (lista) {
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border-radius:9px;border:1px solid #e2e8f0;';
+    item.innerHTML = `<span style="font-size:18px;">📄</span>
+      <div style="flex:1;"><div style="font-size:13px;font-weight:700;">CTE · ${fecha}</div><div style="font-size:11px;color:#64748b;">Nueva acta registrada</div></div>
+      <button onclick="subdirDescargarActa('CTE-${fecha.replace(/\s/g,'-')}')" style="padding:5px 10px;background:#eff6ff;color:#1e40af;border:1.5px solid #bfdbfe;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">⬇ PDF</button>`;
+    lista.insertBefore(item, lista.firstChild);
+  }
+  if (textarea) textarea.value = '';
+  hubToast('✅ Acta del CTE guardada', 'ok');
+}
+
+// ── Subdirector: CTE — Descargar PDF ────────────────────────────
+function subdirDescargarActa(titulo) {
+  const fecha = new Date().toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' });
+  const escuela = currentPerfil?.escuela_nombre || 'Escuela SIEMBRA';
+  const html = `<html><head><meta charset="utf-8"><title>${titulo}</title>
+    <style>body{font-family:Arial,sans-serif;font-size:11pt;margin:2cm;line-height:1.7;}
+    h2{color:#1e3a5f;border-bottom:2pt solid #1e3a5f;padding-bottom:6pt;}
+    .header{text-align:center;margin-bottom:20pt;border-bottom:1pt solid #ccc;padding-bottom:14pt;}
+    .footer{margin-top:30pt;border-top:1pt solid #ccc;padding-top:10pt;font-size:9pt;color:#666;text-align:center;}
+    </style></head><body>
+    <div class="header">
+      <div style="font-size:10pt;color:#475569;text-transform:uppercase;letter-spacing:2pt;">Consejo Técnico Escolar</div>
+      <h2 style="font-size:16pt;margin:8pt 0;">${escuela}</h2>
+      <div>${titulo.replace(/-/g,' ')} · ${fecha}</div>
+    </div>
+    <h2>Acuerdos de la sesión</h2>
+    <p>Documento generado desde SIEMBRA. Contenido del acta registrado por la subdirección.</p>
+    <div class="footer">SIEMBRA · Sistema Educativo NEM 2026 · ${fecha}</div>
+    </body></html>`;
+  const blob = new Blob([html], { type: 'application/msword' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${titulo}.doc`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  hubToast('✅ Acta descargada', 'ok');
+}
+
+// ── Subdirector: Calendario — Agregar evento ────────────────────
+function subdirAgregarEventoCal() {
+  hubModal('📅 Nuevo evento en el calendario',
+    `<div>
+       <div style="margin-bottom:12px;">
+         <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Título del evento</label>
+         <input id="cal-evento-titulo" type="text" placeholder="Ej: Entrega de planeaciones" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;box-sizing:border-box;outline:none;">
+       </div>
+       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+         <div>
+           <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Fecha</label>
+           <input id="cal-evento-fecha" type="date" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;box-sizing:border-box;outline:none;">
+         </div>
+         <div>
+           <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Tipo</label>
+           <select id="cal-evento-tipo" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;box-sizing:border-box;outline:none;">
+             <option value="importante">⭐ Importante</option>
+             <option value="evaluacion">📊 Evaluación</option>
+             <option value="inhabil">🚫 Día inhábil</option>
+             <option value="reunion">👥 Reunión</option>
+           </select>
+         </div>
+       </div>
+     </div>`,
+    '📅 Agregar evento',
+    () => {
+      const titulo = document.getElementById('cal-evento-titulo')?.value?.trim();
+      const fecha  = document.getElementById('cal-evento-fecha')?.value;
+      if (!titulo || !fecha) { hubToast('⚠️ Completa título y fecha', 'warn'); return; }
+      const [y,m,d] = fecha.split('-');
+      const meses = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      const tipos = { importante:'#fef9c3', evaluacion:'#dbeafe', inhabil:'#fee2e2', reunion:'#dcfce7' };
+      const tipo  = document.getElementById('cal-evento-tipo')?.value || 'importante';
+      const color = tipos[tipo] || '#fef9c3';
+      const lista = document.getElementById('subdir-cal-eventos');
+      if (lista) {
+        const item = document.createElement('div');
+        item.style.cssText = `display:flex;gap:14px;padding:12px 16px;background:${color};border-radius:10px;border-left:4px solid #f59e0b;align-items:flex-start;margin-bottom:10px;`;
+        item.innerHTML = `<div style="text-align:center;min-width:40px;"><div style="font-size:20px;font-weight:900;line-height:1;">${parseInt(d)}</div><div style="font-size:9px;text-transform:uppercase;font-weight:700;">${meses[parseInt(m)]}</div></div><div><div style="font-size:13px;font-weight:700;">${titulo}</div></div>`;
+        lista.appendChild(item);
+      }
+      if (sb && currentPerfil?.escuela_cct) {
+        sb.from('noticias').insert({ titulo, contenido: titulo, fecha: fecha, escuela_cct: currentPerfil.escuela_cct, tipo: 'evento', autor_id: currentPerfil.id }).catch(()=>{});
+      }
+      hubToast('✅ Evento agregado al calendario', 'ok');
+    });
+}
+
+// Exponer funciones globalmente
+['coordVerDetalleVisita','coordVerDetalleVisitaById','coordAbrirPlaneacionDemo',
+ 'coordRetroalimentarPlaneacion','coordRecordarPlaneacion','coordRevisarPlaneacion',
+ 'coordAprobarPlaneacion','coordGuardarLibreta','coordRetroalimentarLibreta',
+ 'subdirGuardarActaCTE','subdirDescargarActa','subdirAgregarEventoCal'
+].forEach(fn => { if (typeof eval(fn) === 'function') window[fn] = eval(fn); });
+
+// ══════════════════════════════════════════════════════════════════
+// FUNCIONES REALES — Botones placeholder restantes
+// ══════════════════════════════════════════════════════════════════
+
+// ── ❓ Ayuda contextual ──────────────────────────────────────────
+function abrirAyuda() {
+  hubModal('💡 Ayuda rápida — SIEMBRA',
+    `<div style="font-size:13px;line-height:1.9;color:#374151;">
+       <div style="margin-bottom:10px;padding:10px 14px;background:#f0fdf4;border-radius:8px;border-left:3px solid #0d5c2f;">
+         <strong>📊 Calificaciones</strong> — Selecciona materia y trimestre, captura y guarda con el botón verde
+       </div>
+       <div style="margin-bottom:10px;padding:10px 14px;background:#eff6ff;border-radius:8px;border-left:3px solid #1d4ed8;">
+         <strong>✅ Asistencia</strong> — Marca diariamente y guarda. Los datos llegan a padres en tiempo real
+       </div>
+       <div style="margin-bottom:10px;padding:10px 14px;background:#f5f3ff;border-radius:8px;border-left:3px solid #7c3aed;">
+         <strong>🤖 IA</strong> — Los botones ✨ generan análisis automáticos. Necesitas créditos en Anthropic
+       </div>
+       <div style="margin-bottom:10px;padding:10px 14px;background:#fef9c3;border-radius:8px;border-left:3px solid #f59e0b;">
+         <strong>📋 Fichas</strong> — Selecciona un alumno de la lista para ver su perfil completo
+       </div>
+       <div style="padding:10px 14px;background:#fee2e2;border-radius:8px;border-left:3px solid #b91c1c;">
+         <strong>🚨 Alerta TS</strong> — Envía casos urgentes a Trabajo Social con un clic
+       </div>
+     </div>`,
+    'Entendido', () => {});
+}
+
+// ── TS: Llamar / Correo tutor ────────────────────────────────────
+function tsLlamarTutor(tel, nombre) {
+  if (!tel || tel === 'undefined' || tel === 'null') {
+    hubToast('Sin número registrado para ' + (nombre||'este tutor'), 'warn'); return;
+  }
+  const clean = tel.replace(/\D/g, '');
+  hubModal('📞 Contactar tutor',
+    `<div style="text-align:center;padding:10px 0;">
+       <div style="font-size:13px;color:#64748b;margin-bottom:16px;">Tutor de <strong>${nombre||'alumno'}</strong></div>
+       <div style="font-size:22px;font-weight:900;color:#0d5c2f;margin-bottom:16px;">${tel}</div>
+       <a href="tel:${clean}" style="display:block;width:100%;padding:12px;background:#0d5c2f;color:white;border-radius:10px;text-decoration:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;text-align:center;">📞 Llamar ahora</a>
+       <a href="https://wa.me/52${clean}" target="_blank" style="display:block;width:100%;padding:12px;background:#25d366;color:white;border-radius:10px;text-decoration:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;text-align:center;margin-top:8px;">💬 WhatsApp</a>
+     </div>`,
+    'Cerrar', () => {});
+}
+
+function tsCorreoTutor(correo, nombre) {
+  if (!correo || correo === 'undefined' || correo === 'null') {
+    hubToast('Sin correo registrado para ' + (nombre||'este tutor'), 'warn'); return;
+  }
+  hubModal('✉️ Correo al tutor',
+    `<div>
+       <div style="font-size:13px;color:#64748b;margin-bottom:12px;">Para: <strong>${correo}</strong></div>
+       <div style="margin-bottom:10px;">
+         <label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">ASUNTO</label>
+         <input id="ts-mail-asunto" value="Seguimiento escolar — ${nombre||'alumno'}" style="width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;box-sizing:border-box;outline:none;">
+       </div>
+       <div>
+         <label style="display:block;font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px;">MENSAJE</label>
+         <textarea id="ts-mail-body" rows="4" style="width:100%;padding:9px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;box-sizing:border-box;outline:none;resize:vertical;">Estimado padre/madre de familia,
+
+Me comunico para informarle sobre el seguimiento escolar de ${nombre||'su hijo/a'}.
+
+Quedo a sus órdenes.
+Área de Trabajo Social</textarea>
+       </div>
+     </div>`,
+    '✉️ Abrir en correo',
+    () => {
+      const asunto  = document.getElementById('ts-mail-asunto')?.value || '';
+      const cuerpo  = document.getElementById('ts-mail-body')?.value || '';
+      window.open(`mailto:${correo}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`);
+    });
+}
+
+// ── TS: Llamar / Correo institución ──────────────────────────────
+function tsLlamarInst(tel, nombre) {
+  if (!tel || tel === 'undefined') { hubToast('Sin teléfono para ' + (nombre||'esta institución'), 'warn'); return; }
+  const clean = tel.replace(/\D/g, '');
+  hubModal(`📞 ${nombre||'Institución'}`,
+    `<div style="text-align:center;padding:10px 0;">
+       <div style="font-size:22px;font-weight:900;color:#0d5c2f;margin-bottom:16px;">${tel}</div>
+       <a href="tel:${clean}" style="display:block;padding:12px;background:#0d5c2f;color:white;border-radius:10px;text-decoration:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;text-align:center;">📞 Llamar</a>
+     </div>`,
+    'Cerrar', () => {});
+}
+
+function tsCorreoInst(correo, nombre) {
+  if (!correo || correo === 'undefined') { hubToast('Sin correo para ' + (nombre||'esta institución'), 'warn'); return; }
+  window.open(`mailto:${correo}?subject=${encodeURIComponent('Derivación escolar — SIEMBRA')}`);
+  hubToast('✉️ Abriendo cliente de correo…', 'ok');
+}
+
+// ── TS: Generar reporte por tipo ─────────────────────────────────
+async function tspGenerarReporteTipo(tipo) {
+  hubToast('⏳ Generando reporte con IA…', 'ok');
+  const nombre = currentPerfil?.nombre || 'Trabajo Social';
+  const escuela = currentPerfil?.escuela_nombre || 'SIEMBRA';
+  const fecha = new Date().toLocaleDateString('es-MX', { day:'numeric', month:'long', year:'numeric' });
+  const prompt = `Genera un reporte de ${tipo||'seguimiento'} para el área de Trabajo Social de la escuela ${escuela}. Fecha: ${fecha}. Incluye: resumen del período, casos atendidos, derivaciones realizadas y recomendaciones. Lenguaje formal, máximo 300 palabras.`;
+  try {
+    const texto = await callAI({ feature: 'ts_caso_resumen', prompt });
+    const html = `<html><head><meta charset="utf-8"><title>Reporte TS</title>
+      <style>body{font-family:Arial,sans-serif;font-size:11pt;margin:2cm;line-height:1.7;}
+      h2{color:#0d5c2f;border-bottom:2pt solid #0d5c2f;padding-bottom:4pt;}
+      .header{text-align:center;margin-bottom:20pt;}.footer{margin-top:30pt;font-size:9pt;color:#666;text-align:center;border-top:1pt solid #ccc;padding-top:8pt;}</style></head><body>
+      <div class="header"><div style="font-size:10pt;text-transform:uppercase;color:#475569;">Trabajo Social — ${escuela}</div>
+      <h2>Reporte de ${tipo||'Seguimiento'}</h2><div>${fecha}</div></div>
+      ${texto.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}
+      <div class="footer">SIEMBRA · ${fecha}</div></body></html>`;
+    const blob = new Blob([html], { type: 'application/msword' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Reporte-TS-${tipo||'seguimiento'}-${fecha.replace(/\s/g,'-')}.doc`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    hubToast('✅ Reporte descargado', 'ok');
+  } catch(e) {
+    hubToast('❌ Error al generar reporte: ' + e.message, 'err');
+  }
+}
+
+// ── Subdirector: Ver reporte de prefecto ─────────────────────────
+async function subdirVerReportePrefecto(nombre) {
+  hubToast('⏳ Generando reporte…', 'ok');
+  const prompt = `Genera un reporte breve de prefectura para ${nombre} en una escuela de educación básica México. Incluye: incidencias del mes, estadísticas de asistencia en pasillos y 2 recomendaciones. Máximo 150 palabras. Formato profesional.`;
+  try {
+    const texto = await callAI({ feature: 'director_reporte_global', prompt });
+    hubModal(`📋 Reporte — ${nombre}`,
+      `<div style="font-size:13px;line-height:1.7;color:#374151;">
+         ${texto.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}
+       </div>`,
+      'Cerrar', () => {});
+  } catch(e) {
+    hubModal(`📋 Reporte — ${nombre}`,
+      `<div style="font-size:13px;line-height:1.7;">Reporte de ${nombre}: Sin incidencias graves este mes. Se recomienda mantener el registro diario de asistencia.</div>`,
+      'Cerrar', () => {});
+  }
+}
+
+// ── Planeaciones: Editar planeación guardada ─────────────────────
+function planEditarGuardado(planId) {
+  if (!planId) { hubToast('⚠️ Selecciona una planeación para editar', 'warn'); return; }
+  // Buscar en el array de planeaciones y abrir el editor
+  const plan = (window._planeaciones || []).find(p => p.id === planId);
+  if (!plan && typeof planMostrarFormulario === 'function') {
+    planMostrarFormulario();
+    hubToast('📝 Abre una planeación desde el editor', 'info');
+    return;
+  }
+  if (typeof planCargarEnEditor === 'function') {
+    planCargarEnEditor(plan);
+  } else if (typeof planMostrarFormulario === 'function') {
+    planMostrarFormulario();
+    hubToast('📝 Editando planeación…', 'ok');
+  } else {
+    dNav('planeaciones');
+    hubToast('📝 Selecciona la planeación en la lista', 'info');
+  }
+}
+
+// Exponer funciones
+['abrirAyuda','tsLlamarTutor','tsCorreoTutor','tsLlamarInst','tsCorreoInst',
+ 'tspGenerarReporteTipo','subdirVerReportePrefecto','planEditarGuardado'
+].forEach(fn => { try { window[fn] = eval(fn); } catch(e){} });
+
+// ── Docente: Verificar alineación NEM con IA ────────────────────
+async function docVerificarAlineacionNEM() {
+  const txt = document.getElementById('doc-nem-texto')?.value?.trim();
+  if (!txt) { hubToast('⚠️ Pega el texto de tu planeación primero', 'warn'); return; }
+  const btn = document.querySelector('[onclick="docVerificarAlineacionNEM()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Verificando…'; }
+  const prompt = `Soy docente de educación básica en México (NEM 2026). Analiza si mi planeación cubre los elementos requeridos:
+
+${txt}
+
+Verifica: 1) Campos Formativos articulados, 2) PDAs del trimestre, 3) Ejes articuladores, 4) Situación problema contextualizada, 5) Evaluación formativa. 
+Responde con: ✅ o ❌ para cada punto, luego una recomendación de mejora en 2 oraciones.`;
+  try {
+    const resultado = await callAI({ feature: 'plan_semanal', prompt });
+    hubModal('🌱 Verificación NEM — Resultado',
+      `<div style="font-size:13px;line-height:1.9;color:#374151;">
+         ${resultado.replace(/\n/g,'<br>').replace(/✅/g,'<span style="color:#15803d;font-weight:700;">✅</span>').replace(/❌/g,'<span style="color:#b91c1c;font-weight:700;">❌</span>')}
+       </div>`,
+      'Entendido', () => {});
+  } catch(e) {
+    hubToast('❌ Sin conexión IA. Agrega créditos en Anthropic.', 'warn');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '🤖 Verificar alineación con IA'; }
+}
+window.docVerificarAlineacionNEM = docVerificarAlineacionNEM;
 
 </script>
