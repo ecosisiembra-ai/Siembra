@@ -8102,10 +8102,11 @@ function cambiarNivel(nivel) {
     } else if (escuelaNivel === 'primaria') {
       n = 'primaria';
     } else {
-      // Escuela tiene ambos niveles — usar preferencia guardada o el perfil
-      n = perfilNivel || localStorage.getItem('siembra_nivel') || window._nivelActivo || 'primaria';
+      // Escuela con ambos niveles — prioridad: grupo activo > perfil > localStorage > secundaria
+      const grupoActNivel = window._gruposDocente?.[0]?.nivel;
+      n = grupoActNivel || perfilNivel || localStorage.getItem('siembra_nivel') || window._nivelActivo || 'secundaria';
     }
-    
+
     // Solo update visual si los botones existen (pueden cargarse tarde)
     setTimeout(() => cambiarNivel(n), 200);
   });
@@ -8260,10 +8261,13 @@ async function initApp() {
         window._grupoActivo   = gruposDB[0].id;
         const g = gruposDB[0];
 
-        // Sincronizar nivel con el grupo real (crítico para docentes con nivel "ambos")
-        if (g.nivel && (currentPerfil.nivel === 'ambos' || !currentPerfil.nivel)) {
+        // Sincronizar nivel con el grupo real — SIEMPRE usar el nivel del grupo
+        if (g.nivel) {
           window._nivelActivo = g.nivel;
+          window._gradoActivo = String(g.grado||'1').replace(/[°\s]/g,'').trim();
           try { localStorage.setItem('siembra_nivel', g.nivel); } catch(e) {}
+          // Forzar cambio visual inmediato
+          setTimeout(() => cambiarNivel(g.nivel), 100);
         }
 
         // 2. Actualizar nombre del docente y grupo en topbar
@@ -34842,7 +34846,8 @@ window.horarioRender = function() {
   return _horarioRenderOrig?.();
 };
 
-</script>
+
+
 // ══════════════════════════════════════════════════════════════════
 // AGENTE 2 — Número de lista automático (orden alfabético apellido)
 // Se ejecuta después de dar de alta o importar alumnos al grupo
@@ -34912,3 +34917,5 @@ if (window.ADM) {
 
 window.asignarNumerosDeLista = asignarNumerosDeLista;
 
+
+</script>
