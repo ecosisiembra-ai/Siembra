@@ -8554,11 +8554,14 @@ async function docCambiarGrupo(grupoId) {
     try { localStorage.setItem('siembra_nivel', g.nivel); } catch(e) {}
   }
 
-  // Actualizar UI
+  // Actualizar UI — usar resolverNombreGrupo para evitar "undefined"
+  const _nomG = g ? (typeof resolverNombreGrupo === 'function' ? resolverNombreGrupo(g) : (g.nombre || g.grado + '°')) : grupoId;
   const roleEl = document.querySelector('#doc-portal .user-role');
-  if (roleEl && g) roleEl.textContent = `Docente · ${g.nombre}`;
+  if (roleEl && g) roleEl.textContent = `Docente · ${_nomG}`;
   const calTit = document.getElementById('cal-titulo-h2');
-  if (calTit && g) calTit.textContent = `Calificaciones · ${g.nombre}`;
+  if (calTit && g) calTit.textContent = `Calificaciones · ${_nomG}`;
+  const topTitle = document.getElementById('page-title');
+  if (topTitle && topTitle.textContent.includes('Calificaciones')) topTitle.textContent = `Calificaciones · ${_nomG}`;
 
   // Recargar alumnos
   const alumnosDB = await calCargarAlumnosGrupo(grupoId);
@@ -8600,12 +8603,42 @@ async function docCambiarGrupo(grupoId) {
       .eq('docente_id', currentPerfil.id)
       .eq('grupo_id', grupoId)
       .eq('activo', true);
+
     if (asigNuevo?.length) {
       const mats = [...new Set(asigNuevo.map(r => r.materia).filter(Boolean))];
-      window._materiasDocente = mats;
-      window._materiasFiltered = mats;
-      const matEl = document.getElementById('doc-materias-label');
-      if (matEl) matEl.textContent = mats.join(' · ') || 'Sin materias asignadas';
+      if (mats.length) {
+        window._materiasDocente = mats;
+        window._materiasFiltered = mats;
+        // Actualizar label de materias en sidebar
+        const matEl = document.getElementById('doc-materias-label');
+        if (matEl) matEl.textContent = mats.join(' · ');
+        // Resetear materia activa si ya no está en el nuevo grupo
+        if (!mats.includes(calMatActual)) calMatActual = mats[0];
+        // Re-renderizar tabs de materias en calificaciones
+        if (typeof calRenderMatTabs === 'function') calRenderMatTabs();
+        if (typeof calRenderTabla === 'function') calRenderTabla();
+        if (typeof calRenderStats === 'function') calRenderStats();
+      } else {
+        // Sin materias en docente_grupos — usar fallback por nivel/grado
+        if (g?.nivel) {
+          const gr = String(g.grado||'1').replace(/[°\s]/g,'').trim();
+          const fallback = g.nivel === 'secundaria'
+            ? (window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr] || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1'] || [])
+            : (typeof getMateriasByNivel === 'function' ? getMateriasByNivel('primaria') : []);
+          window._materiasDocente = fallback;
+          window._materiasFiltered = fallback;
+          if (typeof calRenderMatTabs === 'function') calRenderMatTabs();
+        }
+      }
+    } else if (g?.nivel) {
+      // Sin asignaciones — fallback por nivel/grado del grupo seleccionado
+      const gr = String(g.grado||'1').replace(/[°\s]/g,'').trim();
+      const fallback = g.nivel === 'secundaria'
+        ? (window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr] || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1'] || [])
+        : (typeof getMateriasByNivel === 'function' ? getMateriasByNivel('primaria') : []);
+      window._materiasDocente = fallback;
+      window._materiasFiltered = fallback;
+      if (typeof calRenderMatTabs === 'function') calRenderMatTabs();
     }
   } catch(e) { console.warn('[docCambiarGrupo] materias:', e.message); }
 
@@ -9111,18 +9144,41 @@ async function calInit() {
   }
 
   try {
-    // 1. Cargar grupos del docente
-    const grupos = await cargarGruposDocente();
-    if (!grupos.length) {
-      hubToast('⚠️ No tienes grupos asignados aún');
-      _calInitDemo();
-      return;
+    // 1. Cargar grupos del docente (solo si no los tenemos ya)
+    let grupos = window._gruposDocente;
+    if (!grupos?.length) {
+      grupos = await cargarGruposDocente();
+      if (!grupos.length) {
+        hubToast('⚠️ No tienes grupos asignados aún');
+        _calInitDemo();
+        return;
+      }
+      window._gruposDocente = grupos;
     }
-    window._grupoActivo = grupos[0].id;
-    window._gruposDocente = grupos;
 
-    // 2. Cargar alumnos del grupo
-    const alumnosDB = await calCargarAlumnosGrupo(grupos[0].id);
+    // CORRECCIÓN: Respetar el grupo activo seleccionado por el usuario,
+    // solo usar grupos[0] si no hay grupo activo definido aún
+    if (!window._grupoActivo) {
+      window._grupoActivo = grupos[0].id;
+    }
+    const grupoIdActivo = window._grupoActivo;
+    const grupoActivo = grupos.find(g => g.id === grupoIdActivo) || grupos[0];
+
+    // Actualizar títulos con el nombre real del grupo activo
+    const nomGrupo = typeof resolverNombreGrupo === 'function'
+      ? resolverNombreGrupo(grupoActivo)
+      : (grupoActivo.nombre || grupoActivo.grado + '°');
+    const calH2 = document.getElementById('cal-titulo-h2');
+    if (calH2) calH2.textContent = 'Calificaciones · ' + nomGrupo;
+    const topTitle = document.getElementById('page-title');
+    if (topTitle && topTitle.textContent.includes('Calificaciones')) {
+      topTitle.textContent = 'Calificaciones · ' + nomGrupo;
+    }
+
+    // 2. Cargar alumnos del grupo ACTIVO (no siempre grupos[0])
+    const alumnosDB = window._alumnosActivos?.length
+      ? window._alumnosActivos
+      : await calCargarAlumnosGrupo(grupoIdActivo);
     if (!alumnosDB.length) {
       _calInitDemo();
       return;
@@ -9130,10 +9186,10 @@ async function calInit() {
     window._alumnosActivos = alumnosDB;
 
     // 3. Cargar aspectos personalizados del docente (si existen)
-    await calCargarAspectos(grupos[0].id);
+    await calCargarAspectos(grupoIdActivo);
 
-    // 4. Cargar calificaciones existentes
-    await calCargarCalificacionesDB(grupos[0].id);
+    // 4. Cargar calificaciones existentes del grupo activo
+    await calCargarCalificacionesDB(grupoIdActivo);
 
   } catch(e) {
     console.warn('calInit DB error, usando demo:', e);
@@ -9228,42 +9284,42 @@ async function calCargarAlumnosGrupo(grupoId) {
       });
     }
 
-    // Fuente 2: tabla usuarios con grupo_id directo
-    const { data: data2 } = await sb.from('usuarios')
-      .select('id, nombre, apellido_p, apellido_m, curp, num_lista, grupo_id')
-      .eq('rol', 'alumno')
-      .eq('activo', true)
-      .not('grupo_id', 'is', null);
+    // Fuente 2 y 3: fallbacks — envueltos en try/catch para evitar errores 400
+    // si las columnas grupo_id o activo no existen en la tabla usuarios
+    try {
+      const { data: grupoData } = await sb.from('grupos')
+        .select('id, nombre, grado, seccion, escuela_cct')
+        .eq('id', grupoId)
+        .maybeSingle();
 
-    // Buscar el grupo_id en alumnos_grupos para obtener el grupo correcto
-    const { data: grupoData } = await sb.from('grupos')
-      .select('id, nombre, grado, seccion, escuela_cct')
-      .eq('id', grupoId)
-      .maybeSingle();
+      if (!grupoData) return [];
 
-    if (!grupoData) return [];
+      // Fuente 3: filtrar por escuela_cct (sin depender de grupo_id en usuarios)
+      const { data: data3, error: err3 } = await sb.from('usuarios')
+        .select('id, nombre, apellido_p, apellido_m, curp, num_lista')
+        .eq('rol', 'alumno')
+        .eq('escuela_cct', grupoData.escuela_cct);
 
-    // Filtrar por escuela_cct
-    const { data: data3 } = await sb.from('usuarios')
-      .select('id, nombre, apellido_p, apellido_m, curp, num_lista')
-      .eq('rol', 'alumno')
-      .eq('activo', true)
-      .eq('escuela_cct', grupoData.escuela_cct);
+      if (err3) { console.warn('[calCargarAlumnosGrupo] fuente3:', err3.message); return []; }
 
-    const alumnos3 = (data3 || []).map(a => ({
-      id:   a.id,
-      n:    `${a.nombre||''} ${a.apellido_p||''} ${a.apellido_m||''}`.trim(),
-      cals: [7,7,7,7,7,7,7,7],
-      as:   'P',
-      curp: a.curp || '',
-      num_lista: a.num_lista || null
-    }));
+      const alumnos3 = (data3 || []).map(a => ({
+        id:   a.id,
+        n:    `${a.nombre||''} ${a.apellido_p||''} ${a.apellido_m||''}`.trim(),
+        cals: [7,7,7,7,7,7,7,7],
+        as:   'P',
+        curp: a.curp || '',
+        num_lista: a.num_lista || null
+      }));
 
-    return alumnos3.sort((a, b) => {
-      const ap1 = a.n.split(' ')[1] || a.n;
-      const ap2 = b.n.split(' ')[1] || b.n;
-      return ap1.localeCompare(ap2, 'es-MX');
-    });
+      return alumnos3.sort((a, b) => {
+        const ap1 = a.n.split(' ')[1] || a.n;
+        const ap2 = b.n.split(' ')[1] || b.n;
+        return ap1.localeCompare(ap2, 'es-MX');
+      });
+    } catch(eFallback) {
+      console.warn('[calCargarAlumnosGrupo] fallback error:', eFallback.message);
+      return [];
+    }
 
   } catch(e) {
     console.warn('[calCargarAlumnosGrupo]', e.message);
