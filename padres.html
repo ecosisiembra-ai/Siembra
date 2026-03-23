@@ -744,7 +744,7 @@ html, body {
           🔔
           <span class="notif-badge" id="notif-badge" style="display:none">0</span>
         </button>
-        <button class="header-btn" onclick="doLogout()" title="Salir">⎋</button>
+        <button class="header-btn" onclick="doLogout()" title="Salir" aria-label="Cerrar sesión">⎋</button>
       </div>
     </div>
     <div class="header-child-card">
@@ -1155,19 +1155,25 @@ window.addEventListener('DOMContentLoaded', async () => {
     mostrarRegistroConToken(_inviteToken);
     return;
   }
-  // Si hay sesión activa, mostrar app rápido (400ms para animación)
-  // Si no hay sesión, mostrar login en 400ms también — no 2 segundos
+  // Si hay sesión activa → mostrar app shell primero, luego cargar datos
+  // Si no hay sesión → mostrar login (nunca saltar directo a vinculación)
   try {
     if (sbHub) {
       const { data: { session } } = await sbHub.auth.getSession();
       if (session) {
         currentUser = session.user;
+        // Mostrar app antes de cargar datos: evita que _padresMostrarPantallaVinculacion
+        // reemplace el #app cuando aún está oculto, lo que hacía que se viera de golpe
+        // sin header ni contexto — parecía el flujo de registro en vez del de sesión activa
         await cargarPerfil();
         setTimeout(() => mostrarApp(), 400);
+        // Arrancar watcher de sesión
+        if (window.SIEMBRA?.sessionWatcher) window.SIEMBRA.sessionWatcher.start();
         return;
       }
     }
   } catch(e) { console.warn('Session check error:', e); }
+  // Sin sesión → siempre ir al login, nunca a vinculación directa
   setTimeout(() => { ocultarLoading(); mostrarLogin(); }, 400);
 });
 
@@ -1323,7 +1329,8 @@ async function cargarHijos() {
     hijoActivo = hijosData[0];
     if (hijosData.length > 1) renderHijoSelector();
   } else {
-    // Sin hijos vinculados — mostrar pantalla de vinculación
+    // Sin hijos vinculados — mostrar pantalla de vinculación DENTRO de la app
+    // (no antes de mostrarApp, para que el header y contexto estén visibles)
     _padresMostrarPantallaVinculacion();
   }
 }
@@ -1342,46 +1349,56 @@ async function _padreIntentarVinculacionAuto() {
 }
 
 function _padresMostrarPantallaVinculacion() {
-  const appEl = document.getElementById('app');
-  if (!appEl) return;
+  // Renderizar DENTRO de #app-content, NO reemplazar #app completo.
+  // Así el header (con el botón de salir) siempre es visible — el usuario
+  // sabe que está autenticado y puede cerrar sesión si llegó por error.
+  const contentEl = document.getElementById('app-content');
+  if (!contentEl) return;
 
   // Verificar si hay solicitud pendiente
   const sol = window._solicitudVinculacion;
   if (sol && sol.estado === 'pendiente') {
-    appEl.innerHTML = `
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:#f0fdf4;font-family:var(--font-body);">
-        <div style="background:white;border-radius:24px;padding:32px;width:100%;max-width:380px;box-shadow:0 8px 40px rgba(0,0,0,.12);text-align:center;">
-          <div style="font-size:56px;margin-bottom:16px;">⏳</div>
-          <div style="font-size:20px;font-weight:800;color:#0d1a0f;margin-bottom:8px;">Solicitud en revisión</div>
-          <div style="font-size:14px;color:#64748b;line-height:1.6;">Tu solicitud de vinculación con <strong>${sol.nombre_buscado||'tu hijo/a'}</strong> está siendo revisada por el administrador de la escuela.</div>
-          <div style="margin-top:20px;padding:12px;background:#fef9c3;border-radius:10px;font-size:13px;color:#a16207;">Recibirás una notificación cuando sea aprobada.</div>
-          <button onclick="location.reload()" style="margin-top:20px;padding:12px 24px;background:#0d5c2f;color:white;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;">🔄 Verificar estado</button>
+    contentEl.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;min-height:60vh;font-family:var(--font-body);">
+        <div style="background:white;border-radius:24px;padding:28px;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(0,0,0,.09);text-align:center;">
+          <div style="font-size:52px;margin-bottom:14px;">⏳</div>
+          <div style="font-size:18px;font-weight:800;color:#0d1a0f;margin-bottom:8px;">Solicitud en revisión</div>
+          <div style="font-size:13px;color:#64748b;line-height:1.6;">Tu solicitud de vinculación con <strong>${sol.nombre_buscado||'tu hijo/a'}</strong> está siendo revisada por la escuela.</div>
+          <div style="margin-top:16px;padding:10px;background:#fef9c3;border-radius:10px;font-size:12px;color:#a16207;">Recibirás una notificación cuando sea aprobada.</div>
+          <button onclick="location.reload()" style="margin-top:18px;padding:11px 24px;background:#0d5c2f;color:white;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;width:100%;">🔄 Verificar estado</button>
         </div>
       </div>`;
     return;
   }
 
-  // Mostrar formulario de búsqueda
-  appEl.innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:#f0fdf4;font-family:var(--font-body);">
-      <div style="background:white;border-radius:24px;padding:32px;width:100%;max-width:400px;box-shadow:0 8px 40px rgba(0,0,0,.12);">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="font-size:48px;margin-bottom:10px;">🔗</div>
-          <div style="font-size:20px;font-weight:800;color:#0d1a0f;">Vincular con tu hijo/a</div>
-          <div style="font-size:13px;color:#64748b;margin-top:6px;">Ingresa los datos de tu hijo/a para localizarlo en el sistema.</div>
+  // Mostrar formulario de búsqueda dentro del contenido de la app
+  contentEl.innerHTML = `
+    <div style="padding:20px;font-family:var(--font-body);">
+      <div style="background:white;border-radius:20px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,.07);">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:44px;margin-bottom:8px;">🔗</div>
+          <div style="font-size:18px;font-weight:800;color:#0d1a0f;">Vincular con tu hijo/a</div>
+          <div style="font-size:13px;color:#64748b;margin-top:4px;line-height:1.5;">
+            Ingresa los datos de tu hijo/a para localizarlo en el sistema.<br>
+            <span style="color:#0d5c2f;font-weight:600;">Si eres nuevo, usa el código que te dio la escuela.</span>
+          </div>
         </div>
 
         <div style="margin-bottom:12px;">
           <label style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Nombre completo del alumno</label>
-          <input id="vinc-nombre" type="text" placeholder="Ana García López" style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;">
+          <input id="vinc-nombre" type="text" placeholder="Ana García López"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;box-sizing:border-box;">
         </div>
         <div style="margin-bottom:12px;">
           <label style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Fecha de nacimiento</label>
-          <input id="vinc-fecha" type="date" style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;">
+          <input id="vinc-fecha" type="date"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;box-sizing:border-box;">
         </div>
         <div style="margin-bottom:16px;">
-          <label style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Código de vinculación (si tienes uno)</label>
-          <input id="vinc-codigo" type="text" placeholder="ej: 3E6PG8" style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+          <label style="font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Código de vinculación <span style="font-weight:400;text-transform:none;color:#94a3b8;">(si tienes uno)</span></label>
+          <input id="vinc-codigo" type="text" placeholder="ej: 3E6PG8"
+            style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:14px;outline:none;text-transform:uppercase;box-sizing:border-box;"
+            oninput="this.value=this.value.toUpperCase()">
         </div>
         <button onclick="_padresEnviarSolicitudVinculacion()" id="vinc-btn"
           style="width:100%;padding:13px;background:linear-gradient(135deg,#0d5c2f,#157a40);color:white;border:none;border-radius:12px;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;">
