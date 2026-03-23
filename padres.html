@@ -2987,8 +2987,7 @@ h2{font-size:14pt;font-weight:bold;color:#0d5c2f;margin:14pt 0 6pt;border-bottom
   <div style="font-size:18pt;font-weight:bold;color:#0d5c2f;margin:8pt 0;">${nombre}</div>
   <div style="font-size:11pt;color:#475569;">Promedio general: ${promedio} · ${fecha}</div>
 </div>
-${texto.replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/
-/g,'<br>')}
+${texto.replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}
 <div class="footer">Generado con SIEMBRA · ${fecha}</div>
 </body></html>`;
 
