@@ -2,6 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a5c2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SIEMBRA">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -2745,6 +2750,305 @@ async function subirEvidencia() {
   } catch(e) { showToast('❌ Error al subir. Intenta de nuevo.'); }
   btn.disabled = false; btn.textContent = 'Subir evidencia → +15 pts';
 }
+// ══════════════════════════════════════════════════════════════════
+// BLOQUE B — 5 AGENTES PADRES
+// ══════════════════════════════════════════════════════════════════
+
+// ── Agente 1: Lenguaje emocional en tarjeta IA ────────────────────
+// Mejora visual de ai-card: emoji estado + frase + acción
+async function agente1LenguajeEmocional() {
+  const card = document.getElementById('ai-card');
+  if (!card || document.getElementById('ai-card-emocional')) return;
+  const nombre  = hijoActivo?.nombre?.split(' ')[0] || 'tu hij@';
+  const mats    = calificaciones.slice(0,6).map(getMateriaData);
+  const promedio= mats.length ? (mats.reduce((s,m)=>s+m.cal,0)/mats.length) : 0;
+  const bajas   = mats.filter(m=>m.cal<7);
+  // Determinar estado emocional según promedio
+  let emoji, estado, colorFondo, colorTexto;
+  if (promedio >= 8.5)     { emoji='🌟'; estado='¡Está brillando!';       colorFondo='linear-gradient(135deg,#f0fdf4,#dcfce7)'; colorTexto='#15803d'; }
+  else if (promedio >= 7.5){ emoji='😊'; estado='Va muy bien';             colorFondo='linear-gradient(135deg,#eff6ff,#dbeafe)'; colorTexto='#1d4ed8'; }
+  else if (promedio >= 6.5){ emoji='💪'; estado='Puede mejorar';           colorFondo='linear-gradient(135deg,#fffbeb,#fef9c3)'; colorTexto='#b45309'; }
+  else                     { emoji='❤️'; estado='Necesita tu apoyo';       colorFondo='linear-gradient(135deg,#fef2f2,#fee2e2)'; colorTexto='#b91c1c'; }
+
+  // Inyectar header emocional arriba del ai-card
+  const header = document.createElement('div');
+  header.id = 'ai-card-emocional';
+  header.style.cssText = `background:${colorFondo};border-radius:16px;padding:16px;margin-bottom:12px;border:1.5px solid ${colorTexto}22;`;
+  header.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="font-size:36px;line-height:1;">${emoji}</div>
+      <div>
+        <div style="font-size:15px;font-weight:800;color:${colorTexto};">${nombre} ${estado}</div>
+        <div style="font-size:12px;color:${colorTexto};opacity:.7;margin-top:2px;">Promedio: ${promedio.toFixed(1)} · ${bajas.length>0?bajas.length+' materia'+(bajas.length>1?'s':'')+' con atención':'Todas las materias bien 🎉'}</div>
+      </div>
+    </div>`;
+  card.insertBefore(header, card.firstChild);
+}
+
+// ── Agente 2: Acciones diarias — 3 chips con IA ───────────────────
+async function agente2AccionesDiarias() {
+  const view = document.getElementById('view-inicio');
+  if (!view || document.getElementById('acciones-diarias-card')) return;
+  const nombre  = hijoActivo?.nombre?.split(' ')[0] || 'tu hij@';
+  const mats    = calificaciones.slice(0,4).map(getMateriaData);
+  const bajas   = mats.filter(m=>m.cal<8).map(m=>m.nombre);
+
+  const div = document.createElement('div');
+  div.id = 'acciones-diarias-card';
+  div.style.cssText = 'margin:0 16px 14px;';
+  div.innerHTML = `
+    <div style="font-size:11px;font-weight:800;color:var(--gris-400);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">✅ Hoy puedes hacer</div>
+    <div id="acciones-chips" style="display:flex;flex-direction:column;gap:8px;">
+      ${['Cargando acción 1…','Cargando acción 2…','Cargando acción 3…'].map(t=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:white;border-radius:12px;border:1.5px solid var(--gris-100);">
+          <div style="width:28px;height:28px;border-radius:50%;background:#f1f5f9;flex-shrink:0;"></div>
+          <span style="font-size:13px;color:#94a3b8;">${t}</span>
+        </div>`).join('')}
+    </div>`;
+
+  // Insertar después del card-resumen-materias
+  const resumen = document.getElementById('card-resumen-materias');
+  if (resumen?.nextSibling) view.insertBefore(div, resumen.nextSibling);
+  else view.appendChild(div);
+
+  const prompt = `Soy padre/madre de ${nombre} (educación básica México). Sus calificaciones: ${mats.map(m=>m.nombre+': '+m.cal).join(', ')}. ${bajas.length?'Necesita apoyo en: '+bajas.join(', ')+'.':''}
+Genera 3 acciones MUY CORTAS (max 8 palabras cada una) que puedo hacer HOY con mi hijo. Responde SOLO con JSON: [{"emoji":"emoji","accion":"texto corto"},{"emoji":"...","accion":"..."},{"emoji":"...","accion":"..."}]`;
+
+  try {
+    const txt  = await callAI({ feature:'padre_reporte_ia', prompt, system:'Responde SOLO con el JSON. Sin markdown.' });
+    const data = JSON.parse(txt.replace(/```json|```/g,'').trim());
+    const chips= document.getElementById('acciones-chips');
+    const colores = ['#dcfce7','#dbeafe','#fef9c3'];
+    const textCol = ['#15803d','#1d4ed8','#b45309'];
+    if (chips) chips.innerHTML = data.map((a,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:white;border-radius:12px;border:1.5px solid ${colores[i]||'#e2e8f0'};">
+        <div style="width:32px;height:32px;border-radius:50%;background:${colores[i]||'#f1f5f9'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${a.emoji||'✅'}</div>
+        <span style="font-size:13px;font-weight:600;color:${textCol[i]||'#334155'};">${a.accion}</span>
+      </div>`).join('');
+  } catch(e) {
+    const chips = document.getElementById('acciones-chips');
+    if (chips) chips.innerHTML = [
+      {emoji:'💬',txt:'Pregúntale qué aprendió hoy',col:'#dcfce7',tc:'#15803d'},
+      {emoji:'📖',txt:`Revisa la tarea de ${bajas[0]||nombre}`,col:'#dbeafe',tc:'#1d4ed8'},
+      {emoji:'⭐',txt:'Felicítale por algo de hoy',col:'#fef9c3',tc:'#b45309'},
+    ].map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:white;border-radius:12px;border:1.5px solid ${a.col};"><div style="width:32px;height:32px;border-radius:50%;background:${a.col};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${a.emoji}</div><span style="font-size:13px;font-weight:600;color:${a.tc};">${a.txt}</span></div>`).join('');
+  }
+}
+
+// ── Agente 3: Gráfica progreso lectura (Chart.js) ─────────────────
+async function agente3GraficaLectura() {
+  const view = document.getElementById('view-lectura');
+  if (!view || document.getElementById('lectura-grafica-card')) return;
+  if (!sbHub || !hijoActivo?.id) return;
+
+  try {
+    const { data: quizzes } = await sbHub.from('quiz_resultados')
+      .select('pct,created_at,xp_ganado')
+      .eq('alumno_id', hijoActivo.id)
+      .order('created_at', { ascending: true })
+      .limit(8);
+
+    if (!quizzes?.length) return;
+
+    const grafDiv = document.createElement('div');
+    grafDiv.id = 'lectura-grafica-card';
+    grafDiv.style.cssText = 'background:white;border-radius:16px;border:1.5px solid #e2e8f0;padding:16px;margin:0 0 14px;';
+    grafDiv.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:#0f172a;margin-bottom:12px;">📊 Comprensión lectora por quiz</div>
+      <canvas id="lectura-chart" height="140"></canvas>`;
+
+    const lista = document.getElementById('lectura-libros-lista');
+    if (lista) view.querySelector('div[style*="padding"]')?.insertBefore(grafDiv, lista);
+    else view.appendChild(grafDiv);
+
+    // Esperar que Chart.js esté disponible
+    const initChart = () => {
+      if (typeof Chart === 'undefined') { setTimeout(initChart, 300); return; }
+      const ctx = document.getElementById('lectura-chart');
+      if (!ctx) return;
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: quizzes.map((_,i) => `Quiz ${i+1}`),
+          datasets: [{
+            label: 'Comprensión %',
+            data: quizzes.map(q => q.pct || 0),
+            backgroundColor: quizzes.map(q => (q.pct||0) >= 80 ? '#22c55e' : (q.pct||0) >= 60 ? '#f59e0b' : '#ef4444'),
+            borderRadius: 8,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { min:0, max:100, ticks:{ callback: v => v+'%', font:{size:10} }, grid:{color:'#f1f5f9'} },
+            x: { ticks:{ font:{size:10} }, grid:{display:false} }
+          }
+        }
+      });
+    };
+    initChart();
+  } catch(e) { console.warn('[agente3]', e.message); }
+}
+
+// ── Agente 4: Badge notificación si hay análisis nuevo ────────────
+async function agente4BadgeNotificacion() {
+  if (!sbHub || !hijoActivo?.id) return;
+  try {
+    const ayer = new Date(Date.now() - 24*60*60*1000).toISOString();
+    const { data } = await sbHub.from('analisis_ia')
+      .select('id,tipo,created_at')
+      .eq('alumno_id', hijoActivo.id)
+      .gte('created_at', ayer)
+      .limit(3);
+
+    if (!data?.length) return;
+
+    // Añadir badge en el tab de inicio si no existe
+    const tabInicio = document.querySelector("[onclick=\"switchTab('inicio')\"]");
+    if (tabInicio && !document.getElementById('badge-nuevo-analisis')) {
+      const badge = document.createElement('span');
+      badge.id = 'badge-nuevo-analisis';
+      badge.style.cssText = 'display:inline-block;background:#ef4444;color:white;font-size:9px;font-weight:800;padding:2px 5px;border-radius:99px;margin-left:4px;vertical-align:middle;';
+      badge.textContent = data.length;
+      tabInicio.appendChild(badge);
+    }
+
+    // Mostrar card de "análisis nuevo" en inicio si no existe
+    const view = document.getElementById('view-inicio');
+    if (view && !document.getElementById('card-nuevo-analisis')) {
+      const nuevoCard = document.createElement('div');
+      nuevoCard.id = 'card-nuevo-analisis';
+      nuevoCard.style.cssText = 'margin:0 16px 14px;';
+      nuevoCard.innerHTML = `
+        <div style="background:linear-gradient(135deg,#7c3aed,#a855f7);border-radius:14px;padding:14px;color:white;display:flex;align-items:center;gap:12px;cursor:pointer;" onclick="switchTab('inicio')">
+          <div style="font-size:28px;">🔔</div>
+          <div>
+            <div style="font-size:13px;font-weight:700;">Hay ${data.length} análisis nuevo${data.length>1?'s':''} de ${hijoActivo?.nombre?.split(' ')[0]||'tu hij@'}</div>
+            <div style="font-size:11px;opacity:.7;margin-top:2px;">Generado${data.length>1?'s':''} en las últimas 24 horas</div>
+          </div>
+          <span style="margin-left:auto;font-size:18px;opacity:.7;">→</span>
+        </div>`;
+      const scrollPad = view.querySelector('.scroll-pad');
+      if (scrollPad?.nextSibling) view.insertBefore(nuevoCard, scrollPad.nextSibling);
+    }
+  } catch(e) { /* silencioso */ }
+}
+
+// ── Agente 5: Reporte semanal completo exportable ─────────────────
+async function agente5ReporteSemanal() {
+  const view = document.getElementById('view-inicio');
+  if (!view || document.getElementById('btn-reporte-semanal')) return;
+
+  const btnDiv = document.createElement('div');
+  btnDiv.style.cssText = 'margin:0 16px 14px;';
+  btnDiv.innerHTML = `
+    <button id="btn-reporte-semanal" onclick="agente5GenerarReporte()"
+      style="width:100%;padding:14px;background:linear-gradient(135deg,#0d5c2f,#16a34a);color:white;border:none;border-radius:14px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+      📄 Ver reporte completo de esta semana
+    </button>`;
+
+  const logros = view.querySelector('.card:last-of-type');
+  if (logros) view.insertBefore(btnDiv, logros);
+  else view.appendChild(btnDiv);
+}
+
+async function agente5GenerarReporte() {
+  const btn = document.getElementById('btn-reporte-semanal');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando reporte…'; }
+
+  const nombre  = hijoActivo?.nombre || 'el alumno';
+  const mats    = calificaciones.slice(0,6).map(getMateriaData);
+  const promedio= mats.length ? (mats.reduce((s,m)=>s+m.cal,0)/mats.length).toFixed(1) : '—';
+  const bajas   = mats.filter(m=>m.cal<7);
+  const altas   = mats.filter(m=>m.cal>=9);
+
+  const prompt = `Genera un reporte semanal completo para padres de ${nombre}, alumno de educación básica en México (NEM).
+Calificaciones: ${mats.map(m=>m.nombre+': '+m.cal).join(', ')}.
+Promedio: ${promedio}.
+${altas.length?'Destacando en: '+altas.map(m=>m.nombre).join(', ')+'.':''}
+${bajas.length?'Necesita apoyo en: '+bajas.map(m=>m.nombre).join(', ')+'.':''}
+Incluye: 1) Resumen del desempeño, 2) Logros de la semana, 3) Áreas de mejora, 4) 3 acciones para apoyar en casa, 5) Mensaje motivador para el alumno.
+Formato claro, lenguaje cálido y accesible para padres. Máximo 400 palabras.`;
+
+  try {
+    const texto = await callAI({ feature: 'padre_reporte_ia', prompt });
+    // Exportar como Word
+    const fecha = new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+    const html  = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Reporte ${nombre}</title>
+<style>body{font-family:Arial,sans-serif;font-size:12pt;line-height:1.7;margin:2.5cm;}
+h2{font-size:14pt;font-weight:bold;color:#0d5c2f;margin:14pt 0 6pt;border-bottom:1pt solid #e2e8f0;padding-bottom:4pt;}
+.header{text-align:center;border-bottom:2pt solid #0d5c2f;padding-bottom:14pt;margin-bottom:20pt;}
+.footer{font-size:9pt;color:#666;border-top:1pt solid #ccc;padding-top:8pt;margin-top:20pt;text-align:center;}
+</style></head><body>
+<div class="header">
+  <div style="font-size:10pt;color:#64748b;text-transform:uppercase;letter-spacing:2pt;">SIEMBRA — Reporte Familiar</div>
+  <div style="font-size:18pt;font-weight:bold;color:#0d5c2f;margin:8pt 0;">${nombre}</div>
+  <div style="font-size:11pt;color:#475569;">Promedio general: ${promedio} · ${fecha}</div>
+</div>
+${texto.replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/
+/g,'<br>')}
+<div class="footer">Generado con SIEMBRA · ${fecha}</div>
+</body></html>`;
+
+    const blob = new Blob([html], { type:'application/msword' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `Reporte-${nombre.replace(/\s+/g,'-')}-SIEMBRA.doc`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('✅ Reporte descargado');
+  } catch(e) {
+    showToast('❌ Error al generar reporte. Verifica tu conexión.');
+  }
+  if (btn) { btn.disabled = false; btn.innerHTML = '📄 Ver reporte completo de esta semana'; }
+}
+
+// ── Hook: disparar agentes al cargar vistas ───────────────────────
+const _cargarInicioOrig = window.cargarInicio;
+window.cargarInicio = async function() {
+  await _cargarInicioOrig();
+  setTimeout(agente1LenguajeEmocional, 400);
+  setTimeout(agente2AccionesDiarias,   600);
+  setTimeout(agente4BadgeNotificacion, 800);
+  setTimeout(agente5ReporteSemanal,    200);
+};
+
+const _switchTabOrig = window.switchTab;
+window.switchTab = function(tab) {
+  _switchTabOrig(tab);
+  if (tab === 'lectura') setTimeout(agente3GraficaLectura, 500);
+};
+
+// ── PWA: Service Worker + Install prompt ─────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(r => console.log('[SW] Registrado:', r.scope))
+      .catch(e => console.warn('[SW] Error:', e));
+  });
+}
+// Install prompt
+let _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); _pwaPrompt = e;
+  // Mostrar botón de instalar si existe
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'flex';
+});
+function pwaInstalar() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  _pwaPrompt.userChoice.then(r => {
+    if (r.outcome === 'accepted') {
+      const btn = document.getElementById('pwa-install-btn');
+      if (btn) btn.style.display = 'none';
+    }
+    _pwaPrompt = null;
+  });
+}
+window.pwaInstalar = pwaInstalar;
+
 </script>
 
 <!-- MODAL CANJE CONFIRMACIÓN -->
