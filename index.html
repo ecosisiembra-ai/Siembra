@@ -2,6 +2,11 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a5c2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SIEMBRA">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
 <title>SIEMBRA — Portal Unificado</title>
 <!-- ══ SUPABASE SDK ══ -->
@@ -32966,5 +32971,383 @@ window.dirNav = function(page) {
     setTimeout(bloqueD_inyectarBotonSEP, 400);
   }
 };
+
+// ══════════════════════════════════════════════════════════════════
+// PRIORIDAD 1 — Reporte IA automático cada lunes
+// ══════════════════════════════════════════════════════════════════
+(function bloqueP1_reporteLunes() {
+  // Solo activa para directores
+  window.addEventListener('siembra:datos-cargados', async () => {
+    if (window.currentPerfil?.rol !== 'director') return;
+    if (!window.sb || !window.currentPerfil?.escuela_cct) return;
+
+    const cct   = window.currentPerfil.escuela_cct;
+    const hoy   = new Date();
+    const esLunes = hoy.getDay() === 1;
+    const claveLocal = `siembra_reporte_lunes_${cct}_${hoy.toISOString().split('T')[0]}`;
+
+    // Verificar si ya se generó hoy
+    const yaGenerado = localStorage.getItem(claveLocal);
+    if (yaGenerado) return;
+
+    // Solo ejecutar lunes o si hay un reporte pendiente de la semana
+    const diasDesdeUltimoLunes = (hoy.getDay() + 6) % 7;
+    const ultimoLunes = new Date(hoy);
+    ultimoLunes.setDate(hoy.getDate() - diasDesdeUltimoLunes);
+    const claveUltimoLunes = `siembra_reporte_lunes_${cct}_${ultimoLunes.toISOString().split('T')[0]}`;
+    const reporteEstaSemanaNia = localStorage.getItem(claveUltimoLunes);
+
+    // Mostrar notificación si no se ha generado esta semana
+    if (!reporteEstaSemanaNia) {
+      setTimeout(() => p1_mostrarNotifReportePendiente(claveUltimoLunes), 2000);
+    }
+    // Si es lunes: generar automáticamente
+    if (esLunes && !yaGenerado) {
+      setTimeout(() => p1_generarReporteAutomatico(claveLocal), 3000);
+    }
+  });
+})();
+
+function p1_mostrarNotifReportePendiente(claveGuardar) {
+  const dash = document.getElementById('dir-p-dashboard');
+  if (!dash || document.getElementById('p1-notif-reporte')) return;
+
+  const notif = document.createElement('div');
+  notif.id = 'p1-notif-reporte';
+  notif.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1d4ed8);border-radius:14px;padding:16px;margin-bottom:16px;color:white;display:flex;align-items:center;gap:12px;';
+  notif.innerHTML = `
+    <div style="font-size:28px;">📊</div>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:700;">Reporte semanal pendiente</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px;">La IA puede analizar los indicadores de esta semana</div>
+    </div>
+    <button onclick="p1_generarReporteAutomatico('${claveGuardar}')"
+      style="padding:8px 14px;background:white;color:#1d4ed8;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
+      ✨ Generar ahora
+    </button>
+    <button onclick="document.getElementById('p1-notif-reporte').remove()"
+      style="background:rgba(255,255,255,.15);border:none;color:white;width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;">✕</button>`;
+
+  const firstCard = dash.querySelector('[id="bloqueD-semaforo"]') || dash.querySelector('.grid-4') || dash.firstChild;
+  if (firstCard) dash.insertBefore(notif, firstCard);
+  else dash.appendChild(notif);
+}
+
+async function p1_generarReporteAutomatico(claveGuardar) {
+  // Usar la función existente dirGenerarReporteIA
+  if (typeof dirGenerarReporteIA === 'function') {
+    await dirGenerarReporteIA();
+    localStorage.setItem(claveGuardar, new Date().toISOString());
+    // Guardar también en Supabase para historial
+    if (window.sb && window.currentPerfil?.escuela_cct) {
+      const el = document.getElementById('dir-ia-reporte');
+      const textoReporte = el?.innerText || '';
+      window.sb.from('analisis_ia').insert({
+        alumno_id:   null,
+        tipo:        'reporte_semanal_director',
+        escuela_cct: window.currentPerfil.escuela_cct,
+        contenido:   JSON.stringify({
+          texto:  textoReporte.slice(0, 3000),
+          semana: new Date().toISOString().split('T')[0],
+          ciclo:  window.CICLO_ACTIVO,
+        }),
+        created_at: new Date().toISOString(),
+      }).catch(() => {});
+    }
+    // Eliminar notificación si existe
+    document.getElementById('p1-notif-reporte')?.remove();
+    hubToast('✅ Reporte semanal generado y guardado', 'ok');
+  }
+}
+window.p1_generarReporteAutomatico = p1_generarReporteAutomatico;
+
+// ══════════════════════════════════════════════════════════════════
+// PRIORIDAD 3 — Mensajería real docente/tutor ↔ padre (Supabase)
+// ══════════════════════════════════════════════════════════════════
+
+let _msgSubscription = null;
+let _msgConvActual   = null;
+let _msgConversaciones = [];
+
+// Parche sobre renderMensajes: primero carga de Supabase, luego renderiza
+const _renderMensajesOrig = window.renderMensajes;
+window.renderMensajes = async function() {
+  // Intentar cargar conversaciones reales
+  await p3_cargarConversaciones();
+  // Fallback al render original si no hay datos de Supabase
+  if (!_msgConversaciones.length && typeof _renderMensajesOrig === 'function') {
+    _renderMensajesOrig();
+  }
+};
+
+async function p3_cargarConversaciones() {
+  if (!sb || !currentPerfil?.id) return;
+  try {
+    const { data: convs } = await sb.from('mensajes_conversaciones')
+      .select(`
+        id, asunto, ultima_actualizacion, no_leidos,
+        participante_a_id, participante_b_id,
+        participante_a:usuarios!mensajes_conversaciones_participante_a_id_fkey(id,nombre,rol),
+        participante_b:usuarios!mensajes_conversaciones_participante_b_id_fkey(id,nombre,rol)
+      `)
+      .or(`participante_a_id.eq.${currentPerfil.id},participante_b_id.eq.${currentPerfil.id}`)
+      .order('ultima_actualizacion', { ascending: false })
+      .limit(30);
+
+    if (!convs?.length) return;
+    _msgConversaciones = convs;
+    p3_renderListaConversaciones();
+
+    // Suscribir a Realtime para mensajes nuevos
+    if (!_msgSubscription) {
+      _msgSubscription = sb.channel('mensajes_realtime')
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'mensajes',
+        }, (payload) => {
+          // Si es una conversación abierta, agregar al hilo
+          if (payload.new.conversacion_id === _msgConvActual) {
+            p3_agregarMensajeEnHilo(payload.new);
+          }
+          // Actualizar badge de no leídos
+          p3_actualizarBadgeMensajes();
+        })
+        .subscribe();
+    }
+  } catch(e) { console.warn('[p3_mensajes]', e.message); }
+}
+
+function p3_renderListaConversaciones() {
+  const cont = document.getElementById('email-lista');
+  if (!cont) return;
+  cont.innerHTML = _msgConversaciones.map(conv => {
+    const otro = conv.participante_a_id === currentPerfil?.id ? conv.participante_b : conv.participante_a;
+    const inis = (otro?.nombre||'?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+    const tieneNoLeidos = (conv.no_leidos || 0) > 0;
+    const fecha = new Date(conv.ultima_actualizacion).toLocaleDateString('es-MX',{day:'numeric',month:'short'});
+    return `<div class="email-hilo-item ${conv.id===_msgConvActual?'active':''} ${tieneNoLeidos?'unread':''}"
+      onclick="p3_abrirConversacion('${conv.id}')">
+      <div class="email-av" style="background:#0d5c2f;">${inis}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+          <div class="email-asunto-preview" style="flex:1;">${conv.asunto||'Sin asunto'}</div>
+          ${tieneNoLeidos?`<span style="background:#22c55e;color:white;font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px;">${conv.no_leidos}</span>`:''}
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--gris-80);">${otro?.nombre||'—'}</div>
+        <div class="email-snippet">${otro?.rol==='padre'?'👨‍👩‍👧 Padre':'👩‍🏫 Docente'}</div>
+      </div>
+      <div class="email-fecha">${fecha}</div>
+    </div>`;
+  }).join('') || '<div style="padding:20px;text-align:center;font-size:13px;color:var(--gris-50);">Sin conversaciones aún</div>';
+}
+
+async function p3_abrirConversacion(convId) {
+  _msgConvActual = convId;
+  const conv = _msgConversaciones.find(c => c.id === convId);
+  if (!conv) return;
+
+  const otro = conv.participante_a_id === currentPerfil?.id ? conv.participante_b : conv.participante_a;
+  const inis = (otro?.nombre||'?').split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+
+  // Actualizar cabecera
+  const av = document.getElementById('email-av-h');
+  if (av) { av.textContent = inis; av.style.background = '#0d5c2f'; }
+  const setEl2 = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+  setEl2('email-asunto-h', conv.asunto || 'Conversación');
+  setEl2('email-nombre-h', otro?.nombre || '—');
+  setEl2('email-addr-h',   otro?.rol === 'padre' ? 'Padre de familia' : 'Docente');
+
+  // Mostrar panel
+  document.getElementById('email-empty').style.display = 'none';
+  document.getElementById('email-hilo').style.display  = 'flex';
+  document.getElementById('email-reply-box').style.display = 'none';
+
+  p3_renderListaConversaciones();
+  await p3_cargarMensajes(convId);
+
+  // Marcar como leídos
+  sb.from('mensajes_conversaciones')
+    .update({ no_leidos: 0 })
+    .eq('id', convId)
+    .then(() => p3_actualizarBadgeMensajes())
+    .catch(()=>{});
+}
+
+async function p3_cargarMensajes(convId) {
+  const msgs = document.getElementById('email-msgs');
+  if (!msgs) return;
+  msgs.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gris-50);font-size:13px;">Cargando mensajes…</div>';
+  try {
+    const { data: mensajes } = await sb.from('mensajes')
+      .select('id,contenido,remitente_id,created_at,remitente:usuarios!mensajes_remitente_id_fkey(nombre,rol)')
+      .eq('conversacion_id', convId)
+      .order('created_at', { ascending: true })
+      .limit(50);
+
+    if (!mensajes?.length) {
+      msgs.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gris-50);font-size:13px;">Sin mensajes aún. ¡Sé el primero en escribir!</div>';
+      return;
+    }
+    msgs.innerHTML = mensajes.map(m => {
+      const esPropio = m.remitente_id === currentPerfil?.id;
+      const hora = new Date(m.created_at).toLocaleString('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      return `<div style="display:flex;flex-direction:column;align-items:${esPropio?'flex-end':'flex-start'};">
+        <div style="font-size:11px;color:var(--gris-50);margin-bottom:4px;${esPropio?'text-align:right':''}">${m.remitente?.nombre||'—'} · ${hora}</div>
+        <div class="email-msg-burbuja ${esPropio?'email-msg-out':'email-msg-in'}">${m.contenido}</div>
+      </div>`;
+    }).join('');
+    msgs.scrollTop = 9999;
+  } catch(e) {
+    msgs.innerHTML = `<div style="padding:20px;color:#b91c1c;font-size:13px;">❌ ${e.message}</div>`;
+  }
+}
+
+function p3_agregarMensajeEnHilo(msg) {
+  const msgs = document.getElementById('email-msgs');
+  if (!msgs) return;
+  const esPropio = msg.remitente_id === currentPerfil?.id;
+  const hora = new Date(msg.created_at).toLocaleString('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  const div = document.createElement('div');
+  div.style.cssText = `display:flex;flex-direction:column;align-items:${esPropio?'flex-end':'flex-start'};`;
+  div.innerHTML = `<div style="font-size:11px;color:var(--gris-50);margin-bottom:4px;">${hora}</div>
+    <div class="email-msg-burbuja ${esPropio?'email-msg-out':'email-msg-in'}">${msg.contenido}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = 9999;
+}
+
+// Parche sobre emailEnviarReply para guardar en Supabase
+const _emailEnviarReplyOrig = window.emailEnviarReply;
+window.emailEnviarReply = async function() {
+  const txt = document.getElementById('email-reply-txt')?.value?.trim();
+  if (!txt) return;
+  if (!sb || !currentPerfil?.id || !_msgConvActual) {
+    // Fallback local
+    if (typeof _emailEnviarReplyOrig === 'function') _emailEnviarReplyOrig();
+    return;
+  }
+  try {
+    await sb.from('mensajes').insert({
+      conversacion_id: _msgConvActual,
+      remitente_id:    currentPerfil.id,
+      contenido:       txt,
+      created_at:      new Date().toISOString(),
+    });
+    await sb.from('mensajes_conversaciones')
+      .update({ ultima_actualizacion: new Date().toISOString() })
+      .eq('id', _msgConvActual);
+    document.getElementById('email-reply-txt').value = '';
+    document.getElementById('email-reply-box').style.display = 'none';
+    await p3_cargarMensajes(_msgConvActual);
+    hubToast('✅ Mensaje enviado', 'ok');
+  } catch(e) {
+    hubToast('❌ Error al enviar: ' + e.message, 'err');
+  }
+};
+
+// Parche sobre emailEnviar para crear conversación nueva en Supabase
+const _emailEnviarOrig = window.emailEnviar;
+window.emailEnviar = async function() {
+  const idx    = parseInt(document.getElementById('email-to-sel')?.value);
+  const asunto = document.getElementById('email-asunto')?.value?.trim();
+  const cuerpo = document.getElementById('email-cuerpo')?.value?.trim();
+  if (isNaN(idx) || !asunto || !cuerpo) { hubToast('⚠️ Completa todos los campos','warn'); return; }
+
+  if (!sb || !currentPerfil?.id) {
+    if (typeof _emailEnviarOrig === 'function') _emailEnviarOrig();
+    return;
+  }
+
+  const alumno = (window._alumnosActivos || alumnos)[idx];
+  if (!alumno) { hubToast('⚠️ Alumno no encontrado','warn'); return; }
+
+  try {
+    // Buscar el padre vinculado al alumno
+    const { data: vinculo } = await sb.from('vinculos_padre')
+      .select('padre_id')
+      .eq('alumno_id', alumno.id)
+      .limit(1)
+      .maybeSingle();
+
+    const padreId = vinculo?.padre_id;
+    if (!padreId) {
+      hubToast('⚠️ Este alumno no tiene padre registrado en SIEMBRA','warn');
+      return;
+    }
+
+    // Crear conversación
+    const { data: conv } = await sb.from('mensajes_conversaciones').insert({
+      participante_a_id:     currentPerfil.id,
+      participante_b_id:     padreId,
+      asunto,
+      ultima_actualizacion:  new Date().toISOString(),
+      no_leidos:             1,
+    }).select().single();
+
+    // Insertar primer mensaje
+    await sb.from('mensajes').insert({
+      conversacion_id: conv.id,
+      remitente_id:    currentPerfil.id,
+      contenido:       cuerpo,
+      created_at:      new Date().toISOString(),
+    });
+
+    emailCerrarModal();
+    await p3_cargarConversaciones();
+    if (_msgConversaciones.length) p3_abrirConversacion(_msgConversaciones[0].id);
+    hubToast('✅ Mensaje enviado a la familia de ' + alumno.n, 'ok');
+  } catch(e) {
+    hubToast('❌ Error: ' + e.message, 'err');
+  }
+};
+
+function p3_actualizarBadgeMensajes() {
+  if (!sb || !currentPerfil?.id) return;
+  sb.from('mensajes_conversaciones')
+    .select('no_leidos')
+    .or(`participante_a_id.eq.${currentPerfil.id},participante_b_id.eq.${currentPerfil.id}`)
+    .gt('no_leidos', 0)
+    .then(({ data }) => {
+      const total = data?.reduce((s,c) => s + (c.no_leidos||0), 0) || 0;
+      const label = document.getElementById('nav-label-mensajes');
+      if (label) label.textContent = total > 0 ? `Mensajes (${total})` : 'Mensajes';
+      const btn = document.getElementById('nav-btn-mensajes');
+      if (btn) btn.style.color = total > 0 ? 'var(--verde-accent)' : '';
+    }).catch(()=>{});
+}
+
+// Revisar badge al cargar
+window.addEventListener('siembra:datos-cargados', () => {
+  if (['docente','tutor'].includes(window.currentPerfil?.rol)) {
+    setTimeout(p3_actualizarBadgeMensajes, 1500);
+  }
+});
+
+// ── PWA: Service Worker + Install prompt ─────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(r => console.log('[SW] Registrado:', r.scope))
+      .catch(e => console.warn('[SW] Error:', e));
+  });
+}
+// Install prompt
+let _pwaPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); _pwaPrompt = e;
+  // Mostrar botón de instalar si existe
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'flex';
+});
+function pwaInstalar() {
+  if (!_pwaPrompt) return;
+  _pwaPrompt.prompt();
+  _pwaPrompt.userChoice.then(r => {
+    if (r.outcome === 'accepted') {
+      const btn = document.getElementById('pwa-install-btn');
+      if (btn) btn.style.display = 'none';
+    }
+    _pwaPrompt = null;
+  });
+}
+window.pwaInstalar = pwaInstalar;
 
 </script>
