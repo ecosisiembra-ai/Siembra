@@ -3,8 +3,8 @@
 //  PWA: caché offline + notificaciones push
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME    = 'siembra-v1';
-const CACHE_DYNAMIC = 'siembra-dynamic-v1';
+const CACHE_NAME    = 'siembra-v2'; // v2: agrega íconos PWA
+const CACHE_DYNAMIC = 'siembra-dynamic-v2';
 
 // Archivos a cachear para modo offline
 const ASSETS_STATIC = [
@@ -12,6 +12,12 @@ const ASSETS_STATIC = [
   '/index.html',
   '/alumno.html',
   '/padres.html',
+  // ── PWA Assets (íconos e imagen de instalación) ──────────────
+  '/icon-192.png',
+  '/icon-512.png',
+  '/screenshot1.png',
+  '/manifest.json',
+  // ── Fuentes ──────────────────────────────────────────────────
   'https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,700;1,700&family=Sora:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap',
 ];
 
