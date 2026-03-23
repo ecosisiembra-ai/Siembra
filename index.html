@@ -8318,15 +8318,42 @@ async function initApp() {
 
             console.log('[Docente] Materias asignadas:', mats.length, '→', mats.join(', '));
           } else {
-            // Sin asignaciones → ADVERTENCIA, no mostrar nada
-            window._materiasDocente  = [];
-            window._materiasFiltered = [];
+            // Sin asignaciones en docente_grupos — usar materias del grado del grupo activo
+            const grupoAct = (window._gruposDocente||[]).find(g=>g.id===window._grupoActivo) || window._gruposDocente?.[0];
+            const grado = grupoAct?.grado || '1';
+            const nivelAct = grupoAct?.nivel || window._nivelActivo || currentPerfil.nivel || 'secundaria';
+
+            let fallbackMats = [];
+            if (nivelAct === 'secundaria' && MATERIAS_SECUNDARIA_POR_GRADO) {
+              const gr = String(grado).replace(/[°\s]/g,'').trim();
+              fallbackMats = MATERIAS_SECUNDARIA_POR_GRADO[gr] || MATERIAS_SECUNDARIA_POR_GRADO['1'];
+            } else {
+              fallbackMats = getMateriasByNivel(nivelAct);
+            }
+
+            // Si es tutor, añadir Tutoría si no está
+            if (currentPerfil.rol === 'tutor' && !fallbackMats.includes('Tutoría')) {
+              fallbackMats = ['Tutoría', ...fallbackMats];
+            }
+
+            window._materiasDocente  = fallbackMats;
+            window._materiasFiltered = fallbackMats;
+
             const matEl = document.getElementById('doc-materias-label');
             if (matEl) {
-              matEl.textContent = '⚠️ Sin materias asignadas';
-              matEl.style.color = '#c2410c';
+              matEl.textContent = fallbackMats.join(' · ');
+              matEl.style.color = '';
             }
-            console.warn('[Docente] Sin materias asignadas en docente_grupos. Solicitar al administrador.');
+
+            // Actualizar selectores
+            document.querySelectorAll('.doc-materia-select, #cal-mat-sel, #asist-mat-sel').forEach(sel => {
+              sel.innerHTML = '<option value="">Seleccionar materia…</option>' +
+                fallbackMats.map(m => `<option value="${m}">${m}</option>`).join('');
+              if (fallbackMats.length === 1) sel.value = fallbackMats[0];
+            });
+
+            console.warn('[Docente] Sin asignaciones en docente_grupos — usando materias del grado', grado, ':', fallbackMats.join(', '));
+            console.warn('[Docente] Solicita al administrador que asigne materias en docente_grupos para datos precisos.');
           }
         } catch(eMats) {
           console.warn('[Docente] cargarMaterias:', eMats.message);
@@ -8762,6 +8789,9 @@ const CAMPOS_NEM_PRIMARIA = [
 
 // SECUNDARIA — Campos Formativos Fase 6 NEM (1°-3° grado)
 // En Fase 6 NEM, la calificación es POR CAMPO FORMATIVO, no por asignatura individual
+// ── CAMPOS NEM SECUNDARIA — Plan 2022 (NEM 2026) ──────────────────
+// Materias individuales por campo formativo
+// Las ciencias cambian por grado: 1°=Biología, 2°=Física, 3°=Química
 const CAMPOS_NEM_SECUNDARIA = [
   {
     id: 'lenguajes',
@@ -8770,9 +8800,11 @@ const CAMPOS_NEM_SECUNDARIA = [
     bg: '#eff6ff',
     emoji: '📖',
     materias: [
-      'Lenguajes',
+      'Español',
+      'Inglés',
+      'Artes',
     ],
-    contenidos: ['Lengua materna (Español)', 'Lengua extranjera (Inglés)', 'Expresión artística']
+    contenidos: ['Lengua materna (Español)', 'Lengua extranjera (Inglés)', 'Artes']
   },
   {
     id: 'saberes',
@@ -8781,9 +8813,11 @@ const CAMPOS_NEM_SECUNDARIA = [
     bg: '#f0fdf4',
     emoji: '🔬',
     materias: [
-      'Saberes y Pensamiento Científico',
+      'Matemáticas',
+      'Ciencias',   // Nombre base — se especifica por grado en CIENCIAS_POR_GRADO
+      'Tecnología',
     ],
-    contenidos: ['Matemáticas', 'Ciencias (Biología/Física/Química)', 'Tecnología']
+    contenidos: ['Matemáticas', 'Ciencias', 'Tecnología']
   },
   {
     id: 'etica',
@@ -8792,9 +8826,11 @@ const CAMPOS_NEM_SECUNDARIA = [
     bg: '#f5f3ff',
     emoji: '🌍',
     materias: [
-      'Ética, Naturaleza y Sociedades',
+      'Historia',
+      'Formación Cívica y Ética',
+      // Geografía solo en 1° — se añade dinámicamente
     ],
-    contenidos: ['Historia', 'Geografía', 'Formación Cívica y Ética']
+    contenidos: ['Historia', 'Geografía (1°)', 'Formación Cívica y Ética']
   },
   {
     id: 'humano',
@@ -8803,17 +8839,55 @@ const CAMPOS_NEM_SECUNDARIA = [
     bg: '#fff7ed',
     emoji: '🤝',
     materias: [
-      'De lo Humano y lo Comunitario',
+      'Educación Física',
+      'Tutoría',
+      'Tecnología',  // Tecnología también aparece aquí en algunos planes
     ],
-    contenidos: ['Educación Física', 'Educación Socioemocional', 'Tutoría y Orientación']
+    contenidos: ['Educación Física', 'Tutoría', 'Tecnología']
   },
 ];
+
+// ── Ciencias por grado (secundaria) ──────────────────────────────
+const CIENCIAS_POR_GRADO = {
+  '1': 'Biología',
+  '2': 'Física',
+  '3': 'Química',
+};
+
+// ── Materias completas por grado (secundaria) ─────────────────────
+const MATERIAS_SECUNDARIA_POR_GRADO = {
+  '1': ['Español','Inglés','Artes','Matemáticas','Biología','Geografía',
+        'Historia','Formación Cívica y Ética','Educación Física','Tutoría','Tecnología'],
+  '2': ['Español','Inglés','Artes','Matemáticas','Física',
+        'Historia','Formación Cívica y Ética','Educación Física','Tutoría','Tecnología'],
+  '3': ['Español','Inglés','Artes','Matemáticas','Química',
+        'Historia','Formación Cívica y Ética','Educación Física','Tutoría','Tecnología'],
+};
+
+// Helper: obtener materias según nivel y grado activo
+function getMateriasByGrado(grado) {
+  const gr = String(grado || '').replace(/[°\s]/g, '').trim();
+  return MATERIAS_SECUNDARIA_POR_GRADO[gr] || MATERIAS_SECUNDARIA_POR_GRADO['1'];
+}
 
 // Helper: get flat list of materias for current nivel
 function getMateriasByNivel(nivel) {
   const nivel_ = nivel || window._nivelActivo || 'primaria';
-  const campos = nivel_ === 'secundaria' ? CAMPOS_NEM_SECUNDARIA : CAMPOS_NEM_PRIMARIA;
-  // Return flat unique list
+  if (nivel_ === 'secundaria') {
+    // Si hay un grupo activo con grado definido, usar materias específicas del grado
+    const grupoActivo = (window._gruposDocente || []).find(g => g.id === window._grupoActivo);
+    const grado = grupoActivo?.grado || window._gradoActivo || '1';
+    const gr = String(grado).replace(/[°\s]/g, '').trim();
+    if (MATERIAS_SECUNDARIA_POR_GRADO?.[gr]) {
+      return MATERIAS_SECUNDARIA_POR_GRADO[gr];
+    }
+    // Fallback: materias únicas de todos los campos
+    const campos = CAMPOS_NEM_SECUNDARIA;
+    const all = [];
+    campos.forEach(c => c.materias.forEach(m => { if (!all.includes(m)) all.push(m); }));
+    return all;
+  }
+  const campos = CAMPOS_NEM_PRIMARIA;
   const all = [];
   campos.forEach(c => c.materias.forEach(m => { if (!all.includes(m)) all.push(m); }));
   return all;
@@ -15542,14 +15616,14 @@ function planFiltrar(tipo,btn){
 }
 function planRenderLista(lista){
   const el=document.getElementById('plan-list');
-  if(!lista.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">📚</div><p>No hay planeaciones aún. ¡Genera tu primera con IA!</p></div>`;return;}
+  if(!lista||!lista.length){el.innerHTML=`<div class="empty-state"><div class="es-icon">📚</div><p>No hay planeaciones aún. ¡Genera tu primera con IA!</p></div>`;return;}
   el.innerHTML=lista.map(p=>`
     <div class="plan-card" onclick="planVerDetalle(${p.id})">
       <div class="plan-card-icon">${CAMPO_ICONOS[p.campo]||'📋'}</div>
       <div class="plan-card-info">
         <div class="plan-card-titulo">${p.titulo}</div>
         <div class="plan-card-meta">${p.nivel||''} · ${p.grado} · ${p.campo} · ${p.fecha}</div>
-        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">${p.ejes.map(e=>`<span class="chip" style="background:#f0fdf4;color:#166534;border:none;font-size:10px;">${e}</span>`).join('')}</div>
+        <div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap;">${(p.ejes||[]).map(e=>`<span class="chip" style="background:#f0fdf4;color:#166534;border:none;font-size:10px;">${e}</span>`).join('')}</div>
       </div>
       <span class="plan-status status-${p.status==='listo'?'listo':'ia'}">${p.status==='listo'?'✅ Lista':'🤖 IA'}</span>
       <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();planExportarWordId(${p.id})">📄 Word</button>
