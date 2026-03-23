@@ -253,7 +253,7 @@ tr:hover td{background:#fafafa;}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div class="form-group"><label>Email director</label><input type="email" id="esc-email" placeholder="director@escuela.edu.mx"></div>
+      <div class="form-group"><label>Email director <span style="font-size:10px;color:#94a3b8;">(referencia — no se guarda en escuelas)</span></label><input type="email" id="esc-email" placeholder="director@escuela.edu.mx" style="opacity:.7"></div>
       <div class="form-group"><label>Estado</label>
         <select id="esc-estado">
           <option value="activa">Activa</option>
@@ -316,7 +316,7 @@ window.onload = function() {
 
 async function cargarDeSupabase() {
   try {
-    const data = await sbFetch('escuelas', '?select=id,nombre,cct,plan_suscripcion,estado_suscripcion,fecha_vencimiento,email_director&order=nombre');
+    const data = await sbFetch('escuelas', '?select=id,nombre,cct,plan_suscripcion,estado_suscripcion,fecha_vencimiento&order=nombre');
     if (Array.isArray(data) && data.length) {
       ESCUELAS = data.map(e => ({
         id:          e.id,
@@ -326,7 +326,7 @@ async function cargarDeSupabase() {
         estado:      e.estado_suscripcion || 'trial',
         vencimiento: e.fecha_vencimiento?.split('T')[0] || '',
         mrr:         { basico:199, estandar:399, premium:699 }[e.plan_suscripcion] || 0,
-        director:    e.email_director || '',
+        director:    '', // email del director vive en tabla usuarios
       }));
       calcularKPIs();
       renderTablaEscuelas();
@@ -378,6 +378,7 @@ function renderTablaEscuelas() {
       <td>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-outline btn-sm" onclick="editarEscuela(${e.id})">✏️ Editar</button>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalCobro('${e.id}','${e.plan||'estandar'}')">💳 Cobrar</button>
           ${e.estado==='vencida'?`<button class="btn btn-primary btn-sm" onclick="reactivarEscuela(${e.id})">↺ Reactivar</button>`:''}
           ${e.estado==='activa'?`<button class="btn btn-outline btn-sm" style="color:#b91c1c;border-color:#fca5a5;" onclick="suspenderEscuela(${e.id})">⏸ Suspender</button>`:''}
         </div>
@@ -460,7 +461,6 @@ function guardarEscuela() {
       plan_suscripcion: nueva.plan,
       estado_suscripcion: nueva.estado,
       fecha_vencimiento: nueva.vencimiento,
-      email_director: nueva.director,
     })
   }).catch(()=>{});
 }
@@ -483,11 +483,16 @@ function suspenderEscuela(id) {
   calcularKPIs(); renderTablaEscuelas();
 }
 
-function editarPlan(plan) { alert(`Editor de plan "${plan}" — conectar a pasarela de pagos (Conekta/Stripe)'); }
+function editarPlan(plan) {
+  // Abre el modal de cobro con el plan preseleccionado pero sin escuela
+  // → útil para probar el flujo desde la vista de planes
+  abrirModalCobro(null, plan);
+}
 
 function exportarHistorial() {
+  const filas = HISTORIAL_REAL.length ? HISTORIAL_REAL : HISTORIAL_DEMO;
   const csv = ['Fecha,Escuela,Plan,Monto,Método,Estado',
-    ...HISTORIAL_DEMO.map(h => `${h.fecha},"${h.escuela}",${h.plan},${h.monto},${h.metodo},${h.estado}`)
+    ...filas.map(h => `${h.fecha},"${h.escuela}",${h.plan},${h.monto},${h.metodo},${h.estado}`)
   ].join('\n');
   const blob = new Blob([csv], { type:'text/csv' });
   const a = document.createElement('a');
@@ -495,6 +500,283 @@ function exportarHistorial() {
   a.download = 'historial-pagos-siembra.csv';
   a.click();
 }
+
+// ══════════════════════════════════════════════════════════════
+// INTEGRACIÓN CONEKTA — Pasarela de pagos real
+// ══════════════════════════════════════════════════════════════
+
+// URL base de las Edge Functions (mismo proyecto Supabase)
+const EDGE_URL = SB_URL + '/functions/v1';
+
+// Historial real cargado desde DB (se llena en cargarHistorialReal)
+let HISTORIAL_REAL = [];
+
+// ── Abrir modal de cobro ───────────────────────────────────────
+function abrirModalCobro(escuelaId = null, planId = 'estandar') {
+  // Poblar select de escuelas
+  const sel = document.getElementById('cobro-escuela-sel');
+  sel.innerHTML = '<option value="">— Seleccionar escuela —</option>' +
+    ESCUELAS.filter(e => e.estado !== 'cancelada')
+      .map(e => `<option value="${e.id}" ${e.id == escuelaId ? 'selected' : ''}>${e.nombre}</option>`)
+      .join('');
+
+  // Plan preseleccionado
+  const planSel = document.getElementById('cobro-plan-sel');
+  if (planSel) planSel.value = planId;
+
+  // Reset UI
+  document.getElementById('cobro-resultado').style.display = 'none';
+  document.getElementById('cobro-btn').disabled = false;
+  document.getElementById('cobro-btn').textContent = '💳 Generar cobro';
+  document.getElementById('cobro-error').style.display = 'none';
+
+  document.getElementById('modal-cobro-ov').classList.add('open');
+}
+
+// ── Ejecutar cobro vía Edge Function ──────────────────────────
+async function ejecutarCobro() {
+  const escuelaId = document.getElementById('cobro-escuela-sel').value;
+  const planId    = document.getElementById('cobro-plan-sel').value;
+  const metodo    = document.querySelector('input[name="cobro-metodo"]:checked')?.value || 'card';
+  const errEl     = document.getElementById('cobro-error');
+  const btn       = document.getElementById('cobro-btn');
+  const resultEl  = document.getElementById('cobro-resultado');
+
+  errEl.style.display = 'none';
+  if (!escuelaId) { mostrarErrCobro('Selecciona una escuela'); return; }
+  if (!planId)    { mostrarErrCobro('Selecciona un plan'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Procesando…';
+
+  try {
+    // Obtener JWT del admin actual (guardado al cargar la página)
+    const jwt = window._adminJWT;
+    if (!jwt) throw new Error('Sesión no disponible. Recarga e inicia sesión.');
+
+    const res = await fetch(`${EDGE_URL}/conekta-checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({ escuela_id: escuelaId, plan_id: planId, metodo }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Error al crear el cobro');
+    }
+
+    // ── Mostrar resultado según método ──────────────────────────
+    let html = '';
+
+    if (metodo === 'card' && data.checkout_id) {
+      // Tarjeta: mostrar link de pago (Conekta Hosted Checkout)
+      const checkoutUrl = `https://pay.conekta.com/checkout/${data.checkout_id}`;
+      html = `
+        <div style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:8px;">💳</div>
+          <div style="font-weight:700;margin-bottom:4px;">Link de pago generado</div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Plan ${data.plan_nombre} — $${data.monto_mxn} MXN/mes</div>
+          <a href="${checkoutUrl}" target="_blank"
+            style="display:inline-block;padding:10px 20px;background:#0d5c2f;color:white;border-radius:9px;font-weight:700;font-size:13px;text-decoration:none;">
+            Abrir link de pago →
+          </a>
+          <div style="font-size:11px;color:#94a3b8;margin-top:8px;">Copiar y enviar al director de la escuela</div>
+          <input type="text" value="${checkoutUrl}" readonly
+            style="width:100%;margin-top:8px;padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;font-size:11px;color:#475569;"
+            onclick="this.select();document.execCommand('copy');mostrarToast('✅ Link copiado')">
+        </div>`;
+
+    } else if (metodo === 'oxxo' && data.referencia_oxxo) {
+      html = `
+        <div style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:8px;">🏪</div>
+          <div style="font-weight:700;margin-bottom:4px;">Referencia OXXO generada</div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Plan ${data.plan_nombre} — $${data.monto_mxn} MXN</div>
+          <div style="font-size:24px;font-weight:900;letter-spacing:3px;padding:12px;background:#f1f5f9;border-radius:9px;margin-bottom:8px;">
+            ${data.referencia_oxxo}
+          </div>
+          <div style="font-size:11px;color:#94a3b8;">Válida 72 horas · Pagar en cualquier OXXO</div>
+        </div>`;
+
+    } else if (metodo === 'spei' && data.clabe_spei) {
+      html = `
+        <div style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:8px;">🏦</div>
+          <div style="font-weight:700;margin-bottom:4px;">CLABE para transferencia SPEI</div>
+          <div style="font-size:12px;color:#64748b;margin-bottom:12px;">Plan ${data.plan_nombre} — $${data.monto_mxn} MXN</div>
+          <div style="font-size:18px;font-weight:900;letter-spacing:2px;padding:12px;background:#f1f5f9;border-radius:9px;margin-bottom:8px;">
+            ${data.clabe_spei}
+          </div>
+          <div style="font-size:11px;color:#94a3b8;">Válida 7 días · Banco: STP · Concepto: SIEMBRA-${data.pago_id?.slice(-8).toUpperCase()}</div>
+        </div>`;
+    } else {
+      // Pago procesado sin datos adicionales (ej. tarjeta sin hosted checkout)
+      html = `
+        <div style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:8px;">✅</div>
+          <div style="font-weight:700;">Cobro iniciado correctamente</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px;">ID: ${data.pago_id}</div>
+        </div>`;
+    }
+
+    resultEl.innerHTML = html;
+    resultEl.style.display = 'block';
+    btn.textContent = '✅ Cobro generado';
+
+    // Recargar historial y KPIs
+    await cargarHistorialReal();
+    await cargarDeSupabase();
+
+  } catch (e) {
+    mostrarErrCobro(e.message || 'Error desconocido');
+    btn.disabled = false;
+    btn.textContent = '💳 Generar cobro';
+  }
+}
+
+function mostrarErrCobro(msg) {
+  const el = document.getElementById('cobro-error');
+  el.textContent = '❌ ' + msg;
+  el.style.display = 'block';
+}
+
+function mostrarToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#0d5c2f;color:white;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ── Cargar historial real desde Supabase ───────────────────────
+async function cargarHistorialReal() {
+  try {
+    const data = await sbFetch('pagos',
+      '?select=creado_at,escuela_nombre,plan_id,monto_mxn,metodo,estado&order=creado_at.desc&limit=50'
+    );
+    if (!Array.isArray(data) || !data.length) return;
+
+    const PLANES_NOMBRE = { basico:'Básico', estandar:'Estándar', premium:'Premium' };
+    HISTORIAL_REAL = data.map(p => ({
+      fecha:   p.creado_at?.split('T')[0] || '—',
+      escuela: p.escuela_nombre || '—',
+      plan:    PLANES_NOMBRE[p.plan_id] || p.plan_id || '—',
+      monto:   '$' + (p.monto_mxn || 0),
+      metodo:  ({ card:'Tarjeta', oxxo:'OXXO', spei:'SPEI' }[p.metodo] || p.metodo),
+      estado:  p.estado,
+    }));
+
+    // Re-renderizar si la tab de historial está activa
+    if (tabActual === 'historial') renderHistorial();
+  } catch(e) {
+    console.warn('[billing] historial real:', e.message);
+  }
+}
+
+// Sobrescribir renderHistorial para preferir datos reales
+const _renderHistorialOriginal = renderHistorial;
+// (renderHistorial ya está definida arriba, la extendemos aquí)
+function renderHistorial() {
+  const filas = HISTORIAL_REAL.length ? HISTORIAL_REAL : HISTORIAL_DEMO;
+  const ESTADO_BADGE = {
+    pagado:      '<span style="background:#dcfce7;color:#166534;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;">Pagado</span>',
+    fallido:     '<span style="background:#fee2e2;color:#991b1b;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;">Fallido</span>',
+    pendiente:   '<span style="background:#fef9c3;color:#92400e;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;">Pendiente</span>',
+    reembolsado: '<span style="background:#f3e8ff;color:#6b21a8;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:700;">Reembolso</span>',
+  };
+  const tb = document.getElementById('tabla-historial');
+  if (!tb) return;
+  tb.innerHTML = filas.map(h =>
+    `<tr>
+      <td>${h.fecha}</td>
+      <td>${h.escuela}</td>
+      <td>${h.plan}</td>
+      <td style="font-weight:700">${h.monto}</td>
+      <td>${h.metodo}</td>
+      <td>${ESTADO_BADGE[h.estado] || h.estado}</td>
+    </tr>`
+  ).join('') || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px;">Sin registros de pago</td></tr>';
+}
+
+// Extender cargarDeSupabase para también cargar historial real
+const _cargarDeSupabaseOriginal = cargarDeSupabase;
+async function cargarDeSupabase() {
+  await _cargarDeSupabaseOriginal();
+  await cargarHistorialReal();
+}
+
+// Recuperar JWT del superadmin desde la URL (sa.html lo pasa como parámetro)
+(function _initJWT() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const tokenParam = params.get('token');
+    if (tokenParam) {
+      window._adminJWT = tokenParam;
+      history.replaceState({}, '', location.pathname); // limpiar URL
+    } else {
+      // Fallback: leer desde sessionStorage (si viene de sa.html en mismo origen)
+      window._adminJWT = sessionStorage.getItem('siembra_admin_jwt') || null;
+    }
+  } catch(e) {}
+})();
+
 </script>
+
+<!-- ══ MODAL DE COBRO ══════════════════════════════════════════ -->
+<div class="modal-ov" id="modal-cobro-ov" onclick="this.classList.remove('open')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:480px;">
+    <h3 style="margin-bottom:16px;">💳 Generar cobro</h3>
+
+    <div class="form-group">
+      <label>Escuela</label>
+      <select id="cobro-escuela-sel" style="width:100%;padding:9px 12px;border:1.5px solid var(--gris-200);border-radius:8px;font-size:13px;">
+        <option value="">— Seleccionar escuela —</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Plan a cobrar</label>
+      <select id="cobro-plan-sel" style="width:100%;padding:9px 12px;border:1.5px solid var(--gris-200);border-radius:8px;font-size:13px;">
+        <option value="basico">Básico — $199 MXN/mes</option>
+        <option value="estandar" selected>Estándar — $399 MXN/mes</option>
+        <option value="premium">Premium — $699 MXN/mes</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Método de pago</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:1.5px solid var(--gris-200);border-radius:9px;cursor:pointer;font-size:13px;flex:1;">
+          <input type="radio" name="cobro-metodo" value="card" checked> 💳 Tarjeta
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:1.5px solid var(--gris-200);border-radius:9px;cursor:pointer;font-size:13px;flex:1;">
+          <input type="radio" name="cobro-metodo" value="oxxo"> 🏪 OXXO
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:1.5px solid var(--gris-200);border-radius:9px;cursor:pointer;font-size:13px;flex:1;">
+          <input type="radio" name="cobro-metodo" value="spei"> 🏦 SPEI
+        </label>
+      </div>
+    </div>
+
+    <div id="cobro-error" style="color:#dc2626;font-size:12px;margin-bottom:10px;display:none;padding:8px;background:#fef2f2;border-radius:7px;"></div>
+
+    <!-- Resultado (referencia OXXO, CLABE SPEI, o link de tarjeta) -->
+    <div id="cobro-resultado" style="display:none;padding:16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;margin-bottom:14px;"></div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn btn-outline" onclick="document.getElementById('modal-cobro-ov').classList.remove('open')">Cerrar</button>
+      <button class="btn btn-primary" id="cobro-btn" onclick="ejecutarCobro()">💳 Generar cobro</button>
+    </div>
+
+    <div style="margin-top:12px;font-size:11px;color:#94a3b8;text-align:center;">
+      Procesado vía <strong>Conekta</strong> · Sandbox activo en desarrollo
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
