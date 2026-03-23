@@ -6786,6 +6786,7 @@ async function dirCargarInvitaciones() {
         <button id="adm-nav-docentes"   class="adm-nav-btn" onclick="ADM.navTo('docentes')"><span style="font-size:15px;">👨‍🏫</span> Personal</button>
         <button id="adm-nav-alumnos"    class="adm-nav-btn" onclick="ADM.navTo('alumnos')"><span style="font-size:15px;">👨‍🎓</span> Padrón escolar</button>
         <button id="adm-nav-asignaciones" class="adm-nav-btn" onclick="ADM.navTo('asignaciones')"><span style="font-size:15px;">📚</span> Materias y asignaciones</button>
+        <button id="adm-nav-horarios"   class="adm-nav-btn" onclick="ADM.navTo('horarios')"><span style="font-size:15px;">📅</span> Horarios</button>
         <div style="height:1px;background:rgba(255,255,255,.08);margin:12px 4px;"></div>
         <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px;padding:2px 10px;margin-bottom:6px;">Herramientas</div>
         <button id="adm-nav-importar"   class="adm-nav-btn" onclick="ADM.navTo('importar')"><span style="font-size:15px;">⬆️</span> Importar CSV</button>
@@ -7315,6 +7316,68 @@ async function dirCargarInvitaciones() {
           </div>
         </div>
         <div id="nem-nee-lista"><div class="adm-empty" style="padding:36px;text-align:center;"><div style="font-size:36px;margin-bottom:10px;">💚</div><div style="font-size:14px;font-weight:700;color:#0f172a;">Sin perfiles registrados</div><div style="font-size:13px;color:#94a3b8;margin-top:4px;">Registra alumnos que requieran atención especial</div></div></div>
+      </div>
+
+      <!-- ── HORARIOS ESCOLARES ── -->
+      <div class="adm-page" id="adm-p-horarios">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h2 style="font-family:'Fraunces',serif;font-size:22px;color:#0d1a0f;font-weight:700;">📅 Horarios escolares</h2>
+            <div style="font-size:13px;color:#64748b;margin-top:2px;">Gestiona los horarios por grupo · Clases de 50 min</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <select id="adm-horario-grupo-sel" onchange="admCargarHorarioGrupo(this.value)"
+              style="padding:9px 14px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:'Sora',sans-serif;font-size:13px;outline:none;background:white;">
+              <option value="">Seleccionar grupo…</option>
+            </select>
+            <button onclick="admGenerarHorarioIA()" id="adm-btn-ia-horario"
+              style="padding:9px 16px;background:linear-gradient(135deg,#1e3a5f,#1d4ed8);color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+              🤖 Generar con IA
+            </button>
+            <button onclick="admGuardarHorario()"
+              style="padding:9px 16px;background:linear-gradient(135deg,#0d5c2f,#157a40);color:white;border:none;border-radius:10px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">
+              💾 Guardar horario
+            </button>
+          </div>
+        </div>
+
+        <!-- Config turno -->
+        <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+          <div style="font-size:12px;font-weight:700;color:#15803d;">⚙️ Configuración de horario</div>
+          <label style="font-size:12px;display:flex;align-items:center;gap:8px;">
+            Turno:
+            <select id="adm-turno-escuela" onchange="admActualizarTurno(this.value)"
+              style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-family:'Sora',sans-serif;font-size:12px;outline:none;">
+              <option value="matutino">Matutino (07:00)</option>
+              <option value="vespertino">Vespertino (13:00)</option>
+            </select>
+          </label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:8px;">
+            Hora inicio:
+            <input type="time" id="adm-hora-inicio" value="07:00"
+              style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-family:'Sora',sans-serif;font-size:12px;outline:none;">
+          </label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:8px;">
+            Duración clase (min):
+            <input type="number" id="adm-dur-clase" value="50" min="30" max="90"
+              style="padding:5px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-family:'Sora',sans-serif;font-size:12px;outline:none;width:70px;">
+          </label>
+          <button onclick="admGuardarConfigTurno()"
+            style="padding:6px 14px;background:#0d5c2f;color:white;border:none;border-radius:7px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">
+            Guardar config
+          </button>
+        </div>
+
+        <!-- Tabla editable -->
+        <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.05);">
+          <div id="adm-horario-tabla-wrap">
+            <div style="padding:40px;text-align:center;color:#94a3b8;">
+              <div style="font-size:36px;margin-bottom:12px;">📅</div>
+              <div style="font-size:14px;font-weight:700;">Selecciona un grupo para ver su horario</div>
+              <div style="font-size:12px;margin-top:4px;">O genera uno nuevo con IA</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- ── 8. INVENTARIO ESCOLAR ── -->
@@ -8637,7 +8700,8 @@ function dRenderDash() {
   `).join('');
 
   // ── Eventos (cierre nuevo dRenderDash) ──
-  if (evEl) evEl.innerHTML += eventos.slice(0,4).map(e=>`
+  const evEl = document.getElementById('eventos-proximos');
+  if (evEl) evEl.innerHTML = eventos.slice(0,4).map(e=>`
     <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
       <div style="font-size:9px;color:#0d5c2f;text-transform:uppercase;text-align:center;background:#f0fdf4;border-radius:8px;padding:4px 6px;flex-shrink:0;min-width:36px;">${e.dia}<br>Mar</div>
       <div style="font-size:13px;color:#334155;">${e.texto}</div>
@@ -9086,7 +9150,7 @@ async function calCargarAlumnosGrupo(grupoId) {
       .select('id, nombre, apellido_p, apellido_m, curp, num_lista, grupo_id')
       .eq('rol', 'alumno')
       .eq('activo', true)
-      .filter('grupo_id', 'not.is', null);
+      .not('grupo_id', 'is', null);
 
     // Buscar el grupo_id en alumnos_grupos para obtener el grupo correcto
     const { data: grupoData } = await sb.from('grupos')
@@ -26186,6 +26250,14 @@ ADM.init = async function() {
   }));
   // Apply NEM navTo patch now that ADM is ready
   if (typeof _applyNemNavToPatch === 'function') _applyNemNavToPatch();
+  // Pre-popular selector de horarios con los grupos ya cargados
+  setTimeout(() => {
+    const sel = document.getElementById('adm-horario-grupo-sel');
+    if (sel && ADM.grupos?.length) {
+      sel.innerHTML = '<option value="">Seleccionar grupo…</option>' +
+        ADM.grupos.map(g => `<option value="${g.id}">${g.nombre || g.grado+'° '+(g.seccion||'A')}</option>`).join('');
+    }
+  }, 300);
 };
 
 // ── Navegación ────────────────────────────────────────────────────
@@ -26202,7 +26274,8 @@ ADM.navTo = function(page) {
   const pageTitles = {
     dashboard:'Dashboard', grupos:'Grupos y salones', docentes:'Personal escolar',
     alumnos:'Alumnos', materias:'Materias', asignaciones:'Asignaciones',
-    importar:'Importar CSV', vinculos:'Códigos QR', solicitudes:'Vinculaciones Padre–Alumno'
+    importar:'Importar CSV', vinculos:'Códigos QR', solicitudes:'Vinculaciones Padre–Alumno',
+    horarios:'Horarios escolares'
   };
   if (topbarTitle) topbarTitle.textContent = pageTitles[page] || page;
   // Re-render asignaciones when navigating to that page
@@ -26210,6 +26283,10 @@ ADM.navTo = function(page) {
     ADM.renderMaterias();
     ADM.renderAsignaciones();
     admAsigTab('catalogo');
+  }
+  // Cargar horarios al navegar a esa página
+  if (page === 'horarios') {
+    setTimeout(() => admCargarHorarios(), 100);
   }
   // Actualizar nombre usuario en sidebar + avatar
   const nameEl = document.getElementById('adm-user-name');
@@ -28265,15 +28342,20 @@ function admAsigTab(tab) {
 ADM.renderMaterias = function() {
   const el = document.getElementById('adm-materias-cat-list');
   if (!el) return;
-  el.innerHTML = ADM.materias.map(m => `
+  // Filtrar materias por nivel de la escuela activa
+  const nivelEsc = ADM.escuelaNivel || window._admNivelActivo || window._nivelActivo || 'secundaria';
+  const materiasFiltradas = ADM.materias.filter(m =>
+    !m.nivel || m.nivel === nivelEsc || m.nivel === 'ambos'
+  );
+  el.innerHTML = materiasFiltradas.map(m => `
     <div class="adm-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
       <div style="width:36px;height:36px;border-radius:8px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;font-size:18px;">📚</div>
       <div style="flex:1;">
         <div style="font-weight:700;font-size:13px;">${m.nombre}</div>
-        <div style="font-size:11px;color:#64748b;">${m.nivel||'Primaria'} · ${m.horas_semana||5}h/semana</div>
+        <div style="font-size:11px;color:#64748b;">${m.nivel||'General'} · ${m.horas_semana||5}h/semana</div>
       </div>
       <button class="adm-btn-sm adm-btn-danger" onclick="ADM.eliminarMateria('${m.id}','${m.nombre}')">✕</button>
-    </div>`).join('') || '<div class="adm-empty">Sin materias. Crea la primera →</div>';
+    </div>`).join('') || '<div class="adm-empty">Sin materias para este nivel. Crea la primera →</div>';
 };
 
 ADM.abrirModalMateria = function() {
@@ -34529,18 +34611,24 @@ async function calCambiarGrupo(grupoId) {
   const g = (window._gruposDocente||[]).find(x => x.id === grupoId);
   if (!g) return;
 
-  // Actualizar título
   const nom = g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`;
+
+  // ── Limpiar datos del grupo anterior ANTES de cargar el nuevo ──
+  window._alumnosActivos = [];
+  alumnos.length = 0;
+  CAL_DATA = {};
+  CAL_ASPECTOS = {};
+
+  // Actualizar título
   const calH2 = document.getElementById('cal-titulo-h2');
   if (calH2) calH2.textContent = `Calificaciones · ${nom}`;
 
-  // Actualizar nivel si el grupo tiene nivel definido
-  if (g.nivel && g.nivel !== window._nivelActivo) {
+  // Actualizar nivel y grado
+  if (g.nivel) {
     window._nivelActivo = g.nivel;
+    window._gradoActivo = String(g.grado||'1').replace(/[°\s]/g,'').trim();
+    try { localStorage.setItem('siembra_nivel', g.nivel); } catch(e) {}
   }
-
-  // Actualizar grado activo para materias correctas
-  if (g.grado) window._gradoActivo = String(g.grado).replace(/[°\s]/g,'').trim();
 
   // Actualizar materias del grupo
   const asignadas = (window._docenteAsignaciones||[])
@@ -34549,37 +34637,44 @@ async function calCambiarGrupo(grupoId) {
 
   if (asignadas.length) {
     window._materiasDocente = [...new Set(asignadas)];
-  } else if (g.nivel === 'secundaria' && g.grado) {
-    const gr = String(g.grado).replace(/[°\s]/g,'').trim();
+  } else if (g.nivel === 'secundaria') {
+    const gr = String(g.grado||'1').replace(/[°\s]/g,'').trim();
     window._materiasDocente = window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr]
                            || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1']
                            || [];
+  } else {
+    window._materiasDocente = getMateriasByNivel(g.nivel || 'primaria');
   }
+
+  hubToast('⏳ Cargando grupo ' + nom + '…', 'ok');
 
   // Cargar alumnos del nuevo grupo
-  hubToast('⏳ Cargando grupo ' + nom + '…', 'ok');
   const alumnosDB = await calCargarAlumnosGrupo(grupoId);
-  if (alumnosDB.length) {
-    window._alumnosActivos = alumnosDB;
-    alumnos.length = 0;
-    alumnosDB.forEach(a => alumnos.push(a));
-  }
+  window._alumnosActivos = alumnosDB;
+  alumnos.length = 0;
+  alumnosDB.forEach(a => alumnos.push(a));
 
-  // Cargar calificaciones del nuevo grupo
-  await calCargarCalificacionesDB(grupoId);
+  // Re-inicializar CAL_DATA con las materias del nuevo grupo
+  window._materiasDocente.forEach(mat => {
+    CAL_ASPECTOS[mat] = ASPECTOS_DEFAULT.map(a => ({...a}));
+    CAL_DATA[mat] = { 1:{}, 2:{}, 3:{} };
+  });
+
+  // Cargar calificaciones y aspectos del nuevo grupo
   await calCargarAspectos(grupoId);
+  await calCargarCalificacionesDB(grupoId);
 
-  // Re-render
+  // Re-render todo
   calRenderSelectorGrupos();
   calRenderMatTabs();
   calRenderTabla();
   calRenderStats();
+  if (typeof dRenderDash === 'function') dRenderDash();
 
-  // Actualizar topbar
-  const topNom = document.getElementById('topbar-grupo-nom');
-  if (topNom) topNom.textContent = nom;
+  // Actualizar nivel visual
+  if (g.nivel) cambiarNivel(g.nivel);
 
-  hubToast('✅ Grupo ' + nom + ' cargado', 'ok');
+  hubToast('✅ Grupo ' + nom + ' · ' + alumnosDB.length + ' alumnos', 'ok');
 }
 
 // Parche: inyectar selector cuando se navega a calificaciones
@@ -34917,5 +35012,264 @@ if (window.ADM) {
 
 window.asignarNumerosDeLista = asignarNumerosDeLista;
 
+
+// ══════════════════════════════════════════════════════════════════
+// ADMIN — Módulo de Horarios Escolares
+// ══════════════════════════════════════════════════════════════════
+
+let _admHorarioActual = {}; // { Lunes: [...], Martes: [...], ... }
+let _admGrupoHorarioId = null;
+
+const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
+
+async function admCargarHorarios() {
+  // Cargar grupos en el selector
+  const sel = document.getElementById('adm-horario-grupo-sel');
+  if (!sel) return;
+
+  // Usar ADM.grupos (fuente de verdad del admin)
+  let grupos = ADM.grupos?.length ? ADM.grupos : (ADM._grupos || []);
+  if (!grupos.length) {
+    // Cargar desde Supabase si aún no se han cargado
+    if (window.sb && window.currentPerfil?.escuela_cct) {
+      const { data } = await window.sb.from('grupos')
+        .select('id, nombre, grado, seccion, nivel, turno')
+        .eq('escuela_cct', window.currentPerfil.escuela_cct)
+        .eq('activo', true)
+        .order('grado');
+      if (data?.length) {
+        grupos = data;
+        ADM.grupos = data;
+      }
+    }
+  }
+  if (!grupos.length) return;
+
+  sel.innerHTML = '<option value="">Seleccionar grupo…</option>' +
+    grupos.map(g => `<option value="${g.id}">${g.nombre || g.grado+'° '+(g.seccion||'A')}</option>`).join('');
+
+  // Cargar config de turno de la escuela
+  admCargarConfigTurno();
+}
+
+async function admCargarConfigTurno() {
+  if (!window.sb || !window.currentPerfil?.escuela_cct) return;
+  try {
+    const { data } = await window.sb.from('escuelas')
+      .select('turno, hora_inicio_clases, duracion_clase_min')
+      .eq('cct', window.currentPerfil.escuela_cct)
+      .maybeSingle();
+    if (data) {
+      const turnoSel = document.getElementById('adm-turno-escuela');
+      const horaEl   = document.getElementById('adm-hora-inicio');
+      const durEl    = document.getElementById('adm-dur-clase');
+      if (turnoSel) turnoSel.value = data.turno || 'matutino';
+      if (horaEl)   horaEl.value   = data.hora_inicio_clases || (data.turno === 'vespertino' ? '13:00' : '07:00');
+      if (durEl)    durEl.value    = data.duracion_clase_min || 50;
+    }
+  } catch(e) {}
+}
+
+async function admGuardarConfigTurno() {
+  const turno     = document.getElementById('adm-turno-escuela')?.value || 'matutino';
+  const horaInicio= document.getElementById('adm-hora-inicio')?.value || '07:00';
+  const duracion  = parseInt(document.getElementById('adm-dur-clase')?.value || '50');
+
+  if (!window.sb || !window.currentPerfil?.escuela_cct) {
+    hubToast('⚠️ Sin conexión a base de datos', 'warn'); return;
+  }
+  await window.sb.from('escuelas').update({
+    turno,
+    hora_inicio_clases: horaInicio,
+    duracion_clase_min: duracion,
+  }).eq('cct', window.currentPerfil.escuela_cct);
+
+  // Actualizar config global
+  if (window._escuelaCfg) {
+    window._escuelaCfg.turno = turno;
+    window._escuelaCfg.hora_inicio_clases = horaInicio;
+  }
+  hubToast('✅ Configuración de turno guardada', 'ok');
+}
+
+function admActualizarTurno(turno) {
+  const horaEl = document.getElementById('adm-hora-inicio');
+  if (horaEl) horaEl.value = turno === 'vespertino' ? '13:00' : '07:00';
+}
+
+async function admCargarHorarioGrupo(grupoId) {
+  if (!grupoId) return;
+  _admGrupoHorarioId = grupoId;
+
+  const grupos = ADM.grupos?.length ? ADM.grupos : (ADM._grupos || []);
+  const grupo  = grupos.find(g => g.id === grupoId);
+
+  // Intentar cargar horario existente
+  let horarioExistente = null;
+  if (window.sb) {
+    const { data } = await window.sb.from('horarios')
+      .select('horario_json')
+      .eq('grupo_id', grupoId)
+      .eq('ciclo', window.CICLO_ACTIVO || '2025-2026')
+      .maybeSingle();
+    if (data?.horario_json) horarioExistente = data.horario_json;
+  }
+
+  if (horarioExistente) {
+    _admHorarioActual = horarioExistente;
+    admRenderHorarioTabla(horarioExistente, grupo);
+    hubToast('📅 Horario cargado', 'ok');
+  } else {
+    // Horario vacío
+    _admHorarioActual = {};
+    DIAS_SEMANA.forEach(d => { _admHorarioActual[d] = Array(7).fill(''); });
+    admRenderHorarioTabla(_admHorarioActual, grupo);
+  }
+}
+
+function admGetHoras(grupoId) {
+  const grupos = ADM.grupos?.length ? ADM.grupos : (ADM._grupos || []);
+  const grupo  = grupos.find(g => g.id === grupoId) || {};
+  const turno  = document.getElementById('adm-turno-escuela')?.value
+              || window._escuelaCfg?.turno
+              || grupo.turno || 'matutino';
+  const horaInicioStr = document.getElementById('adm-hora-inicio')?.value
+                     || (turno === 'vespertino' ? '13:00' : '07:00');
+  const durClase  = parseInt(document.getElementById('adm-dur-clase')?.value || '50');
+  const durReceso = 30;
+  const RECESO_TRAS = 3;
+  const numClases = 7;
+
+  const [ih, im] = horaInicioStr.split(':').map(Number);
+  let mins = ih * 60 + im;
+  const horas = [];
+
+  for (let i = 0; i < numClases; i++) {
+    const h = Math.floor(mins/60);
+    const m = mins % 60;
+    horas.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    if (i + 1 === RECESO_TRAS) mins += durReceso;
+    else mins += durClase;
+  }
+  return horas;
+}
+
+function admRenderHorarioTabla(horario, grupo) {
+  const wrap = document.getElementById('adm-horario-tabla-wrap');
+  if (!wrap) return;
+
+  const grupoId = _admGrupoHorarioId;
+  const horas   = admGetHoras(grupoId);
+  const numFilas = Math.max(...DIAS_SEMANA.map(d => (horario[d]||[]).length), 7);
+
+  // Obtener materias disponibles para el grupo
+  const grado = String(grupo?.grado||'1').replace(/[°\s]/g,'').trim();
+  const nivel = grupo?.nivel || 'secundaria';
+  let materias = nivel === 'secundaria'
+    ? (window.MATERIAS_SECUNDARIA_POR_GRADO?.[grado] || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1'] || [])
+    : getMateriasByNivel('primaria');
+  materias = ['Receso', ...materias];
+
+  const optsHTML = materias.map(m => `<option value="${m}">${m}</option>`).join('');
+
+  const colores = {
+    'Español':'#dbeafe','Matemáticas':'#dcfce7','Ciencias':'#fff7ed','Historia':'#fdf2f8',
+    'Inglés':'#eff6ff','Artes':'#fefce8','Ed. Física':'#fff1f2','FCyE':'#f0fdf4',
+    'Tutoría':'#f5f3ff','Tecnología':'#ecfeff','Geografía':'#fef9c3','Biología':'#d1fae5',
+    'Física':'#dbeafe','Química':'#fce7f3','Formación Cívica y Ética':'#f0fdf4',
+    'Receso':'#f3f4f6','':'#fafafa',
+  };
+
+  let html = `<table style="width:100%;border-collapse:collapse;">
+    <thead><tr style="background:#0d5c2f;color:white;">
+      <th style="padding:10px 14px;text-align:left;width:70px;font-size:12px;">Hora</th>
+      ${DIAS_SEMANA.map(d => `<th style="padding:10px 14px;text-align:center;font-size:12px;">${d}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+  for (let i = 0; i < numFilas; i++) {
+    const hora = horas[i] || '';
+    html += `<tr>
+      <td style="padding:8px 14px;font-size:11px;color:#64748b;font-weight:700;background:#f8fafc;white-space:nowrap;">${hora}</td>`;
+    DIAS_SEMANA.forEach(dia => {
+      const val = (horario[dia]||[])[i] || '';
+      const bg  = colores[val] || '#fafafa';
+      html += `<td style="padding:4px;border:1px solid #f1f5f9;background:${bg};">
+        <select onchange="admHorarioCeldaCambio('${dia}',${i},this.value)"
+          style="width:100%;padding:5px 6px;border:none;background:transparent;font-family:'Sora',sans-serif;font-size:11px;font-weight:${val==='Receso'?'400':'600'};color:${val==='Receso'?'#94a3b8':'#0f172a'};outline:none;cursor:pointer;">
+          <option value="">— vacío —</option>
+          ${materias.map(m => `<option value="${m}" ${m===val?'selected':''}>${m}</option>`).join('')}
+        </select>
+      </td>`;
+    });
+    html += '</tr>';
+  }
+
+  html += `</tbody></table>
+    <div style="padding:12px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:11px;color:#64748b;">Haz clic en cualquier celda para cambiar la materia</span>
+      <button onclick="admAgregarFilaHorario()"
+        style="padding:6px 14px;background:white;border:1.5px dashed #94a3b8;border-radius:7px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;color:#475569;cursor:pointer;">
+        + Agregar hora
+      </button>
+    </div>`;
+
+  wrap.innerHTML = html;
+}
+
+function admHorarioCeldaCambio(dia, fila, valor) {
+  if (!_admHorarioActual[dia]) _admHorarioActual[dia] = [];
+  _admHorarioActual[dia][fila] = valor;
+}
+
+function admAgregarFilaHorario() {
+  DIAS_SEMANA.forEach(d => {
+    if (!_admHorarioActual[d]) _admHorarioActual[d] = [];
+    _admHorarioActual[d].push('');
+  });
+  const grupos = ADM.grupos?.length ? ADM.grupos : (ADM._grupos || []);
+  const grupo  = grupos.find(g => g.id === _admGrupoHorarioId);
+  admRenderHorarioTabla(_admHorarioActual, grupo);
+}
+
+async function admGuardarHorario() {
+  if (!_admGrupoHorarioId) { hubToast('⚠️ Selecciona un grupo primero', 'warn'); return; }
+  if (!window.sb) { hubToast('⚠️ Sin conexión', 'warn'); return; }
+
+  // Limpiar celdas vacías al final de cada día
+  DIAS_SEMANA.forEach(d => {
+    if (_admHorarioActual[d]) {
+      while (_admHorarioActual[d].length > 0 &&
+             _admHorarioActual[d][_admHorarioActual[d].length-1] === '') {
+        _admHorarioActual[d].pop();
+      }
+    }
+  });
+
+  await window.sb.from('horarios').upsert({
+    grupo_id:     _admGrupoHorarioId,
+    escuela_cct:  window.currentPerfil?.escuela_cct,
+    ciclo:        window.CICLO_ACTIVO || '2025-2026',
+    horario_json: _admHorarioActual,
+    updated_at:   new Date().toISOString(),
+  }, { onConflict: 'grupo_id,ciclo' });
+
+  hubToast('✅ Horario guardado correctamente', 'ok');
+}
+
+async function admGenerarHorarioIA() {
+  if (!_admGrupoHorarioId) { hubToast('⚠️ Selecciona un grupo primero', 'warn'); return; }
+  const grupos = ADM.grupos?.length ? ADM.grupos : (ADM._grupos || []);
+  const grupo  = grupos.find(g => g.id === _admGrupoHorarioId) || {};
+  await generarHorarioConIA(_admGrupoHorarioId);
+}
+
+window.admCargarHorarios      = admCargarHorarios;
+window.admCargarHorarioGrupo  = admCargarHorarioGrupo;
+window.admGuardarHorario      = admGuardarHorario;
+window.admGenerarHorarioIA    = admGenerarHorarioIA;
+window.admActualizarTurno     = admActualizarTurno;
+window.admGuardarConfigTurno  = admGuardarConfigTurno;
+window.admHorarioCeldaCambio  = admHorarioCeldaCambio;
+window.admAgregarFilaHorario  = admAgregarFilaHorario;
 
 </script>
