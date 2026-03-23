@@ -1,0 +1,347 @@
+// tests/e2e/siembra.spec.js
+// Playwright E2E — flujos críticos de SIEMBRA
+// Corre contra el servidor local (npx serve . -p 3001)
+
+const { test, expect } = require('@playwright/test');
+
+// ── Helpers ───────────────────────────────────────────────────
+async function waitForSupabase(page) {
+  // Esperar a que Supabase SDK cargue (o timeout de 5s en modo offline)
+  await page.waitForFunction(() => typeof window.supabase !== 'undefined', { timeout: 5000 })
+    .catch(() => {}); // ok si no carga (sin red)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 1: Carga inicial y pantalla de login
+// ═══════════════════════════════════════════════════════════════
+test.describe('Pantalla de login', () => {
+
+  test('index.html carga sin errores JS críticos', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => {
+      // Ignorar errores de red (sin Supabase en CI)
+      if (!e.message.includes('fetch') && !e.message.includes('supabase')) {
+        errors.push(e.message);
+      }
+    });
+
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    expect(errors).toHaveLength(0);
+  });
+
+  test('muestra pantalla de login por defecto', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Esperar que desaparezca el loading screen (max 3s)
+    await page.waitForSelector('#hub-login', { state: 'visible', timeout: 3000 })
+      .catch(() => {}); // puede que no haya sesión previa
+
+    // El título SIEMBRA debe estar visible
+    await expect(page.locator('h1, .brand-text h1, .login-logo').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('tiene campo de email y contraseña', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(600); // loading animation
+
+    await expect(page.locator('#hub-email')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#hub-pass')).toBeVisible();
+  });
+
+  test('tabs Iniciar sesión / Registrarse están presentes', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(600);
+
+    await expect(page.locator('#tab-login')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#tab-registro')).toBeVisible();
+  });
+
+  test('chips de rol están presentes (8 roles)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(600);
+
+    const chips = page.locator('.role-chip[id^="rc-"]');
+    await expect(chips).toHaveCount(8, { timeout: 5000 });
+  });
+
+  test('botón de login está deshabilitado sin seleccionar rol', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(600);
+
+    const loginBtn = page.locator('#hub-login-btn');
+    await expect(loginBtn).toBeDisabled({ timeout: 5000 });
+  });
+
+  test('al seleccionar rol se activa el botón de login', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(600);
+
+    // Seleccionar rol docente
+    await page.locator('#rc-docente').click();
+    await page.waitForTimeout(300);
+
+    const loginBtn = page.locator('#hub-login-btn');
+    await expect(loginBtn).not.toBeDisabled({ timeout: 3000 });
+  });
+
+  test('al seleccionar rol se autocompleta el email demo', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(600);
+
+    await page.locator('#rc-director').click();
+    await page.waitForTimeout(300);
+
+    const emailVal = await page.locator('#hub-email').inputValue();
+    expect(emailVal).toContain('siembra.test');
+  });
+
+  test('botón "Explorar en modo demo" existe y es visible', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(600);
+
+    await expect(page.locator('#hub-demo-btn')).toBeVisible({ timeout: 5000 });
+  });
+
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 2: PWA y manifest
+// ═══════════════════════════════════════════════════════════════
+test.describe('PWA', () => {
+
+  test('manifest.json es accesible', async ({ page }) => {
+    const res = await page.goto('/manifest.json');
+    expect(res.status()).toBe(200);
+    const json = await res.json();
+    expect(json.name).toContain('SIEMBRA');
+  });
+
+  test('manifest.json tiene los dos íconos', async ({ page }) => {
+    const res = await page.goto('/manifest.json');
+    const json = await res.json();
+    const srcs = json.icons.map(i => i.src);
+    expect(srcs).toContain('icon-192.png');
+    expect(srcs).toContain('icon-512.png');
+  });
+
+  test('icon-192.png es accesible y es imagen PNG', async ({ page }) => {
+    const res = await page.goto('/icon-192.png');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('image/png');
+  });
+
+  test('icon-512.png es accesible y es imagen PNG', async ({ page }) => {
+    const res = await page.goto('/icon-512.png');
+    expect(res.status()).toBe(200);
+    expect(res.headers()['content-type']).toContain('image/png');
+  });
+
+  test('sw.js es accesible', async ({ page }) => {
+    const res = await page.goto('/sw.js');
+    expect(res.status()).toBe(200);
+  });
+
+  test('meta theme-color está configurado', async ({ page }) => {
+    await page.goto('/');
+    const themeColor = await page.locator('meta[name="theme-color"]').getAttribute('content');
+    expect(themeColor).toBeTruthy();
+  });
+
+  test('meta viewport está configurado', async ({ page }) => {
+    await page.goto('/');
+    const vp = await page.locator('meta[name="viewport"]').getAttribute('content');
+    expect(vp).toContain('width=device-width');
+  });
+
+  test('link rel=manifest está en index.html', async ({ page }) => {
+    await page.goto('/');
+    const manifest = await page.locator('link[rel="manifest"]').getAttribute('href');
+    expect(manifest).toContain('manifest.json');
+  });
+
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 3: Portal de padres
+// ═══════════════════════════════════════════════════════════════
+test.describe('Portal padres', () => {
+
+  test('padres.html carga sin errores JS críticos', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => {
+      if (!e.message.includes('fetch') && !e.message.includes('supabase')) {
+        errors.push(e.message);
+      }
+    });
+    await page.goto('/padres.html');
+    await page.waitForLoadState('domcontentloaded');
+    expect(errors).toHaveLength(0);
+  });
+
+  test('muestra login screen (no vinculación directa)', async ({ page }) => {
+    // Este test verifica el bug corregido:
+    // Sin sesión activa debe aparecer el login, NO el formulario de vinculación
+    await page.goto('/padres.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(800); // esperar animación loading
+
+    // Login screen debe ser visible
+    const loginVisible = await page.locator('#login-screen').isVisible().catch(() => false);
+    // Formulario de vinculación NO debe aparecer antes de login
+    const vincVisible  = await page.locator('#vinc-nombre').isVisible().catch(() => false);
+
+    // Al menos uno de los dos está correcto:
+    // - login visible (correcto), o
+    // - vinculación dentro de la app (con header visible = correcto)
+    if (vincVisible) {
+      // Si la vinculación es visible, el header de la app debe estarlo también
+      const headerVisible = await page.locator('.app-header').isVisible().catch(() => false);
+      expect(headerVisible).toBeTruthy();
+    } else {
+      expect(loginVisible).toBeTruthy();
+    }
+  });
+
+  test('link "Regístrate aquí" abre modal de registro', async ({ page }) => {
+    await page.goto('/padres.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(800);
+
+    // Asegurarse que el login está visible
+    const loginVisible = await page.locator('#login-screen').isVisible().catch(() => false);
+    if (!loginVisible) return test.skip(); // no aplica si hay sesión
+
+    await page.locator('#login-screen .login-switch a').click();
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#modal-register')).toHaveClass(/open/, { timeout: 2000 });
+  });
+
+  test('modal de registro tiene todos los campos', async ({ page }) => {
+    await page.goto('/padres.html');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(800);
+
+    const loginVisible = await page.locator('#login-screen').isVisible().catch(() => false);
+    if (!loginVisible) return;
+
+    await page.locator('#login-screen .login-switch a').click();
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('#reg-nombre')).toBeVisible({ timeout: 2000 });
+    await expect(page.locator('#reg-email')).toBeVisible();
+    await expect(page.locator('#reg-pass')).toBeVisible();
+    await expect(page.locator('#reg-codigo')).toBeVisible();
+  });
+
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 4: Portal del alumno
+// ═══════════════════════════════════════════════════════════════
+test.describe('Portal alumno', () => {
+
+  test('alumno.html carga sin errores JS críticos', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => {
+      if (!e.message.includes('fetch') && !e.message.includes('supabase')) {
+        errors.push(e.message);
+      }
+    });
+    await page.goto('/alumno.html');
+    await page.waitForLoadState('domcontentloaded');
+    expect(errors).toHaveLength(0);
+  });
+
+  test('alumno.html tiene meta viewport móvil', async ({ page }) => {
+    await page.goto('/alumno.html');
+    const vp = await page.locator('meta[name="viewport"]').getAttribute('content');
+    expect(vp).toContain('width=device-width');
+  });
+
+  test('alumno.html link manifest correcto', async ({ page }) => {
+    await page.goto('/alumno.html');
+    const manifest = await page.locator('link[rel="manifest"]').getAttribute('href');
+    expect(manifest).toContain('manifest.json');
+  });
+
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 5: Accesibilidad básica en navegador
+// ═══════════════════════════════════════════════════════════════
+test.describe('Accesibilidad', () => {
+
+  test('index.html: botones de menú tienen aria-label', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    const menuBtns = page.locator('button:has-text("☰")');
+    const count = await menuBtns.count();
+    if (count === 0) return; // no aplica
+
+    for (let i = 0; i < count; i++) {
+      const label = await menuBtns.nth(i).getAttribute('aria-label');
+      expect(label).toBeTruthy();
+    }
+  });
+
+  test('index.html: inputs tienen labels asociados', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(600);
+
+    // Los inputs del login deben tener labels
+    await expect(page.locator('label:has-text("Correo")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('label:has-text("Contraseña")')).toBeVisible();
+  });
+
+  test('padres.html: botón de cerrar sesión tiene aria-label', async ({ page }) => {
+    await page.goto('/padres.html');
+    await page.waitForLoadState('domcontentloaded');
+
+    // El botón ⎋ en padres.html debe tener aria-label
+    const logoutBtn = page.locator('button[aria-label="Cerrar sesión"]');
+    // Puede estar en el DOM aunque no sea visible (en el header que se muestra post-login)
+    const count = await logoutBtn.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SUITE 6: Archivos estáticos críticos
+// ═══════════════════════════════════════════════════════════════
+test.describe('Archivos estáticos', () => {
+
+  const ARCHIVOS = [
+    '/',
+    '/alumno.html',
+    '/padres.html',
+    '/sa.html',
+    '/siembra-services.js',
+    '/sw.js',
+    '/manifest.json',
+    '/icon-192.png',
+    '/icon-512.png',
+    '/screenshot1.png',
+  ];
+
+  ARCHIVOS.forEach(ruta => {
+    test(`${ruta} responde 200`, async ({ page }) => {
+      const res = await page.goto(ruta);
+      expect(res.status()).toBe(200);
+    });
+  });
+
+});
