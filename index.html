@@ -2836,65 +2836,126 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
       <!-- DASHBOARD -->
       <div class="page active" id="p-dashboard">
 
-        <!-- Banner bienvenida -->
-        <div style="background:linear-gradient(135deg,#0d5c2f,#1a7a3a);border-radius:16px;padding:22px 28px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
-          <div>
-            <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Portal Docente · SIEMBRA</div>
-            <div style="font-family:'Fraunces',serif;font-size:22px;color:white;font-weight:700;margin-bottom:4px;" id="dash-bienvenida">Buenos días 👋</div>
-            <div style="font-size:13px;color:rgba(255,255,255,.65);" id="dash-escuela-info">Cargando datos de tu escuela…</div>
+        <!-- ══ BIENVENIDA PREMIUM ══ -->
+        <div style="background:linear-gradient(135deg,#0d5c2f 0%,#1a7a3a 60%,#15803d 100%);border-radius:20px;padding:24px 24px 20px;margin-bottom:20px;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:-30px;right:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.05);"></div>
+          <div style="position:absolute;bottom:-20px;right:60px;width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.04);"></div>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;position:relative;">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Portal Docente · SIEMBRA</div>
+              <div style="font-family:'Fraunces',serif;font-size:24px;color:white;font-weight:700;margin-bottom:4px;" id="dash-bienvenida">Buenos días 👋</div>
+              <div style="font-size:13px;color:rgba(255,255,255,.65);" id="dash-escuela-info">Cargando datos…</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button onclick="dNav('asistencia')" style="padding:10px 16px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;border-radius:10px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px);">✅ Asistencia</button>
+              <button onclick="dNav('calificaciones')" style="padding:10px 16px;background:white;border:none;color:#0d5c2f;border-radius:10px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">📊 Calificar</button>
+            </div>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button onclick="dNav('tareas')" style="padding:9px 16px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">📦 Nuevo producto</button>
-            <button onclick="dNav('asistencia')" style="padding:9px 16px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">✅ Pasar asistencia</button>
+          <!-- Mini stats inline -->
+          <div style="display:flex;gap:20px;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.12);flex-wrap:wrap;">
+            <div style="text-align:center;">
+              <div style="font-size:22px;font-weight:900;color:white;font-family:'Fraunces',serif;" id="dash-stat-alumnos">—</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;">Alumnos</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:22px;font-weight:900;color:#86efac;font-family:'Fraunces',serif;" id="dash-stat-calP">—</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;">Promedio</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:22px;font-weight:900;color:#fca5a5;font-family:'Fraunces',serif;" id="dash-stat-riesgo">—</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;">En riesgo</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:22px;font-weight:900;color:#93c5fd;font-family:'Fraunces',serif;" id="dash-stat-asist">—</div>
+              <div style="font-size:10px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.8px;">Asistencia</div>
+            </div>
           </div>
         </div>
 
-        <!-- Alert dinámica riesgo -->
-        <div id="dash-alerta-riesgo" style="display:none;" class="alert-banner alert-warn" style="margin-bottom:18px;"></div>
+        <!-- Alert dinámica riesgo (legacy) -->
+        <div id="dash-alerta-riesgo" style="display:none;" class="alert-banner alert-warn"></div>
 
-        <!-- Stat cards -->
-        <div class="grid-4">
-          <div class="stat-card">
-            <div class="stat-ico verde">👥</div>
-            <div><div class="stat-val" id="dash-stat-alumnos">—</div><div class="stat-lbl">Total alumnos</div></div>
+        <!-- ══ RADAR DEL GRUPO (IA SIEMPRE VISIBLE) ══ -->
+        <div style="background:white;border-radius:16px;border:1.5px solid #e2e8f0;padding:18px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:8px;height:8px;border-radius:50%;background:#0d5c2f;animation:pulse 2s infinite;"></div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;">🧠 Radar del grupo</div>
+            </div>
+            <button onclick="dashRadarIA()" id="btn-radar-ia" style="padding:7px 14px;background:linear-gradient(135deg,#0d5c2f,#22c55e);color:white;border:none;border-radius:8px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;">✨ Analizar con IA</button>
           </div>
-          <div class="stat-card">
-            <div class="stat-ico verde">✅</div>
-            <div><div class="stat-val" id="dash-stat-asist">—</div><div class="stat-lbl">Asistencia hoy</div></div>
+          <!-- Semáforo visual 3 columnas -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+            <div style="background:#f0fdf4;border-radius:12px;padding:14px;text-align:center;border:1.5px solid #86efac;">
+              <div style="font-size:28px;font-weight:900;color:#15803d;font-family:'Fraunces',serif;" id="radar-verde">—</div>
+              <div style="font-size:11px;color:#15803d;font-weight:700;">🟢 Bien</div>
+            </div>
+            <div style="background:#fffbeb;border-radius:12px;padding:14px;text-align:center;border:1.5px solid #fde68a;">
+              <div style="font-size:28px;font-weight:900;color:#b45309;font-family:'Fraunces',serif;" id="radar-amarillo">—</div>
+              <div style="font-size:11px;color:#b45309;font-weight:700;">🟡 Seguimiento</div>
+            </div>
+            <div style="background:#fef2f2;border-radius:12px;padding:14px;text-align:center;border:1.5px solid #fecaca;">
+              <div style="font-size:28px;font-weight:900;color:#b91c1c;font-family:'Fraunces',serif;" id="radar-rojo">—</div>
+              <div style="font-size:11px;color:#b91c1c;font-weight:700;">🔴 Riesgo</div>
+            </div>
           </div>
-          <div class="stat-card" style="cursor:pointer;" onclick="dNav('calificaciones')">
-            <div class="stat-ico rojo">⚠️</div>
-            <div><div class="stat-val" id="dash-stat-riesgo">—</div><div class="stat-lbl">En riesgo</div><div style="font-size:11px;color:#b91c1c;margin-top:2px;">Ver detalle →</div></div>
+          <!-- Resultado IA del radar -->
+          <div id="radar-ia-resultado" style="display:none;background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;padding:14px;font-size:13px;color:#0d5c2f;line-height:1.7;border:1px solid #86efac;">
           </div>
-          <div class="stat-card">
-            <div class="stat-ico azul">📊</div>
-            <div><div class="stat-val" id="dash-stat-calP">—</div><div class="stat-lbl">Promedio grupo</div></div>
-          </div>
+          <!-- Alumnos en riesgo lista compacta -->
+          <div id="semaforo-list" style="margin-top:10px;"></div>
         </div>
 
-        <!-- Accesos rápidos -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:22px;">
-          <button onclick="dNav('calificaciones')" style="padding:14px 12px;background:white;border:1.5px solid var(--gris-20);border-radius:12px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--gris-80);transition:.15s;text-align:center;" onmouseover="this.style.borderColor='var(--verde)';this.style.color='var(--verde)'" onmouseout="this.style.borderColor='var(--gris-20)';this.style.color='var(--gris-80)'">📊<br>Calificaciones</button>
-          <button onclick="dNav('asistencia')" style="padding:14px 12px;background:white;border:1.5px solid var(--gris-20);border-radius:12px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--gris-80);transition:.15s;text-align:center;" onmouseover="this.style.borderColor='var(--verde)';this.style.color='var(--verde)'" onmouseout="this.style.borderColor='var(--gris-20)';this.style.color='var(--gris-80)'">✅<br>Asistencia</button>
-          <button onclick="dNav('observaciones')" style="padding:14px 12px;background:white;border:1.5px solid var(--gris-20);border-radius:12px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--gris-80);transition:.15s;text-align:center;" onmouseover="this.style.borderColor='var(--verde)';this.style.color='var(--verde)'" onmouseout="this.style.borderColor='var(--gris-20)';this.style.color='var(--gris-80)'">📝<br>Observaciones</button>
-          <button onclick="dNav('tareas')" style="padding:14px 12px;background:white;border:1.5px solid var(--gris-20);border-radius:12px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--gris-80);transition:.15s;text-align:center;" onmouseover="this.style.borderColor='var(--verde)';this.style.color='var(--verde)'" onmouseout="this.style.borderColor='var(--gris-20)';this.style.color='var(--gris-80)'">📦<br>Productos</button>
-          <button onclick="dNav('planeaciones')" style="padding:14px 12px;background:white;border:1.5px solid var(--gris-20);border-radius:12px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:var(--gris-80);transition:.15s;text-align:center;" onmouseover="this.style.borderColor='var(--verde)';this.style.color='var(--verde)'" onmouseout="this.style.borderColor='var(--gris-20)';this.style.color='var(--gris-80)'">📚<br>Planeaciones</button>
-          <button onclick="obsAbrirAlertaTS()" style="padding:14px 12px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:#b91c1c;transition:.15s;text-align:center;">🚨<br>Alerta TS</button>
+        <!-- ══ ACCESOS RÁPIDOS PREMIUM ══ -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;">
+          <button onclick="dNav('calificaciones')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 10px;background:white;border:1.5px solid #e2e8f0;border-radius:14px;cursor:pointer;transition:.2s;font-family:'Sora',sans-serif;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+            <span style="font-size:22px;">📊</span>
+            <span style="font-size:11px;font-weight:700;color:#334155;">Calificaciones</span>
+          </button>
+          <button onclick="dNav('asistencia')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 10px;background:white;border:1.5px solid #e2e8f0;border-radius:14px;cursor:pointer;transition:.2s;font-family:'Sora',sans-serif;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+            <span style="font-size:22px;">✅</span>
+            <span style="font-size:11px;font-weight:700;color:#334155;">Asistencia</span>
+          </button>
+          <button onclick="dNav('planeaciones')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 10px;background:white;border:1.5px solid #e2e8f0;border-radius:14px;cursor:pointer;transition:.2s;font-family:'Sora',sans-serif;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+            <span style="font-size:22px;">📚</span>
+            <span style="font-size:11px;font-weight:700;color:#334155;">Planeaciones</span>
+          </button>
+          <button onclick="dNav('observaciones')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 10px;background:white;border:1.5px solid #e2e8f0;border-radius:14px;cursor:pointer;transition:.2s;font-family:'Sora',sans-serif;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+            <span style="font-size:22px;">📝</span>
+            <span style="font-size:11px;font-weight:700;color:#334155;">Observaciones</span>
+          </button>
+          <button onclick="dNav('tareas')" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 10px;background:white;border:1.5px solid #e2e8f0;border-radius:14px;cursor:pointer;transition:.2s;font-family:'Sora',sans-serif;" onmouseover="this.style.borderColor='#0d5c2f';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='#e2e8f0';this.style.background='white'">
+            <span style="font-size:22px;">📦</span>
+            <span style="font-size:11px;font-weight:700;color:#334155;">Productos</span>
+          </button>
+          <button onclick="obsAbrirAlertaTS()" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 10px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:14px;cursor:pointer;font-family:'Sora',sans-serif;">
+            <span style="font-size:22px;">🚨</span>
+            <span style="font-size:11px;font-weight:700;color:#b91c1c;">Alerta TS</span>
+          </button>
         </div>
 
-        <!-- Semáforo + Materias -->
+        <!-- ══ PANEL IA — SUGERENCIA DOCENTE ══ -->
+        <div id="dash-ia-docente" style="background:linear-gradient(135deg,#1e1b4b,#3730a3);border-radius:16px;padding:18px;margin-bottom:16px;display:none;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#a5b4fc;animation:pulse 2s infinite;"></div>
+            <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;">🤖 Análisis IA del grupo</span>
+            <button onclick="document.getElementById('dash-ia-docente').style.display='none'" style="margin-left:auto;background:rgba(255,255,255,.1);border:none;color:rgba(255,255,255,.6);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:13px;">✕</button>
+          </div>
+          <div id="dash-ia-docente-texto" style="font-size:13px;color:rgba(255,255,255,.9);line-height:1.7;"></div>
+        </div>
+
+        <!-- ══ GRÁFICAS ══ -->
         <div class="grid-2">
-          <div class="card">
-            <div class="card-title">🚦 Semáforo de riesgo</div>
-            <div id="semaforo-list"></div>
-          </div>
           <div class="card">
             <div class="card-title">📊 Promedio por materia</div>
             <div id="barras-materias"></div>
           </div>
+          <div class="card">
+            <div class="card-title">🏆 Top alumnos</div>
+            <div id="top-alumnos"></div>
+          </div>
         </div>
 
-        <!-- Gráficas -->
         <div class="grid-2">
           <div class="card">
             <div class="card-title">📅 Asistencia — últimos 7 días</div>
@@ -2906,17 +2967,12 @@ html, body { min-height:100vh; font-family:'Sora',sans-serif; overflow-x:hidden;
           </div>
         </div>
 
-        <!-- Top + Eventos -->
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title">🏆 Top alumnos este trimestre</div>
-            <div id="top-alumnos"></div>
-          </div>
-          <div class="card">
-            <div class="card-title">📅 Eventos próximos</div>
-            <div id="eventos-proximos"></div>
-          </div>
+        <!-- Eventos -->
+        <div class="card">
+          <div class="card-title">📅 Eventos próximos</div>
+          <div id="eventos-proximos"></div>
         </div>
+
       </div>
 
       <!-- EXÁMENES — módulo completo -->
@@ -8449,17 +8505,16 @@ function dRenderDash() {
       <div style="font-weight:700;color:var(--gris-80);margin-bottom:4px;">Bienvenido/a a SIEMBRA</div>
       <div>Tu grupo aún no tiene alumnos registrados.</div>
     </div>`;
-    const bm = document.getElementById('barras-materias');
-    if (bm) bm.innerHTML = '<div style="padding:20px;color:var(--gris-50);font-size:12px;text-align:center;">Sin datos</div>';
-    const top = document.getElementById('top-alumnos');
-    if (top) top.innerHTML = '<div style="padding:20px;color:var(--gris-50);font-size:12px;text-align:center;">Sin datos</div>';
-    const ev = document.getElementById('eventos-proximos');
-    if (ev) ev.innerHTML = '<div style="padding:20px;color:var(--gris-50);font-size:12px;text-align:center;">Sin eventos registrados</div>';
+    ['barras-materias','top-alumnos','eventos-proximos'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div style="padding:20px;color:var(--gris-50);font-size:12px;text-align:center;">Sin datos</div>';
+    });
+    ['radar-verde','radar-amarillo','radar-rojo'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '0';
+    });
     return;
   }
 
-  // Semáforo — usa promedio ponderado NEM
-  const sl = document.getElementById('semaforo-list');
   const promAlumno = (ai) => {
     if (typeof calPromPonderado === 'function' && CAL_DATA && Object.keys(CAL_DATA).length) {
       const proms = MATERIAS_NEM.map(m => calPromPonderado(ai, m, calTrimActual||1));
@@ -8467,75 +8522,174 @@ function dRenderDash() {
     }
     return lista[ai]?.cals?.reduce((s,c)=>s+c,0)/(lista[ai]?.cals?.length||1) || 7;
   };
-  const riesgo = lista.map((a,ai)=>({...a, promedio: promAlumno(ai)})).filter(a=>a.promedio<7).sort((a,b)=>a.promedio-b.promedio);
 
-  // Actualizar alerta dinámica
-  const alertaEl = document.getElementById('dash-alerta-riesgo');
-  if (alertaEl) {
-    if (riesgo.length > 0) {
-      alertaEl.style.display = 'flex';
-      alertaEl.innerHTML = `⚠️ <strong>${riesgo.length} alumno${riesgo.length>1?'s':''} en riesgo</strong> — Calificaciones por debajo de 7. <a href="#" onclick="dNav('calificaciones');return false;" style="color:#92400e;font-weight:700;margin-left:6px;">Ver detalle →</a>`;
-    } else {
-      alertaEl.style.display = 'none';
-    }
-  }
+  const conPromedios = lista.map((a,ai) => ({...a, promedio: promAlumno(ai)}));
+  const enRiesgo     = conPromedios.filter(a => a.promedio < 6);
+  const enSeguim     = conPromedios.filter(a => a.promedio >= 6 && a.promedio < 7.5);
+  const bien         = conPromedios.filter(a => a.promedio >= 7.5);
 
-  // Actualizar stat cards dinámicamente
+  // ── Radar semáforo ──
+  const sv = document.getElementById('radar-verde');    if (sv) sv.textContent = bien.length;
+  const sa = document.getElementById('radar-amarillo'); if (sa) sa.textContent = enSeguim.length;
+  const sr = document.getElementById('radar-rojo');     if (sr) sr.textContent = enRiesgo.length;
+
+  // ── Stats header ──
   const s = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
   s('dash-stat-alumnos', lista.length);
-  s('dash-stat-riesgo', riesgo.length);
-  const promsAll = lista.map((_,ai) => promAlumno(ai)).filter(p=>p>0);
-  const promGrupo = promsAll.length ? (promsAll.reduce((a,b)=>a+b,0)/promsAll.length).toFixed(1) : '—';
-  s('dash-stat-calP', promGrupo);
+  s('dash-stat-riesgo',  enRiesgo.length);
+  const promsAll = conPromedios.map(a=>a.promedio).filter(p=>p>0);
+  s('dash-stat-calP', promsAll.length ? (promsAll.reduce((a,b)=>a+b,0)/promsAll.length).toFixed(1) : '—');
 
-  sl.innerHTML = riesgo.map(a=>{
-    const p = a.promedio.toFixed(1);
-    const c = p<6?'sem-rojo':p<7?'sem-amarillo':'sem-verde';
-    return `<div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--gris-10);">
-      <span class="semaforo ${c}"></span>
-      <div style="flex:1"><div style="font-weight:600;font-size:13px;">${a.n}</div><div style="font-size:11px;color:var(--gris-50);">Promedio: ${p}</div></div>
-      <div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:${p*10}%;background:${p<6?'#ef4444':p<7?'#eab308':'#22c55e'}"></div></div>
-    </div>`;
-  }).join('')||'<div style="color:var(--gris-50);font-size:13px;padding:12px 0;">¡Todos los alumnos están en buen nivel! ✅</div>';
+  // ── Alerta dinámica (legacy) ──
+  const alertaEl = document.getElementById('dash-alerta-riesgo');
+  if (alertaEl) alertaEl.style.display = 'none';
 
-  // Barras — promedio por materia NEM
+  // ── Lista compacta de riesgo en radar ──
+  const sl = document.getElementById('semaforo-list');
+  if (sl) {
+    const mostrar = [...enRiesgo, ...enSeguim].slice(0,5);
+    sl.innerHTML = mostrar.length
+      ? mostrar.map(a => {
+          const p = a.promedio.toFixed(1);
+          const esRiesgo = a.promedio < 6;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9;">
+            <span style="font-size:14px;">${esRiesgo ? '🔴' : '🟡'}</span>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;color:#0f172a;">${a.n || a.nombre || '—'}</div>
+              <div style="font-size:11px;color:#64748b;">Promedio: ${p}</div>
+            </div>
+            <div style="height:6px;width:70px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+              <div style="height:100%;width:${p*10}%;background:${esRiesgo?'#ef4444':'#eab308'};border-radius:99px;"></div>
+            </div>
+            <button onclick="dNav('calificaciones')" style="padding:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:10px;font-weight:700;color:#475569;cursor:pointer;font-family:'Sora',sans-serif;">Ver →</button>
+          </div>`;
+        }).join('') +
+        (enRiesgo.length + enSeguim.length > 5
+          ? `<div style="font-size:11px;color:#64748b;text-align:center;padding:8px;">+${enRiesgo.length+enSeguim.length-5} más con atención</div>`
+          : '')
+      : '<div style="font-size:13px;color:#15803d;padding:12px 0;text-align:center;">🎉 ¡Todos los alumnos en buen nivel!</div>';
+  }
+
+  // ── Barras materias ──
   const bm = document.getElementById('barras-materias');
-  const promediosPorMateria = MATERIAS_NEM.map(m => {
-    const avg = lista.length ? lista.reduce((s,_,ai) => s + (typeof calPromPonderado==='function' && CAL_DATA?.[m] ? calPromPonderado(ai,m,calTrimActual||1) : 7), 0) / lista.length : 7;
-    return {m: m.split(' ')[0], avg};
-  });
-  bm.innerHTML = promediosPorMateria.map(({m,avg})=>`
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <div style="width:48px;font-size:11px;color:var(--gris-50);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m}</div>
-      <div class="progress-bar" style="flex:1;"><div class="progress-fill" style="width:${avg*10}%;background:${avg>=8?'#22c55e':avg>=6?'#eab308':'#ef4444'}"></div></div>
-      <div style="width:30px;font-size:12px;font-weight:700;">${avg.toFixed(1)}</div>
-    </div>
-  `).join('');
-
-  // Top alumnos
-  const promsAlumnos = lista.map((a,ai)=>({...a, promedio: promAlumno(ai)}));
-  const top = [...promsAlumnos].sort((a,b)=>b.promedio-a.promedio).slice(0,5);
-  document.getElementById('top-alumnos').innerHTML = top.map((a,i)=>`
-    <div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid var(--gris-10);">
-      <div style="width:24px;height:24px;border-radius:50%;background:${i===0?'#f59e0b':i===1?'#9ca3af':i===2?'#b45309':'var(--gris-10)'};color:${i<3?'white':'var(--gris-50)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-right:12px;">${i+1}</div>
-      <div style="flex:1;font-size:13px;font-weight:600;">${a.n}</div>
-      <div style="font-size:15px;font-weight:800;color:var(--verde);">${a.promedio.toFixed(1)}</div>
-    </div>
-  `).join('');
-
-  // Eventos
-  document.getElementById('eventos-proximos').innerHTML = eventos.slice(0,4).map(e=>`
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--gris-10);">
-      <div style="width:36px;height:36px;border-radius:8px;background:var(--verde-light);display:flex;flex-direction:column;align-items:center;justify-content:center;">
-        <div style="font-size:14px;font-weight:800;color:var(--verde);line-height:1;">${e.dia}</div>
-        <div style="font-size:9px;color:var(--verde);text-transform:uppercase;">Mar</div>
+  if (bm) {
+    const promediosPorMateria = MATERIAS_NEM.map(m => {
+      const avg = lista.length ? lista.reduce((s,_,ai) =>
+        s + (typeof calPromPonderado==='function' && CAL_DATA?.[m] ? calPromPonderado(ai,m,calTrimActual||1) : 7), 0) / lista.length : 7;
+      return {m: m.split(' ')[0], avg};
+    });
+    bm.innerHTML = promediosPorMateria.map(({m,avg})=>`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:50px;font-size:11px;color:#64748b;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m}</div>
+        <div style="flex:1;height:8px;background:#f1f5f9;border-radius:99px;overflow:hidden;">
+          <div style="height:100%;width:${avg*10}%;background:${avg>=8?'#22c55e':avg>=6?'#eab308':'#ef4444'};border-radius:99px;transition:.5s;"></div>
+        </div>
+        <div style="width:32px;font-size:12px;font-weight:700;color:${avg>=8?'#15803d':avg>=6?'#b45309':'#b91c1c'};">${avg.toFixed(1)}</div>
       </div>
-      <div style="font-size:13px;">${e.texto}</div>
+    `).join('');
+  }
+
+  // ── Top alumnos ──
+  const top = [...conPromedios].sort((a,b)=>b.promedio-a.promedio).slice(0,5);
+  const topEl = document.getElementById('top-alumnos');
+  if (topEl) topEl.innerHTML = top.map((a,i)=>`
+    <div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="width:26px;height:26px;border-radius:50%;background:${i===0?'#f59e0b':i===1?'#9ca3af':i===2?'#b45309':'#f1f5f9'};color:${i<3?'white':'#64748b'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-right:12px;flex-shrink:0;">${i+1}</div>
+      <div style="flex:1;font-size:13px;font-weight:600;">${a.n || a.nombre || '—'}</div>
+      <div style="font-size:15px;font-weight:800;color:#15803d;">${a.promedio.toFixed(1)}</div>
     </div>
   `).join('');
+
+  // ── Eventos (cierre nuevo dRenderDash) ──
+  if (evEl) evEl.innerHTML += eventos.slice(0,4).map(e=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="font-size:9px;color:#0d5c2f;text-transform:uppercase;text-align:center;background:#f0fdf4;border-radius:8px;padding:4px 6px;flex-shrink:0;min-width:36px;">${e.dia}<br>Mar</div>
+      <div style="font-size:13px;color:#334155;">${e.texto}</div>
+    </div>
+  `).join('') || '<div style="font-size:13px;color:#94a3b8;padding:12px 0;text-align:center;">Sin eventos próximos</div>';
 }
 
 function prom(a) { return a.cals?.reduce((s,c)=>s+c,0)/(a.cals?.length||1) || 0; }
+
+// ── Radar IA del grupo — análisis automático ──────────────────────
+async function dashRadarIA() {
+  const btn = document.getElementById('btn-radar-ia');
+  const res = document.getElementById('radar-ia-resultado');
+  const panel = document.getElementById('dash-ia-docente');
+  const panelTxt = document.getElementById('dash-ia-docente-texto');
+  if (!res || !btn) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Analizando…';
+  res.style.display = 'block';
+  res.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:14px;height:14px;border:2px solid #86efac;border-top-color:#0d5c2f;border-radius:50%;animation:spin .8s linear infinite;"></span> La IA está analizando tu grupo…</div>';
+
+  const lista = window._alumnosActivos || alumnos;
+  if (!lista.length) {
+    res.innerHTML = '⚠️ Carga tu grupo primero para usar el análisis IA.';
+    btn.disabled = false; btn.textContent = '✨ Analizar con IA';
+    return;
+  }
+
+  const promAlumno = (ai) => {
+    if (typeof calPromPonderado === 'function' && CAL_DATA && Object.keys(CAL_DATA).length) {
+      const proms = MATERIAS_NEM.map(m => calPromPonderado(ai, m, calTrimActual||1));
+      return proms.reduce((s,p)=>s+p,0)/proms.length;
+    }
+    return lista[ai]?.cals?.reduce((s,c)=>s+c,0)/(lista[ai]?.cals?.length||1) || 7;
+  };
+
+  const conPromedios = lista.map((a,ai) => ({...a, promedio: promAlumno(ai)}));
+  const enRiesgo  = conPromedios.filter(a => a.promedio < 6);
+  const enSeguim  = conPromedios.filter(a => a.promedio >= 6 && a.promedio < 7.5);
+  const promGrupo = (conPromedios.reduce((s,a)=>s+a.promedio,0)/conPromedios.length).toFixed(1);
+
+  const promediosMaterias = MATERIAS_NEM.map(m => {
+    const avg = lista.length
+      ? lista.reduce((s,_,ai) => s + (typeof calPromPonderado==='function' && CAL_DATA?.[m] ? calPromPonderado(ai,m,calTrimActual||1) : 7), 0) / lista.length
+      : 7;
+    return `${m.split(' ')[0]}: ${avg.toFixed(1)}`;
+  }).join(', ');
+
+  const prompt = `Soy docente de educación básica en México (NEM). Aquí el análisis de mi grupo:
+Total alumnos: ${lista.length}
+Promedio general: ${promGrupo}
+Alumnos en riesgo (<6): ${enRiesgo.length} — ${enRiesgo.map(a=>a.n||a.nombre).join(', ')||'ninguno'}
+En seguimiento (6-7.5): ${enSeguim.length} — ${enSeguim.map(a=>a.n||a.nombre).slice(0,3).join(', ')||'ninguno'}
+Promedios por materia: ${promediosMaterias}
+
+Genera un análisis breve del grupo con:
+1. Diagnóstico en 2 oraciones
+2. 2 acciones concretas que puedo hacer ESTA SEMANA
+3. Un mensaje motivador para mí como docente
+
+Máximo 150 palabras. Lenguaje NEM, directo y útil.`;
+
+  try {
+    const texto = await callAI({ feature: 'portafolio_analisis_grupo', prompt });
+    const html = texto.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    res.innerHTML = html;
+    // También mostrar en panel oscuro
+    if (panel && panelTxt) {
+      panelTxt.innerHTML = html;
+      panel.style.display = 'block';
+    }
+    // Guardar en analisis_ia
+    if (sb && currentPerfil) {
+      sb.from('analisis_ia').insert({
+        alumno_id: null, tipo: 'grupo_docente',
+        contenido: JSON.stringify({ texto, grupo: window._grupoActivo, docente: currentPerfil.id }),
+        created_at: new Date().toISOString(),
+      }).catch(()=>{});
+    }
+  } catch(e) {
+    res.innerHTML = `<div style="color:#b91c1c;font-size:12px;">❌ ${e.message}</div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '✨ Analizar con IA';
+}
+window.dashRadarIA = dashRadarIA;
 
 
 // ══════════════════════════════════════════════════════════
@@ -9788,6 +9942,16 @@ function fichaSeleccionar(idx) {
   document.getElementById('fichas-empty').style.display = 'none';
   document.getElementById('fichas-contenido').style.display = 'block';
   fichaTab('perfil', document.querySelector('#p-fichas .tab-btn'));
+  // ── IA automática al abrir ficha ──────────────────────────────
+  // Espera 800ms para no interferir con el render de la ficha
+  setTimeout(() => {
+    const analisisEl = document.getElementById('fd-analisis-empty');
+    const loadingEl  = document.getElementById('fd-analisis-loading');
+    // Solo dispara si el análisis no se ha generado aún
+    if (analisisEl && analisisEl.style.display !== 'none' && typeof fichaAnalisisIAGenerar === 'function') {
+      fichaAnalisisIAGenerar();
+    }
+  }, 800);
 }
 
 function fichaCargarDatos(idx) {
@@ -17297,7 +17461,77 @@ function subdirInit() {
     if (n) n.textContent = currentPerfil.nombre || 'Subdirector/a';
   }
   subdirNav('dashboard');
+  // ── Cargar datos reales + IA al iniciar ──
+  setTimeout(() => subdirCargarDashboard(), 600);
 }
+
+// Carga datos reales de Supabase y genera IA insights para el subdirector
+async function subdirCargarDashboard() {
+  if (!sb || !currentPerfil?.escuela_cct) return;
+  const cct = currentPerfil.escuela_cct;
+  try {
+    const [
+      { count: totalAlumnos },
+      { count: totalDocentes },
+      { data: incidencias },
+      { count: totalGrupos },
+    ] = await Promise.all([
+      sb.from('usuarios').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).eq('rol','alumno').eq('activo',true),
+      sb.from('usuarios').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).in('rol',['docente','tutor']).eq('activo',true),
+      sb.from('incidencias').select('id,estado,tipo').eq('escuela_cct',cct).eq('estado','abierta').limit(50),
+      sb.from('grupos').select('id',{count:'exact',head:true}).eq('escuela_cct',cct),
+    ]);
+
+    // Actualizar stats cards (los divs ya existen en el HTML hardcodeado)
+    const cards = document.querySelectorAll('#subdir-p-dashboard .subdir-page > div:first-child > div');
+    if (cards[0]) cards[0].querySelector('div:first-child').textContent = totalAlumnos || '—';
+    if (cards[1]) cards[1].querySelector('div:first-child').textContent = totalDocentes || '—';
+
+    // Añadir panel IA si no existe aún
+    const dash = document.getElementById('subdir-p-dashboard');
+    if (dash && !document.getElementById('subdir-ia-insights')) {
+      const urgentes = incidencias?.filter(i => i.estado === 'urgente' || i.tipo === 'conducta').length || 0;
+      const iaDiv = document.createElement('div');
+      iaDiv.id = 'subdir-ia-insights';
+      iaDiv.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1e40af);border-radius:14px;padding:18px;margin-top:20px;color:white;';
+      iaDiv.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#93c5fd;animation:pulse 2s infinite;"></div>
+          <span style="font-size:11px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:1px;">🤖 IA Insights — Subdirección</span>
+          <button onclick="subdirGenerarInsights()" style="margin-left:auto;padding:5px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:white;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">✨ Actualizar</button>
+        </div>
+        <div id="subdir-ia-texto" style="font-size:13px;line-height:1.7;opacity:.9;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;"></span>
+            Generando análisis ejecutivo…
+          </div>
+        </div>`;
+      dash.appendChild(iaDiv);
+      // Auto-generar
+      subdirGenerarInsights(totalAlumnos, totalDocentes, incidencias?.length || 0, urgentes, totalGrupos);
+    }
+  } catch(e) { console.warn('[subdir]', e.message); }
+}
+
+async function subdirGenerarInsights(alumnos, docentes, incidencias, urgentes, grupos) {
+  const el = document.getElementById('subdir-ia-texto');
+  if (!el) return;
+  if (!alumnos) {
+    // Re-cargar datos si no se pasaron
+    subdirCargarDashboard(); return;
+  }
+  const prompt = `Soy subdirector/a de una escuela de educación básica en México.
+Datos actuales: ${alumnos} alumnos, ${docentes} docentes, ${grupos} grupos, ${incidencias} incidencias abiertas (${urgentes} urgentes).
+Genera un análisis ejecutivo breve (3 puntos) con: 1 logro de la semana, 1 área de atención y 1 acción prioritaria para hoy.
+Máximo 100 palabras. Lenguaje directivo, NEM.`;
+  try {
+    const texto = await callAI({ feature: 'director_reporte_global', prompt });
+    el.innerHTML = texto.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  } catch(e) {
+    el.innerHTML = 'Sin conexión a IA. Verifica que tengas créditos en Anthropic.';
+  }
+}
+window.subdirGenerarInsights = subdirGenerarInsights;
 
 function subdirNav(page) {
   document.querySelectorAll('.subdir-page').forEach(p => p.style.display = 'none');
@@ -17376,7 +17610,69 @@ function coordPortalInit() {
     if (n) n.textContent = currentPerfil.nombre || 'Coordinador/a';
   }
   coordNav('dashboard');
+  // ── IA visible al iniciar coordinador ──
+  setTimeout(() => coordCargarIADashboard(), 800);
 }
+
+// Inyecta tarjeta IA en el dashboard del coordinador si no existe
+async function coordCargarIADashboard() {
+  const dash = document.getElementById('coord-p-dashboard');
+  if (!dash || document.getElementById('coord-ia-card')) return;
+
+  const visitas = window._coordVisitas || [];
+  const docentes = window._coordDocentes || [];
+  const bajos = docentes.filter(d => {
+    const vs = visitas.filter(v => v.docente_id === d.id);
+    return vs.length && (vs.reduce((s,v)=>s+(v.calificacion||0),0)/vs.length) < 8;
+  }).length;
+  const sinVisita = docentes.filter(d => !visitas.some(v => v.docente_id === d.id)).length;
+
+  const iaCard = document.createElement('div');
+  iaCard.id = 'coord-ia-card';
+  iaCard.style.cssText = 'background:linear-gradient(135deg,#3b0764,#6d28d9);border-radius:14px;padding:18px;margin-top:20px;color:white;';
+  iaCard.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#c4b5fd;animation:pulse 2s infinite;"></div>
+      <span style="font-size:11px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:1px;">🤖 IA — Resumen de coordinación</span>
+      <button onclick="coordActualizarIA()" style="margin-left:auto;padding:5px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:white;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">↺ Actualizar</button>
+    </div>
+    <div id="coord-ia-dash-texto" style="font-size:13px;line-height:1.7;opacity:.9;">
+      <span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px;"></span>
+      Analizando desempeño docente…
+    </div>`;
+  dash.appendChild(iaCard);
+
+  coordActualizarIA(visitas, docentes, bajos, sinVisita);
+}
+
+async function coordActualizarIA(visitas, docentes, bajos, sinVisita) {
+  const el = document.getElementById('coord-ia-dash-texto');
+  if (!el) return;
+  // Si no se pasaron parámetros, recalcular
+  if (!visitas) {
+    visitas  = window._coordVisitas  || [];
+    docentes = window._coordDocentes || [];
+    bajos    = docentes.filter(d => { const vs=visitas.filter(v=>v.docente_id===d.id); return vs.length&&(vs.reduce((s,v)=>s+(v.calificacion||0),0)/vs.length)<8; }).length;
+    sinVisita= docentes.filter(d=>!visitas.some(v=>v.docente_id===d.id)).length;
+  }
+  const promVisitas = visitas.length
+    ? (visitas.filter(v=>v.calificacion).reduce((s,v)=>s+(v.calificacion||0),0)/visitas.filter(v=>v.calificacion).length).toFixed(1)
+    : '—';
+
+  const prompt = `Soy coordinador/a académico/a en una escuela de educación básica en México (NEM).
+Datos de mis visitas de acompañamiento: ${visitas.length} visitas realizadas, promedio de evaluación: ${promVisitas}/10, ${bajos} docentes con promedio menor a 8, ${sinVisita} docentes sin visita este mes, ${docentes.length} docentes en total.
+Genera: 1) Estado del acompañamiento en 1 oración, 2) 2 acciones prioritarias para esta semana, 3) Un recordatorio motivador. Máximo 80 palabras. Directo y útil.`;
+
+  try {
+    const texto = await callAI({ feature: 'coord_eval_docente', prompt });
+    el.innerHTML = texto.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  } catch(e) {
+    el.innerHTML = visitas.length
+      ? `Has realizado <strong>${visitas.length}</strong> visitas con promedio <strong>${promVisitas}</strong>. ${bajos>0?`<strong>${bajos}</strong> docente${bajos>1?'s':''} necesitan apoyo adicional.`:''} Sigue con tu plan de acompañamiento.`
+      : 'Registra tu primera visita de acompañamiento para comenzar a generar análisis con IA.';
+  }
+}
+window.coordActualizarIA = coordActualizarIA;
 
 function coordNav(page) {
   document.querySelectorAll('.coord-page').forEach(p => p.style.display = 'none');
@@ -31375,8 +31671,79 @@ window.dirExportarReporteWord = dirExportarReporteWord;
 window.addEventListener('siembra:datos-cargados', () => {
   if (window.currentPerfil?.rol === 'director') {
     setTimeout(dirCargarAvancePEMC, 1000);
+    // ── IA automática: agregar tarjeta de alertas inteligentes ──
+    setTimeout(dirInyectarAlertasIA, 1500);
   }
 });
+
+// Inyecta panel de alertas IA en el dashboard del director si no existe
+async function dirInyectarAlertasIA() {
+  const dash = document.getElementById('dir-p-dashboard');
+  if (!dash || document.getElementById('dir-alertas-ia')) return;
+
+  const alertDiv = document.createElement('div');
+  alertDiv.id = 'dir-alertas-ia';
+  alertDiv.style.cssText = 'margin-bottom:16px;';
+  alertDiv.innerHTML = `
+    <div style="background:white;border-radius:16px;border:1.5px solid #e2e8f0;padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#ef4444;animation:pulse 2s infinite;"></div>
+          <span style="font-size:13px;font-weight:700;color:#0f172a;">🚨 Alertas inteligentes</span>
+        </div>
+        <button onclick="dirRefrescarAlertas()" style="padding:5px 12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:7px;font-family:'Sora',sans-serif;font-size:11px;font-weight:700;color:#475569;cursor:pointer;">↺</button>
+      </div>
+      <div id="dir-alertas-ia-lista" style="font-size:13px;color:#64748b;">
+        <span style="display:inline-block;width:12px;height:12px;border:2px solid #e2e8f0;border-top-color:#475569;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px;"></span>
+        Analizando indicadores de la escuela…
+      </div>
+    </div>`;
+
+  // Insertar antes del panel de PEMC
+  const pemcCard = dash.querySelector('[id="dir-pemc-avance"]')?.closest('.card') ||
+                   dash.querySelector('.card:last-child');
+  if (pemcCard) dash.insertBefore(alertDiv, pemcCard);
+  else dash.appendChild(alertDiv);
+
+  dirRefrescarAlertas();
+}
+
+async function dirRefrescarAlertas() {
+  const el = document.getElementById('dir-alertas-ia-lista');
+  if (!el) return;
+  const cct = window.currentPerfil?.escuela_cct;
+  if (!sb || !cct) {
+    el.innerHTML = '<span style="color:#94a3b8;">Conecta Supabase para ver alertas reales.</span>';
+    return;
+  }
+  try {
+    const [
+      { count: alumnosRiesgo },
+      { count: incUrgentes },
+      { data: calBajas },
+    ] = await Promise.all([
+      sb.from('alertas').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).eq('leido',false),
+      sb.from('incidencias').select('id',{count:'exact',head:true}).eq('escuela_cct',cct).eq('estado','urgente'),
+      sb.from('calificaciones').select('calificacion').eq('escuela_cct',cct)
+        .eq('ciclo',window.CICLO_ACTIVO||'2025-2026').lt('calificacion',6).limit(5),
+    ]);
+
+    const alertas = [];
+    if (incUrgentes > 0) alertas.push({ color:'#fee2e2', border:'#fca5a5', text:'🔴', msg:`<strong>${incUrgentes}</strong> incidencia${incUrgentes>1?'s':''} urgente${incUrgentes>1?'s':''} sin atender` });
+    if (alumnosRiesgo > 0) alertas.push({ color:'#fffbeb', border:'#fde68a', text:'🟡', msg:`<strong>${alumnosRiesgo}</strong> alerta${alumnosRiesgo>1?'s':''} académica${alumnosRiesgo>1?'s':''} pendiente${alumnosRiesgo>1?'s':''}` });
+    if (calBajas?.length > 0) alertas.push({ color:'#fef2f2', border:'#fecaca', text:'📉', msg:`<strong>${calBajas.length}</strong> calificación${calBajas.length>1?'es':''} menor${calBajas.length>1?'es':''} a 6 detectada${calBajas.length>1?'s':''}` });
+    if (!alertas.length) alertas.push({ color:'#f0fdf4', border:'#86efac', text:'🟢', msg:'Sin alertas críticas activas — escuela en buen estado' });
+
+    el.innerHTML = alertas.map(a =>
+      `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:${a.color};border-radius:8px;border:1px solid ${a.border};margin-bottom:6px;font-size:12px;">
+        <span>${a.text}</span><span>${a.msg}</span>
+      </div>`
+    ).join('');
+  } catch(e) {
+    el.innerHTML = `<span style="color:#dc2626;font-size:12px;">❌ ${e.message}</span>`;
+  }
+}
+window.dirRefrescarAlertas = dirRefrescarAlertas;
 
 // ══════════════════════════════════════════════════════════════════════
 // SOLICITUDES DE VINCULACIÓN PADRE–ALUMNO — Panel Admin
