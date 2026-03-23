@@ -9052,19 +9052,72 @@ function _calInitDemo() {
 }
 
 async function calCargarAlumnosGrupo(grupoId) {
-  const { data, error } = await sb.from('alumnos_grupos')
-    .select('alumno_id, usuarios!alumno_id(id, nombre, apellido_p, apellido_m, curp)')
-    .eq('grupo_id', grupoId)
-    .eq('activo', true)
-    .order('alumno_id');
-  if (error || !data) return [];
-  return data.map(r => r.usuarios).filter(Boolean).map(a => ({
-    id:   a.id,
-    n:    `${a.nombre||''} ${a.apellido_p||''} ${a.apellido_m||''}`.trim(),
-    cals: [7,7,7,7,7,7,7,7],
-    as:   'P',
-    curp: a.curp || ''
-  }));
+  if (!grupoId) return [];
+  try {
+    // Fuente 1: tabla alumnos_grupos (vínculo alumno ↔ grupo)
+    const { data, error } = await sb.from('alumnos_grupos')
+      .select('alumno_id, num_lista, usuarios!alumno_id(id, nombre, apellido_p, apellido_m, curp, num_lista)')
+      .eq('grupo_id', grupoId)
+      .eq('activo', true);
+
+    if (!error && data?.length) {
+      const alumnos = data.map(r => r.usuarios).filter(Boolean).map(a => ({
+        id:   a.id,
+        n:    `${a.nombre||''} ${a.apellido_p||''} ${a.apellido_m||''}`.trim(),
+        cals: [7,7,7,7,7,7,7,7],
+        as:   'P',
+        curp: a.curp || '',
+        num_lista: a.num_lista || null
+      }));
+      // Ordenar alfabéticamente por apellido paterno (NEM: orden de lista automático)
+      return alumnos.sort((a, b) => {
+        const ap1 = a.n.split(' ')[1] || a.n;
+        const ap2 = b.n.split(' ')[1] || b.n;
+        return ap1.localeCompare(ap2, 'es-MX');
+      });
+    }
+
+    // Fuente 2: tabla usuarios con grupo_id directo
+    const { data: data2 } = await sb.from('usuarios')
+      .select('id, nombre, apellido_p, apellido_m, curp, num_lista, grupo_id')
+      .eq('rol', 'alumno')
+      .eq('activo', true)
+      .filter('grupo_id', 'not.is', null);
+
+    // Buscar el grupo_id en alumnos_grupos para obtener el grupo correcto
+    const { data: grupoData } = await sb.from('grupos')
+      .select('id, nombre, grado, seccion, escuela_cct')
+      .eq('id', grupoId)
+      .maybeSingle();
+
+    if (!grupoData) return [];
+
+    // Filtrar por escuela_cct
+    const { data: data3 } = await sb.from('usuarios')
+      .select('id, nombre, apellido_p, apellido_m, curp, num_lista')
+      .eq('rol', 'alumno')
+      .eq('activo', true)
+      .eq('escuela_cct', grupoData.escuela_cct);
+
+    const alumnos3 = (data3 || []).map(a => ({
+      id:   a.id,
+      n:    `${a.nombre||''} ${a.apellido_p||''} ${a.apellido_m||''}`.trim(),
+      cals: [7,7,7,7,7,7,7,7],
+      as:   'P',
+      curp: a.curp || '',
+      num_lista: a.num_lista || null
+    }));
+
+    return alumnos3.sort((a, b) => {
+      const ap1 = a.n.split(' ')[1] || a.n;
+      const ap2 = b.n.split(' ')[1] || b.n;
+      return ap1.localeCompare(ap2, 'es-MX');
+    });
+
+  } catch(e) {
+    console.warn('[calCargarAlumnosGrupo]', e.message);
+    return [];
+  }
 }
 
 async function calCargarAspectos(grupoId) {
@@ -34570,4 +34623,292 @@ window.addEventListener('siembra:datos-cargados', () => {
 window.calRenderSelectorGrupos = calRenderSelectorGrupos;
 window.calCambiarGrupo = calCambiarGrupo;
 
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 3 — Horario inteligente con IA
+// Genera sugerencia de horario según turno, grado, materias y 
+// duración de clases (50 min) configurado por el superadmin
+// ══════════════════════════════════════════════════════════════════
+
+async function generarHorarioConIA(grupoId) {
+  const grupo = (window._gruposDocente||[]).find(g => g.id === grupoId)
+             || { nombre: 'Grupo', grado: '2', nivel: 'secundaria', turno: 'matutino' };
+
+  const turno = window._escuelaCfg?.turno || grupo.turno || 'matutino';
+  const horaInicio = turno === 'vespertino' ? '13:00' : '07:00';
+  const grado = grupo.grado || '2';
+  const nivel = grupo.nivel || 'secundaria';
+
+  const gr = String(grado).replace(/[°\s]/g,'').trim();
+  const materias = window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr]
+                || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1']
+                || ['Español','Matemáticas','Ciencias','Historia','FCyE','Ed. Física','Inglés','Artes','Tutoría','Tecnología'];
+
+  hubToast('🤖 Generando horario con IA…', 'ok');
+
+  const prompt = `Genera un horario semanal para ${nivel} ${grado}° en México.
+
+DATOS:
+- Turno: ${turno} (inicio: ${horaInicio})
+- Clases de 50 minutos
+- Receso: 30 minutos
+- Materias a distribuir: ${materias.join(', ')}
+- Días: Lunes a Viernes
+- Horas por semana por materia: Español 5h, Matemáticas 5h, Ciencias 3h, Historia 2h, Inglés 3h, Artes 2h, Ed. Física 2h, FCyE 2h, Tutoría 1h, Tecnología 2h
+
+REGLAS NEM:
+- No poner Matemáticas ni Español antes del recreo los mismos días
+- Ed. Física preferentemente al final del día
+- Tutoría los lunes o viernes
+- No más de 2 horas seguidas de la misma materia
+
+Responde SOLO con JSON en este formato exacto:
+{
+  "Lunes": ["Materia1", "Materia2", "Materia3", "Receso", "Materia4", "Materia5", "Materia6"],
+  "Martes": [...],
+  "Miércoles": [...],
+  "Jueves": [...],
+  "Viernes": [...]
+}`;
+
+  try {
+    const texto = await callAI({ feature: 'plan_semanal', prompt });
+    // Parsear JSON del resultado
+    const jsonMatch = texto.match(/\{[\s\S]+\}/);
+    if (!jsonMatch) throw new Error('IA no devolvió JSON válido');
+    const horario = JSON.parse(jsonMatch[0]);
+
+    // Mostrar preview del horario generado
+    horarioMostrarPreviewIA(horario, horaInicio, grupoId);
+  } catch(e) {
+    hubToast('❌ Error generando horario: ' + e.message, 'err');
+  }
+}
+
+function horarioMostrarPreviewIA(horario, horaInicio, grupoId) {
+  const dias = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
+  let horaActual = horaInicio || '07:00';
+
+  const filas = [];
+  const maxClases = Math.max(...dias.map(d => (horario[d]||[]).length));
+
+  for (let i = 0; i < maxClases; i++) {
+    const hora = horaActual;
+    let esReceso = false;
+    const celdas = dias.map(d => {
+      const clase = (horario[d]||[])[i] || '—';
+      if (clase === 'Receso') esReceso = true;
+      return clase;
+    });
+    filas.push({ hora, celdas, esReceso });
+
+    // Avanzar tiempo: receso = 30 min, clase = 50 min
+    const [h, m] = horaActual.split(':').map(Number);
+    const mins = esReceso ? 30 : 50;
+    const totalMins = h * 60 + m + mins;
+    horaActual = `${String(Math.floor(totalMins/60)).padStart(2,'0')}:${String(totalMins%60).padStart(2,'0')}`;
+  }
+
+  const colores = {
+    'Español':'#dbeafe','Matemáticas':'#dcfce7','Ciencias':'#fff7ed','Historia':'#fdf2f8',
+    'Inglés':'#eff6ff','Artes':'#fefce8','Ed. Física':'#fff1f2','FCyE':'#f0fdf4',
+    'Tutoría':'#f5f3ff','Tecnología':'#ecfeff','Geografía':'#fef9c3','Biología':'#d1fae5',
+    'Física':'#dbeafe','Química':'#fce7f3','Formación Cívica y Ética':'#f0fdf4',
+    'Receso':'#f3f4f6',
+  };
+
+  const tabla = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#0d5c2f;color:white;">
+        <th style="padding:8px;text-align:left;width:60px;">Hora</th>
+        ${dias.map(d=>`<th style="padding:8px;text-align:center;">${d}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${filas.map(f=>`<tr style="${f.esReceso?'background:#f3f4f6;font-style:italic;':''}">
+          <td style="padding:6px 8px;font-size:11px;color:#64748b;font-weight:700;">${f.hora}</td>
+          ${f.celdas.map(c=>`<td style="padding:6px 8px;text-align:center;background:${colores[c]||'white'};border:1px solid #f1f5f9;">
+            ${c==='Receso'?'🔔 Receso':c}
+          </td>`).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  hubModal('📅 Horario generado con IA — Vista previa',
+    `<div style="overflow-x:auto;margin-bottom:16px;">${tabla}</div>
+     <div style="font-size:12px;color:#64748b;background:#f0fdf4;border-radius:8px;padding:10px;">
+       💡 Revisa el horario y haz clic en "Aplicar" para cargarlo en el editor.
+       Podrás editarlo manualmente después.
+     </div>`,
+    '✅ Aplicar horario',
+    async () => {
+      // Guardar en Supabase
+      if (sb && currentPerfil) {
+        await sb.from('horarios').upsert({
+          grupo_id:   grupoId || window._grupoActivo,
+          docente_id: currentPerfil.id,
+          escuela_cct:currentPerfil.escuela_cct,
+          ciclo:      window.CICLO_ACTIVO || '2025-2026',
+          horario_json: horario,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'grupo_id,ciclo' }).catch(()=>{});
+      }
+      // Actualizar variable global del horario si existe
+      if (window.horarioData) {
+        Object.assign(window.horarioData, horario);
+        if (typeof horarioRender === 'function') horarioRender();
+      }
+      hubToast('✅ Horario aplicado', 'ok');
+    });
+}
+
+window.generarHorarioConIA = generarHorarioConIA;
+window.horarioMostrarPreviewIA = horarioMostrarPreviewIA;
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 4 — Inyectar botón "🤖 Sugerir horario con IA" en la UI
+// ══════════════════════════════════════════════════════════════════
+window.addEventListener('siembra:datos-cargados', () => {
+  setTimeout(() => {
+    const horarioPage = document.getElementById('p-horario');
+    if (!horarioPage || document.getElementById('btn-ia-horario')) return;
+
+    const header = horarioPage.querySelector('h2')?.closest('div') || horarioPage.firstElementChild;
+    if (!header) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'btn-ia-horario';
+    btn.style.cssText = 'padding:9px 16px;background:linear-gradient(135deg,#1e3a5f,#1d4ed8);color:white;border:none;border-radius:10px;font-family:"Sora",sans-serif;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;';
+    btn.innerHTML = '🤖 Sugerir horario con IA';
+    btn.onclick = () => generarHorarioConIA(window._grupoActivo);
+
+    // Insertar junto al botón de guardar
+    const btnGuardar = horarioPage.querySelector('[onclick*="guardarHorario"]');
+    if (btnGuardar?.parentElement) {
+      btnGuardar.parentElement.insertBefore(btn, btnGuardar);
+    } else {
+      header.appendChild(btn);
+    }
+  }, 800);
+});
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 5 — Turno escolar: config desde superadmin → horarios
+// Lee el turno de la escuela y calcula horas correctas (50 min/clase)
+// ══════════════════════════════════════════════════════════════════
+
+function horarioGetConfigEscuela() {
+  const cfg = window._escuelaCfg || {};
+  const turno = cfg.turno || 'matutino';
+  const inicioBase = turno === 'vespertino' ? 13 * 60 : 7 * 60; // minutos desde medianoche
+  const duracionClase = 50; // minutos
+  const duracionReceso = 30; // minutos
+
+  return { turno, inicioBase, duracionClase, duracionReceso };
+}
+
+function horarioGenerarHoras(numClases = 7) {
+  const { inicioBase, duracionClase, duracionReceso } = horarioGetConfigEscuela();
+  const RECESO_TRAS_CLASE = 3; // receso después de la 3ª clase
+  const horas = [];
+  let minActual = inicioBase;
+
+  for (let i = 0; i < numClases; i++) {
+    const h = Math.floor(minActual / 60);
+    const m = minActual % 60;
+    horas.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+
+    if (i + 1 === RECESO_TRAS_CLASE) {
+      minActual += duracionReceso; // receso
+    } else {
+      minActual += duracionClase; // clase normal
+    }
+  }
+  return horas;
+}
+
+// Exponer para que horarioRender pueda usarla
+window.horarioGenerarHoras = horarioGenerarHoras;
+window.horarioGetConfigEscuela = horarioGetConfigEscuela;
+
+// Parche: al renderizar el horario, usar las horas correctas del turno
+const _horarioRenderOrig = window.horarioRender;
+window.horarioRender = function() {
+  // Actualizar las horas de la tabla según el turno de la escuela
+  const horas = horarioGenerarHoras(7);
+  const filas = document.querySelectorAll('#horario-tabla tr[data-hora-idx]');
+  filas.forEach((fila, i) => {
+    const labelEl = fila.querySelector('td:first-child');
+    if (labelEl && horas[i]) labelEl.textContent = horas[i];
+  });
+  return _horarioRenderOrig?.();
+};
+
 </script>
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 2 — Número de lista automático (orden alfabético apellido)
+// Se ejecuta después de dar de alta o importar alumnos al grupo
+// ══════════════════════════════════════════════════════════════════
+
+async function asignarNumerosDeLista(grupoId) {
+  if (!sb || !grupoId) return;
+  try {
+    // Obtener todos los alumnos del grupo con nombre y apellido
+    const { data } = await sb.from('alumnos_grupos')
+      .select('alumno_id, usuarios!alumno_id(id, nombre, apellido_p, apellido_m)')
+      .eq('grupo_id', grupoId)
+      .eq('activo', true);
+
+    if (!data?.length) return;
+
+    // Ordenar por apellido paterno → materno → nombre (orden alfabético mexicano)
+    const ordenados = data
+      .filter(r => r.usuarios)
+      .map(r => r.usuarios)
+      .sort((a, b) => {
+        const cmp = (a.apellido_p||'').localeCompare(b.apellido_p||'', 'es-MX');
+        if (cmp !== 0) return cmp;
+        const cmp2 = (a.apellido_m||'').localeCompare(b.apellido_m||'', 'es-MX');
+        if (cmp2 !== 0) return cmp2;
+        return (a.nombre||'').localeCompare(b.nombre||'', 'es-MX');
+      });
+
+    // Actualizar num_lista en usuarios
+    const updates = ordenados.map((a, i) =>
+      sb.from('usuarios').update({ num_lista: i + 1 }).eq('id', a.id)
+    );
+    await Promise.all(updates);
+
+    console.log(`[Lista] ${ordenados.length} alumnos numerados en grupo ${grupoId}`);
+    return ordenados.length;
+  } catch(e) {
+    console.warn('[asignarNumerosDeLista]', e.message);
+  }
+}
+
+// Patch: después de confirmar importación de alumnos, asignar números
+const _admConfirmarImportOrig = window.admConfirmarImport;
+window.admConfirmarImport = async function(...args) {
+  const result = await _admConfirmarImportOrig?.(...args);
+  // Obtener grupo activo del contexto de importación
+  const grupoId = window._admImportGrupoId || window._grupoActivo;
+  if (grupoId) {
+    setTimeout(() => asignarNumerosDeLista(grupoId), 1500);
+  }
+  return result;
+};
+
+// Patch: después de dar de alta alumno individualmente
+const _ADM_abrirModalAlumnoOrig = window.ADM?.abrirModalAlumno;
+if (window.ADM) {
+  const _origGuardar = window.ADM.guardarAlumno;
+  if (_origGuardar) {
+    window.ADM.guardarAlumno = async function(...args) {
+      const result = await _origGuardar.apply(window.ADM, args);
+      const grupoId = window.ADM._grupoActivoId || window._grupoActivo;
+      if (grupoId) setTimeout(() => asignarNumerosDeLista(grupoId), 1500);
+      return result;
+    };
+  }
+}
+
+window.asignarNumerosDeLista = asignarNumerosDeLista;
+
