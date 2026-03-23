@@ -2142,7 +2142,7 @@ html, body {
           <div class="alb-preview-progfill" id="alb-prev-bar" style="width:20%"></div>
         </div>
         <div class="alb-preview-mini" id="alb-prev-mini"></div>
-        <button class="alb-preview-cta">👑 Ver mi álbum completo →</button>
+        <button class="alb-preview-cta" onclick="navTo('insignias')">👑 Ver mi álbum completo →</button>
       </div>
     </div>
 
@@ -5217,6 +5217,46 @@ function pwaInstalar() {
   });
 }
 window.pwaInstalar = pwaInstalar;
+
+// ── Optimización 3: throttle en alumno.html ──────────────────────
+// agente1MisionDia: max 1 vez cada 12h por alumno
+const _agente1Orig = window.agente1MisionDia;
+window.agente1MisionDia = async function() {
+  const uid = window.currentPerfil?.id || 'demo';
+  const key = 'mision_dia_' + uid;
+  const stored = localStorage.getItem(key);
+  const ttlHoras = 12;
+  if (stored) {
+    const diffH = (Date.now() - parseInt(stored)) / 3600000;
+    if (diffH < ttlHoras) {
+      // Mostrar tarjeta con mensaje de "ya generado hoy"
+      const card = document.getElementById('mision-dia-card');
+      const texto = document.getElementById('mision-dia-texto');
+      if (card && texto && !texto.textContent.trim()) {
+        card.style.display = 'block';
+        texto.innerHTML = '<span style="opacity:.7;">✅ Tu misión de hoy ya fue generada. Regresa mañana para una nueva.</span>';
+      }
+      return;
+    }
+  }
+  localStorage.setItem(key, Date.now().toString());
+  await _agente1Orig?.();
+};
+
+// agente4AlertaRiesgo: solo si hay materias < 6 (ya lo verifica internamente)
+// generarSugerencia en initPracticar: throttle 6h
+const _initPracticarOrig = window.initPracticar;
+window.initPracticar = function() {
+  if (typeof _initPracticarOrig === 'function') _initPracticarOrig();
+  // Throttle generarSugerencia a 6h
+  const key = 'sugerencia_practicar_' + (window.currentPerfil?.id || 'demo');
+  const stored = localStorage.getItem(key);
+  const ttlH = 6;
+  if (!stored || (Date.now() - parseInt(stored)) / 3600000 >= ttlH) {
+    localStorage.setItem(key, Date.now().toString());
+    if (window.materias?.length) setTimeout(generarSugerencia, 500);
+  }
+};
 
 </script>
 </body>
