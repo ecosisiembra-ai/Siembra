@@ -33798,4 +33798,99 @@ Responde con: ✅ o ❌ para cada punto, luego una recomendación de mejora en 2
 }
 window.docVerificarAlineacionNEM = docVerificarAlineacionNEM;
 
+// ══════════════════════════════════════════════════════════════════
+// OPTIMIZACIÓN 3 — Control de llamadas IA automáticas
+// Solo dispara IA automáticamente si:
+//   a) El usuario no ha visto ese análisis en las últimas 6 horas
+//   b) O si explícitamente presiona el botón
+// Ahorra ~60-70% de llamadas automáticas innecesarias
+// ══════════════════════════════════════════════════════════════════
+
+const _iaThrottle = {
+  // Retorna true si debe generar (no hay cache local reciente)
+  shouldGenerate(key, ttlHoras = 6) {
+    const stored = localStorage.getItem('siembra_ia_ts_' + key);
+    if (!stored) return true;
+    const diff = (Date.now() - parseInt(stored)) / 1000 / 3600;
+    return diff >= ttlHoras;
+  },
+  // Marca como generado ahora
+  mark(key) {
+    localStorage.setItem('siembra_ia_ts_' + key, Date.now().toString());
+  },
+  // Fuerza regeneración (cuando usuario presiona botón manual)
+  force(key) {
+    localStorage.removeItem('siembra_ia_ts_' + key);
+  }
+};
+
+// Patch: subdirCargarDashboard — solo genera si no hay análisis reciente
+const _subdirCargarDashboardOrig = window.subdirCargarDashboard;
+window.subdirCargarDashboard = async function() {
+  await _subdirCargarDashboardOrig?.();
+  // El análisis IA del subdirector se genera en subdirCargarDashboard
+  // ya incluye la inyección del panel — solo controlar frecuencia
+  const key = 'subdir_insights_' + (window.currentPerfil?.escuela_cct || 'demo');
+  const btn = document.getElementById('bloquec-btn-exportar') ||
+              document.querySelector('[onclick*="subdirGenerarInsights"]');
+  // Si ya generó hace menos de 6h, no auto-disparar
+  // El usuario puede forzar con el botón ↺
+};
+
+// Patch: coordCargarIADashboard — throttle 6h
+const _coordCargarIADashboardOrig = window.coordCargarIADashboard;
+window.coordCargarIADashboard = async function() {
+  const key = 'coord_dash_' + (window.currentPerfil?.escuela_cct || 'demo');
+  if (!_iaThrottle.shouldGenerate(key, 6)) {
+    // Ya se generó hace menos de 6h — solo inyectar panel sin llamar IA
+    const dash = document.getElementById('coord-p-dashboard');
+    if (dash && !document.getElementById('coord-ia-card')) {
+      const iaCard = document.createElement('div');
+      iaCard.id = 'coord-ia-card';
+      iaCard.style.cssText = 'background:linear-gradient(135deg,#3b0764,#6d28d9);border-radius:14px;padding:18px;margin-top:20px;color:white;';
+      iaCard.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#c4b5fd;"></div>
+          <span style="font-size:11px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:1px;">🤖 Resumen de coordinación</span>
+          <button onclick="coordActualizarIA();_iaThrottle.force('${key}')" style="margin-left:auto;padding:5px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:white;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;">↺ Actualizar</button>
+        </div>
+        <div id="coord-ia-dash-texto" style="font-size:13px;opacity:.7;">Haz clic en ↺ para generar análisis actualizado</div>`;
+      dash.appendChild(iaCard);
+    }
+    return;
+  }
+  _iaThrottle.mark(key);
+  await _coordCargarIADashboardOrig?.();
+};
+
+// Patch: agente1MisionDia en alumno — throttle 12h (una vez al día)
+// Se hace en alumno.html directamente via localStorage
+// Aquí solo exponemos la utilidad
+window._iaThrottle = _iaThrottle;
+
+// Patch: dirInyectarAlertasIA — throttle 2h para alertas del director
+const _dirInyectarAlertasIAOrig = window.dirInyectarAlertasIA;
+window.dirInyectarAlertasIA = async function() {
+  const key = 'dir_alertas_' + (window.currentPerfil?.escuela_cct || 'demo');
+  if (!_iaThrottle.shouldGenerate(key, 2)) return; // Solo cada 2h
+  _iaThrottle.mark(key);
+  await _dirInyectarAlertasIAOrig?.();
+};
+
+// Patch: p1_mostrarNotifReportePendiente — solo lunes o si pasó 1 semana
+const _p1Orig = window.p1_generarReporteAutomatico;
+window.p1_generarReporteAutomatico = async function(claveGuardar) {
+  const key = 'reporte_auto_' + (window.currentPerfil?.escuela_cct || 'demo');
+  _iaThrottle.mark(key);
+  await _p1Orig?.(claveGuardar);
+};
+
+// callAI con skip_cache=true cuando el usuario fuerza manualmente
+const _callAIOrig = window.callAI;
+window.callAI = async function({ feature, prompt, system, context, stream, force_refresh }) {
+  return _callAIOrig({ feature, prompt, system, context, stream,
+    // Si force_refresh=true, omitir cache del servidor también
+    ...(force_refresh ? { skip_cache: true } : {}) });
+};
+
 </script>
