@@ -8353,6 +8353,27 @@ async function initApp() {
           window._alumnosActivos = alumnosDB;
           alumnos.length = 0;
           alumnosDB.forEach(a => alumnos.push(a));
+
+          // FIX 3: Sincronizar docAlumnos (módulo etiquetas) con alumnos reales desde inicio
+          const _COLORES = ['#0d5c2f','#2563eb','#7c3aed','#dc2626','#0891b2','#c2410c','#065f46','#1d4ed8','#166534','#b91c1c'];
+          docAlumnos.length = 0;
+          alumnosDB.forEach((a, i) => {
+            const partes = (a.n || '').split(' ');
+            docAlumnos.push({
+              id: a.id,
+              nombre: partes[0] || 'Alumno',
+              apellido: partes.slice(1).join(' ') || '',
+              etiquetas: [],
+              color: _COLORES[i % _COLORES.length]
+            });
+          });
+
+          // FIX 2: Sincronizar salonActivoDoc con grupo real activo
+          salonActivoDoc = {
+            id: g.id,
+            nombre: g.nombre || (g.grado + '°'),
+            escuela: g.escuela_nombre || g.escuela_cct || ''
+          };
         }
 
         // 5. Materias del docente — SOLO del grupo activo actual
@@ -8485,7 +8506,8 @@ async function initApp() {
     obsPoblarSelects();
     ctPoblarSelectorTareas();
   }, 300);
-  renderBoleta(alumnos[0]?.n || '— Sin alumno —');
+  // FIX 1: renderBoleta no existe — se usa bltInit() que sí está definido
+  if (typeof bltInit === 'function') bltInit();
   renderMensajes();
   renderCalendario();
   cargarNoticiasDB();
@@ -8545,6 +8567,47 @@ async function docCambiarGrupo(grupoId) {
     alumnos.length = 0;
     alumnosDB.forEach(a => alumnos.push(a));
   }
+
+  // FIX 2: Sincronizar salonActivoDoc con el grupo activo real
+  if (g) {
+    salonActivoDoc = {
+      id: g.id,
+      nombre: g.nombre || (g.grado + '°'),
+      escuela: g.escuela_nombre || g.escuela_cct || ''
+    };
+  }
+
+  // FIX 3: Actualizar docAlumnos para el módulo de etiquetas
+  if (alumnosDB.length) {
+    const COLORES = ['#0d5c2f','#2563eb','#7c3aed','#dc2626','#0891b2','#c2410c','#065f46','#1d4ed8','#166534','#b91c1c'];
+    docAlumnos.length = 0;
+    alumnosDB.forEach((a, i) => {
+      const partes = (a.n || '').split(' ');
+      docAlumnos.push({
+        id: a.id,
+        nombre: partes[0] || 'Alumno',
+        apellido: partes.slice(1).join(' ') || '',
+        etiquetas: [],
+        color: COLORES[i % COLORES.length]
+      });
+    });
+  }
+
+  // FIX 1: Actualizar materias del nuevo grupo activo
+  try {
+    const { data: asigNuevo } = await sb.from('docente_grupos')
+      .select('materia, campo_formativo, grupo_id')
+      .eq('docente_id', currentPerfil.id)
+      .eq('grupo_id', grupoId)
+      .eq('activo', true);
+    if (asigNuevo?.length) {
+      const mats = [...new Set(asigNuevo.map(r => r.materia).filter(Boolean))];
+      window._materiasDocente = mats;
+      window._materiasFiltered = mats;
+      const matEl = document.getElementById('doc-materias-label');
+      if (matEl) matEl.textContent = mats.join(' · ') || 'Sin materias asignadas';
+    }
+  } catch(e) { console.warn('[docCambiarGrupo] materias:', e.message); }
 
   // Refrescar módulos clave
   calInit();
@@ -21358,10 +21421,26 @@ function hubToastDoc(msg){
 
 // ── Poblar selects con salones ──
 function poblarSelectSalones(){
+  // FIX 2: usar grupos reales de Supabase si existen, si no usar demo
+  const gruposReales = window._gruposDocente || [];
+  const fuente = gruposReales.length
+    ? gruposReales.map(g => ({
+        id: g.id,
+        nombre: g.nombre || (g.grado + '° ' + (g.seccion||'')).trim(),
+        escuela: g.escuela_nombre || g.escuela_cct || 'Mi escuela'
+      }))
+    : docSalones;
+
   ['etq-salon-sel','aco-salon-sel'].forEach(id=>{
     const sel=document.getElementById(id); if(!sel)return;
-    sel.innerHTML='<option value="">Seleccionar salón…</option>'+docSalones.map(s=>`<option value="${s.id}" ${salonActivoDoc?.id===s.id?'selected':''}>${s.nombre} · ${s.escuela}</option>`).join('');
+    sel.innerHTML='<option value="">Seleccionar salón…</option>'+fuente.map(s=>`<option value="${s.id}" ${salonActivoDoc?.id===s.id?'selected':''}>${s.nombre} · ${s.escuela}</option>`).join('');
   });
+
+  // Si hay grupos reales y no hay salonActivo aún, seleccionar el primero
+  if (gruposReales.length && (!salonActivoDoc || !salonActivoDoc.id)) {
+    const g = gruposReales[0];
+    salonActivoDoc = { id: g.id, nombre: g.nombre || g.grado+'°', escuela: g.escuela_nombre || g.escuela_cct || '' };
+  }
 }
 
 // ══ SALONES ══
@@ -21441,9 +21520,67 @@ function eliminarSalonDoc(id){
 }
 
 // ══ ALUMNOS Y ETIQUETAS ══
-function cambiarSalonEtq(id){
-  if(id) salonActivoDoc=docSalones.find(s=>s.id===id)||salonActivoDoc;
-  document.getElementById('etq-salon-nombre').textContent=salonActivoDoc?.nombre||'—';
+async function cambiarSalonEtq(id){
+  // FIX 3: buscar primero en grupos reales de Supabase, luego en demo
+  const gruposReales = window._gruposDocente || [];
+  if (id) {
+    const grupoReal = gruposReales.find(g => g.id === id);
+    if (grupoReal) {
+      salonActivoDoc = {
+        id: grupoReal.id,
+        nombre: grupoReal.nombre || (grupoReal.grado+'°'),
+        escuela: grupoReal.escuela_nombre || grupoReal.escuela_cct || ''
+      };
+    } else {
+      salonActivoDoc = docSalones.find(s=>s.id===id) || salonActivoDoc;
+    }
+  }
+  document.getElementById('etq-salon-nombre').textContent = salonActivoDoc?.nombre || '—';
+  window._grupoActivo = salonActivoDoc?.id || window._grupoActivo;
+
+  // FIX 3: Cargar alumnos REALES de Supabase para este grupo
+  if (typeof sb !== 'undefined' && sb && salonActivoDoc?.id) {
+    try {
+      const alumnosDB = await calCargarAlumnosGrupo(salonActivoDoc.id);
+      if (alumnosDB.length) {
+        const COLORES = ['#0d5c2f','#2563eb','#7c3aed','#dc2626','#0891b2','#c2410c','#065f46','#1d4ed8','#166534','#b91c1c'];
+
+        // Cargar etiquetas guardadas para este grupo
+        let etiquetasMap = {};
+        try {
+          const { data: etqData } = await sb.from('alumno_etiquetas')
+            .select('alumno_id, etiquetas')
+            .eq('grupo_id', salonActivoDoc.id);
+          if (etqData?.length) {
+            etqData.forEach(r => { etiquetasMap[r.alumno_id] = r.etiquetas || []; });
+          }
+        } catch(e2) {
+          // Fallback: leer localStorage
+          alumnosDB.forEach(a => {
+            try {
+              const raw = localStorage.getItem('etq_' + a.id + '_' + salonActivoDoc.id);
+              if (raw) etiquetasMap[a.id] = JSON.parse(raw);
+            } catch(_) {}
+          });
+        }
+
+        docAlumnos.length = 0;
+        alumnosDB.forEach((a, i) => {
+          const partes = (a.n || '').split(' ');
+          docAlumnos.push({
+            id: a.id,
+            nombre: partes[0] || 'Alumno',
+            apellido: partes.slice(1).join(' ') || '',
+            etiquetas: etiquetasMap[a.id] || [],
+            color: COLORES[i % COLORES.length]
+          });
+        });
+      }
+    } catch(e) {
+      console.warn('[cambiarSalonEtq] Error cargando alumnos reales:', e.message);
+    }
+  }
+
   renderAlumnosDoc();
 }
 
@@ -21472,18 +21609,50 @@ function abrirEtqDoc(alumnoId){
   openMod('modal-alumno-ov');
 }
 
-function guardarEtiquetasDoc(){
+async function guardarEtiquetasDoc(){
   const a=docAlumnos.find(x=>x.id===docEditAlumnoId); if(!a)return;
   a.etiquetas=[...document.querySelectorAll('#etq-selector-doc .etq-selected')].map(el=>el.dataset.id);
   closeMod('modal-alumno-ov');
   renderAlumnosDoc();
   renderUnassignedDoc();
+
+  // FIX 3: Persistir etiquetas en Supabase si está disponible
+  if (typeof sb !== 'undefined' && sb && a.id) {
+    try {
+      await sb.from('alumno_etiquetas').upsert({
+        alumno_id: a.id,
+        grupo_id: salonActivoDoc?.id || window._grupoActivo || null,
+        etiquetas: a.etiquetas,
+        actualizado_en: new Date().toISOString()
+      }, { onConflict: 'alumno_id,grupo_id' });
+    } catch(e) {
+      // Si la tabla no existe aún, guardar en localStorage como fallback
+      try {
+        const key = 'etq_' + a.id + '_' + (salonActivoDoc?.id || '');
+        localStorage.setItem(key, JSON.stringify(a.etiquetas));
+      } catch(_) {}
+      console.warn('[guardarEtiquetasDoc] Supabase no disponible, guardado local:', e.message);
+    }
+  }
+
   hubToastDoc('✅ Etiquetas guardadas para '+a.nombre);
 }
 
 // ══ ACOMODO ══
 function cambiarSalonAco(id){
-  if(id) salonActivoDoc=docSalones.find(s=>s.id===id)||salonActivoDoc;
+  // FIX 2: buscar en grupos reales primero, luego en demo
+  if (id) {
+    const grupoReal = (window._gruposDocente || []).find(g => g.id === id);
+    if (grupoReal) {
+      salonActivoDoc = {
+        id: grupoReal.id,
+        nombre: grupoReal.nombre || (grupoReal.grado + '°'),
+        escuela: grupoReal.escuela_nombre || grupoReal.escuela_cct || ''
+      };
+    } else {
+      salonActivoDoc = docSalones.find(s=>s.id===id) || salonActivoDoc;
+    }
+  }
   document.getElementById('acomodo-salon-label').textContent=(salonActivoDoc?.nombre||'—')+' · '+(salonActivoDoc?.escuela||'');
   try{const raw=localStorage.getItem('aco_'+salonActivoDoc?.id);docAcomodos=raw?JSON.parse(raw):[];}catch(e){docAcomodos=[];}
   renderSavedListDoc();
