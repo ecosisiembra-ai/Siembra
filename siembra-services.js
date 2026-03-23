@@ -1135,16 +1135,246 @@
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // BILLING SERVICE — Conekta
+  // Métodos de alto nivel para cobros, historial y estado de suscripción.
+  // Los cobros reales pasan por la Edge Function conekta-checkout.
+  // ═══════════════════════════════════════════════════════════════════════════
+  const billingService = {
+
+    /**
+     * Inicia un cobro para una escuela.
+     * Llama a la Edge Function conekta-checkout y devuelve los datos
+     * necesarios para que el frontend muestre el link / referencia.
+     *
+     * @param {object} opts
+     * @param {string} opts.escuelaId  - UUID de la escuela
+     * @param {string} opts.planId     - 'basico' | 'estandar' | 'premium'
+     * @param {string} opts.metodo     - 'card' | 'oxxo' | 'spei'
+     * @returns {{ data, error }}
+     */
+    async crearOrden({ escuelaId, planId, metodo = 'card' }) {
+      try {
+        const { data: { session } } = await sb().auth.getSession();
+        const jwt = session?.access_token;
+        if (!jwt) throw new Error('Sin sesión activa');
+
+        const supabaseUrl = window.SUPABASE_URL || sb().supabaseUrl;
+        const edgeUrl = supabaseUrl + '/functions/v1/conekta-checkout';
+
+        const res = await fetch(edgeUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`,
+          },
+          body: JSON.stringify({ escuela_id: escuelaId, plan_id: planId, metodo }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || `Error ${res.status}`);
+        return _ok(data);
+      } catch (e) {
+        return _err('billingService.crearOrden', e);
+      }
+    },
+
+    /**
+     * Obtiene el historial de pagos de una escuela.
+     * @param {string} escuelaId
+     */
+    async historialEscuela(escuelaId) {
+      try {
+        const { data, error } = await sb()
+          .from('pagos')
+          .select('id,plan_id,monto_mxn,metodo,estado,periodo_inicio,periodo_fin,creado_at,conekta_order_id')
+          .eq('escuela_id', escuelaId)
+          .order('creado_at', { ascending: false })
+          .limit(24);
+
+        if (error) throw error;
+        return _ok(data || []);
+      } catch (e) {
+        return _err('billingService.historialEscuela', e);
+      }
+    },
+
+    /**
+     * Verifica si una escuela tiene suscripción activa.
+     * Retorna { activa: bool, plan, vence_en_dias }
+     * @param {string} escuelaCct
+     */
+    async verificarSuscripcion(escuelaCct) {
+      try {
+        const { data, error } = await sb()
+          .from('escuelas')
+          .select('plan_suscripcion,estado_suscripcion,fecha_vencimiento')
+          .eq('cct', escuelaCct)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!data) return _ok({ activa: false, plan: null, vence_en_dias: null });
+
+        const hoy = new Date();
+        const vence = data.fecha_vencimiento ? new Date(data.fecha_vencimiento) : null;
+        const diasRestantes = vence ? Math.ceil((vence - hoy) / 86400000) : null;
+
+        return _ok({
+          activa:       data.estado_suscripcion === 'activa' && (diasRestantes === null || diasRestantes > 0),
+          plan:         data.plan_suscripcion,
+          estado:       data.estado_suscripcion,
+          vence_en_dias: diasRestantes,
+        });
+      } catch (e) {
+        return _err('billingService.verificarSuscripcion', e);
+      }
+    },
+
+    /**
+     * Obtiene todos los pagos (para el panel de superadmin).
+     * @param {{ limite, estado }} opts
+     */
+    async todosPagos({ limite = 100, estado = null } = {}) {
+      try {
+        let query = sb()
+          .from('pagos')
+          .select('*')
+          .order('creado_at', { ascending: false })
+          .limit(limite);
+
+        if (estado) query = query.eq('estado', estado);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return _ok(data || []);
+      } catch (e) {
+        return _err('billingService.todosPagos', e);
+      }
+    },
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SESSION WATCHER — onAuthStateChange
+  // Detecta token expirado, logout externo (otra pestaña) y refresco de sesión.
+  // Emite eventos custom para que cada portal reaccione sin acoplamiento.
+  //
+  // Eventos emitidos en window:
+  //   siembra:session_expired  → token expirado o revocado
+  //   siembra:session_restored → token refrescado automáticamente
+  //   siembra:signed_out       → logout desde otra pestaña/ventana
+  // ═══════════════════════════════════════════════════════════════════════════
+  const sessionWatcher = {
+    _unsub: null,
+    _started: false,
+
+    /**
+     * Inicia el listener. Llamar UNA VEZ después de que Supabase esté listo.
+     * Si ya está corriendo, no hace nada (idempotente).
+     */
+    start() {
+      if (this._started) return;
+      this._started = true;
+
+      try {
+        const client = sb();
+        this._unsub = client.auth.onAuthStateChange((event, session) => {
+          switch (event) {
+
+            // Token JWT refrescado automáticamente por el SDK
+            case 'TOKEN_REFRESHED':
+              if (session?.user) {
+                window.currentUser = session.user;
+                window.dispatchEvent(new CustomEvent('siembra:session_restored', {
+                  detail: { user: session.user }
+                }));
+                console.info('[SIEMBRA] Token refrescado correctamente.');
+              }
+              break;
+
+            // Sesión cerrada: puede ser logout explícito, token revocado
+            // o cierre de sesión desde otra pestaña/dispositivo
+            case 'SIGNED_OUT':
+              // Si no hay usuario activo en esta pestaña, ignorar (ya se hizo logout local)
+              if (!window.currentPerfil && !window.currentUser) break;
+
+              console.warn('[SIEMBRA] Sesión cerrada externamente (SIGNED_OUT).');
+              window.currentUser   = null;
+              window.currentPerfil = null;
+              sessionStorage.clear();
+
+              // Notificar al portal activo para que muestre el login
+              window.dispatchEvent(new CustomEvent('siembra:signed_out', {
+                detail: { reason: 'external' }
+              }));
+              break;
+
+            // El usuario inició sesión en otra pestaña — actualizar estado local
+            case 'SIGNED_IN':
+              if (session?.user && !window.currentUser) {
+                window.currentUser = session.user;
+                // El perfil se carga bajo demanda desde el portal
+                window.dispatchEvent(new CustomEvent('siembra:session_restored', {
+                  detail: { user: session.user }
+                }));
+              }
+              break;
+
+            // Cualquier error de sesión (token inválido, expirado sin refresh posible)
+            case 'USER_UPDATED':
+              // Actualizar usuario si cambió (ej. cambio de email confirmado)
+              if (session?.user) window.currentUser = session.user;
+              break;
+
+            default:
+              break;
+          }
+        });
+
+        console.info('[SIEMBRA] sessionWatcher activo — escuchando cambios de sesión.');
+      } catch (e) {
+        console.warn('[SIEMBRA] sessionWatcher no pudo iniciarse:', e.message);
+      }
+    },
+
+    /** Detiene el listener (útil en tests o unmount de SPA) */
+    stop() {
+      if (this._unsub?.data?.subscription) {
+        this._unsub.data.subscription.unsubscribe();
+      }
+      this._unsub  = null;
+      this._started = false;
+    },
+  };
+
+  // ── Handler global para siembra:signed_out ──────────────────────────────
+  // Escucha el evento y redirige al login usando la función hubLogout si existe
+  // (definida en index.html), o recarga la página como fallback seguro.
+  window.addEventListener('siembra:signed_out', () => {
+    toast('🔒 Tu sesión fue cerrada en otro dispositivo. Inicia sesión de nuevo.', 'err');
+    setTimeout(() => {
+      if (typeof hubLogout === 'function') {
+        hubLogout();
+      } else {
+        // Fallback para alumno.html u otros portales sin hubLogout
+        sessionStorage.clear();
+        try { localStorage.removeItem('siembra_alumno_token'); } catch(e) {}
+        window.location.href = '/index.html';
+      }
+    }, 2000);
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // EXPORTAR
   // ═══════════════════════════════════════════════════════════════════════════
   global.SIEMBRA = {
-    auth:    authService,
-    escuela: escuelaService,
-    grupo:   grupoService,
-    alumno:  alumnoService,
-    docente: docenteService,
-    tarea:   tareaService,
-    padre:   padreService,
+    auth:           authService,
+    billing:        billingService,
+    escuela:        escuelaService,
+    grupo:          grupoService,
+    alumno:         alumnoService,
+    docente:        docenteService,
+    tarea:          tareaService,
+    padre:          padreService,
+    sessionWatcher: sessionWatcher,
     // Utilidades públicas
     utils: { genToken, cicloActivo, toast },
   };
