@@ -64,6 +64,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         currentUser = session.user;
         await cargarPerfil();
         mostrarApp();
+        // Arrancar watcher de sesión una vez que hay sesión válida
+        if (window.SIEMBRA?.sessionWatcher) {
+          window.SIEMBRA.sessionWatcher.start();
+        }
       }
     }
   } catch(e) { console.warn('Error de sesión:', e); }
@@ -2288,7 +2292,7 @@ html, body {
         <input id="bib-search-input" type="text" placeholder="Busca un libro en español…"
           style="flex:1;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;outline:none;"
           onkeydown="if(event.key==='Enter')bibBuscar()">
-        <button onclick="bibBuscar()" style="padding:11px 16px;background:#0369a1;color:white;border:none;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">🔍</button>
+        <button onclick="bibBuscar()" style="padding:11px 16px;background:#0369a1;color:white;border:none;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;" aria-label="Buscar">🔍</button>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;">
         <span style="font-size:11px;color:var(--texto-2);">Sugerencias:</span>
@@ -2337,7 +2341,7 @@ html, body {
   <!-- ══ PANEL LECTOR FULLSCREEN ══ -->
   <div class="lector-panel" id="lector-panel">
     <div class="lector-header">
-      <button class="lector-back" onclick="cerrarLector()">←</button>
+      <button class="lector-back" onclick="cerrarLector()" aria-label="Regresar">←</button>
       <div class="lector-info">
         <div class="lector-titulo" id="lector-titulo">Cargando…</div>
         <div class="lector-cap"   id="lector-cap"></div>
@@ -2376,7 +2380,7 @@ html, body {
   <!-- ══ MODAL QUIZ FINAL ══ -->
   <div class="bib-quiz-modal" id="bib-quiz-modal">
     <div class="bib-quiz-header">
-      <button class="bib-quiz-back" onclick="cerrarQuizBib()">←</button>
+      <button class="bib-quiz-back" onclick="cerrarQuizBib()" aria-label="Regresar">←</button>
       <div class="bib-quiz-titulo" id="bib-quiz-libro-titulo">Quiz del libro</div>
     </div>
     <div class="bib-quiz-body" id="bib-quiz-body">
@@ -2541,7 +2545,7 @@ html, body {
 
     <!-- Nav -->
     <div class="album-nav">
-      <button class="album-back" onclick="cerrarAlbum()">←</button>
+      <button class="album-back" onclick="cerrarAlbum()" aria-label="Regresar">←</button>
       <div>
         <div class="album-nav-title">ÁLBUM SIEMBRA</div>
         <div class="album-nav-sub">Colección de Insignias</div>
@@ -2610,7 +2614,7 @@ html, body {
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title" id="modal-titulo">Ejercicio</div>
-      <button class="modal-close" onclick="cerrarModal()">✕</button>
+      <button class="modal-close" onclick="cerrarModal()" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
   </div>
@@ -3592,7 +3596,7 @@ function mostrarRetroalimentacion(correcto, explicacion, xp, esAbierta=false) {
       <button onclick="siguienteEjercicio()" style="flex:1;padding:13px;background:var(--verde);color:white;border:none;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">
         ➡️ Siguiente ejercicio
       </button>
-      <button onclick="document.getElementById('zona-ejercicio').style.display='none';esperandoRespuesta=false;" style="padding:13px 16px;background:white;border:2px solid var(--border);border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;color:var(--texto-2);">
+      <button onclick="document.getElementById('zona-ejercicio').style.display='none';esperandoRespuesta=false;" style="padding:13px 16px;background:white;border:2px solid var(--border);border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;color:var(--texto-2);" aria-label="Cerrar">
         ✕
       </button>
     </div>
@@ -4837,7 +4841,7 @@ function bibVerDetalleBib(libroId) {
   card.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">' +
       '<div style="font-size:13px;font-weight:700;color:var(--texto-2);">' + (esAsignado?'📋 Asignado por tu maestra':'📚 Biblioteca SIEMBRA') + '</div>' +
-      '<button onclick="cerrarDetalleBib()" style="border:none;background:#f0f0f0;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;">✕</button>' +
+      '<button onclick="cerrarDetalleBib()" style="border:none;background:#f0f0f0;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;" aria-label="Cerrar">✕</button>' +
     '</div>' +
     '<div class="bib-detalle-portada-row">' +
       '<div style="flex-shrink:0;">' +
@@ -4961,7 +4965,7 @@ async function bibVerDetalleOL(workKey) {
   card.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">' +
       '<div style="font-size:13px;font-weight:700;color:var(--texto-2);">📚 Open Library</div>' +
-      '<button onclick="cerrarDetalleBib()" style="border:none;background:#f0f0f0;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;">✕</button>' +
+      '<button onclick="cerrarDetalleBib()" style="border:none;background:#f0f0f0;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px;" aria-label="Cerrar">✕</button>' +
     '</div>' +
     '<div class="bib-detalle-portada-row">' +
       '<div style="flex-shrink:0;">' + portadaHTML + '</div>' +
