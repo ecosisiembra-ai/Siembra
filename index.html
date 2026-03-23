@@ -19372,9 +19372,8 @@ function admRenderDocentes() {
 
 async function admCargarAsignaciones() {
   const wrap = document.getElementById('adm-mat-tabla-wrap') || document.querySelector('#adm-p-materias .adm-mat-tabla');
-  if (!wrap) return;
 
-  if (!sb || !currentPerfil?.escuela_id) {
+  if (!sb || !currentPerfil?.escuela_cct) {
     admRenderAsignacionesDemo();
     return;
   }
@@ -19382,16 +19381,27 @@ async function admCargarAsignaciones() {
   try {
     const { data, error } = await sb.from('docente_grupos')
       .select(`
-        docente_id, grupo_id,
-        materia,
+        id, docente_id, grupo_id,
+        materia, ciclo,
         usuarios!docente_id(nombre, apellido_p),
-        grupos!grupo_id(nombre, grado)
+        grupos!grupo_id(nombre, grado, escuela_cct)
       `)
-      .eq('activo', true);
+      .eq('activo', true)
+      .eq('ciclo', window.CICLO_ACTIVO || '2025-2026');
 
     if (error) throw error;
-    _admMateriasData = data || [];
-    admRenderTablaAsignaciones(_admMateriasData);
+
+    // Filtrar solo los de esta escuela
+    const filtrados = (data || []).filter(r =>
+      !r.grupos?.escuela_cct || r.grupos.escuela_cct === currentPerfil.escuela_cct
+    );
+
+    _admMateriasData = filtrados;
+    window._admMateriasData = filtrados; // Exponer para renderMaterias
+
+    if (wrap) admRenderTablaAsignaciones(filtrados);
+    // Actualizar catálogo si está visible
+    if (ADM.paginaActual === 'asignaciones') ADM.renderMaterias();
   } catch(e) {
     console.warn('[admMaterias]', e.message);
     admRenderAsignacionesDemo();
@@ -26525,7 +26535,7 @@ ADM.renderDashboard = function() {
   s('adm-stat-grupos',   ADM.grupos.length);
   s('adm-stat-docentes', ADM.docentes.length);
   s('adm-stat-alumnos',  ADM.alumnos.length);
-  s('adm-stat-materias', ADM.materias.length);
+  s('adm-stat-materias', 4); // 4 Campos Formativos NEM
 
   // Alumnos sin grupo
   const sinGrupo = ADM.alumnos.filter(a => !a.alumnos_grupos?.length).length;
@@ -28342,21 +28352,219 @@ function admAsigTab(tab) {
 ADM.renderMaterias = function() {
   const el = document.getElementById('adm-materias-cat-list');
   if (!el) return;
-  // Filtrar materias por nivel de la escuela activa
+
   const nivelEsc = ADM.escuelaNivel || window._admNivelActivo || window._nivelActivo || 'secundaria';
-  const materiasFiltradas = ADM.materias.filter(m =>
-    !m.nivel || m.nivel === nivelEsc || m.nivel === 'ambos'
-  );
-  el.innerHTML = materiasFiltradas.map(m => `
-    <div class="adm-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;">
-      <div style="width:36px;height:36px;border-radius:8px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;font-size:18px;">📚</div>
-      <div style="flex:1;">
-        <div style="font-weight:700;font-size:13px;">${m.nombre}</div>
-        <div style="font-size:11px;color:#64748b;">${m.nivel||'General'} · ${m.horas_semana||5}h/semana</div>
+  const asignaciones = window._admMateriasData || [];
+
+  // ── Estructura por año y campo formativo ──────────────────────
+  const GRADOS_SEC = [
+    { grado: '1', label: '1° Año', ciencias: 'Biología' },
+    { grado: '2', label: '2° Año', ciencias: 'Física'   },
+    { grado: '3', label: '3° Año', ciencias: 'Química'  },
+  ];
+
+  const CAMPOS_SEC_BASE = [
+    {
+      id: 'lenguajes', emoji: '📖', color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe',
+      nombre: 'Lenguajes',
+      materias: (ciencias) => ['Español','Inglés','Artes'],
+      horas: { 'Español':5, 'Inglés':3, 'Artes':2 }
+    },
+    {
+      id: 'saberes', emoji: '🔬', color: '#166534', bg: '#f0fdf4', border: '#86efac',
+      nombre: 'Saberes y Pensamiento Científico',
+      materias: (ciencias) => ['Matemáticas', ciencias, 'Tecnología'],
+      horas: { 'Matemáticas':5, 'Biología':3, 'Física':3, 'Química':3, 'Tecnología':2 }
+    },
+    {
+      id: 'etica', emoji: '🌍', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe',
+      nombre: 'Ética, Naturaleza y Sociedades',
+      materias: (ciencias, grado) => grado === '1'
+        ? ['Historia','Geografía','Formación Cívica y Ética']
+        : ['Historia','Formación Cívica y Ética'],
+      horas: { 'Historia':2, 'Geografía':2, 'Formación Cívica y Ética':2 }
+    },
+    {
+      id: 'humano', emoji: '🤝', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa',
+      nombre: 'De lo Humano y lo Comunitario',
+      materias: (ciencias) => ['Educación Física','Tutoría'],
+      horas: { 'Educación Física':2, 'Tutoría':1 }
+    },
+  ];
+
+  const GRADOS_PRI = [
+    { grado: '1', label: '1° Grado' },
+    { grado: '2', label: '2° Grado' },
+    { grado: '3', label: '3° Grado' },
+    { grado: '4', label: '4° Grado' },
+    { grado: '5', label: '5° Grado' },
+    { grado: '6', label: '6° Grado' },
+  ];
+
+  const CAMPOS_PRI_BASE = [
+    {
+      id: 'lenguajes', emoji: '📖', color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe',
+      nombre: 'Lenguajes',
+      materias: () => ['Lengua Materna (Español)','Segunda Lengua (Inglés)','Educación Artística'],
+      horas: {}
+    },
+    {
+      id: 'saberes', emoji: '🔬', color: '#166534', bg: '#f0fdf4', border: '#86efac',
+      nombre: 'Saberes y Pensamiento Científico',
+      materias: () => ['Matemáticas','Ciencias Naturales y Tecnología'],
+      horas: {}
+    },
+    {
+      id: 'etica', emoji: '🌍', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe',
+      nombre: 'Ética, Naturaleza y Sociedades',
+      materias: () => ['Historia','Geografía','Formación Cívica y Ética'],
+      horas: {}
+    },
+    {
+      id: 'humano', emoji: '🤝', color: '#c2410c', bg: '#fff7ed', border: '#fed7aa',
+      nombre: 'De lo Humano y lo Comunitario',
+      materias: () => ['Educación Física','Vida Saludable','Proyecto de Aula','Tutoría y Participación Social'],
+      horas: {}
+    },
+  ];
+
+  const esSecundaria = nivelEsc === 'secundaria';
+  const grados  = esSecundaria ? GRADOS_SEC : GRADOS_PRI;
+  const campos  = esSecundaria ? CAMPOS_SEC_BASE : CAMPOS_PRI_BASE;
+
+  // Obtener grupos reales por grado
+  const gruposPorGrado = {};
+  (ADM.grupos || []).forEach(g => {
+    const gr = String(g.grado || '').replace(/[°\s]/g, '').trim();
+    if (!gruposPorGrado[gr]) gruposPorGrado[gr] = [];
+    gruposPorGrado[gr].push(g);
+  });
+
+  el.innerHTML = grados.map((gradoInfo, gi) => {
+    const gruposDeEsteGrado = gruposPorGrado[gradoInfo.grado] || [];
+    const grupoNombres = gruposDeEsteGrado.map(g => g.nombre || g.grado+'°'+(g.seccion||'A')).join(', ');
+
+    // Construir campos para este grado
+    const camposDeGrado = campos.map(campo => {
+      const mats = campo.materias(gradoInfo.ciencias || '', gradoInfo.grado);
+      return { ...campo, matsGrado: mats };
+    });
+
+    // Contar asignaciones completas de este grado
+    const totalMats = camposDeGrado.reduce((s, c) => s + c.matsGrado.length, 0);
+    const asigGrado = asignaciones.filter(a => {
+      const grupoIds = gruposDeEsteGrado.map(g => g.id);
+      return grupoIds.includes(a.grupo_id);
+    });
+    const matsConDoc = new Set(asigGrado.map(a => a.materia));
+    const completadas = camposDeGrado.reduce((s, c) =>
+      s + c.matsGrado.filter(m => matsConDoc.has(m)).length, 0);
+
+    const todoCompleto = completadas === totalMats && totalMats > 0;
+    const sinGrupo = gruposDeEsteGrado.length === 0;
+
+    return `
+    <!-- ── AÑO ${gradoInfo.grado} ── -->
+    <div style="border:2px solid ${todoCompleto?'#86efac':sinGrupo?'#e2e8f0':'#fde68a'};border-radius:16px;overflow:hidden;margin-bottom:16px;">
+
+      <!-- Header año -->
+      <div onclick="admToggleCampo('anio-${gi}')"
+        style="background:${todoCompleto?'#f0fdf4':sinGrupo?'#f8fafc':'#fffbeb'};padding:16px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;user-select:none;">
+        <div style="width:40px;height:40px;border-radius:10px;background:${todoCompleto?'#0d5c2f':sinGrupo?'#94a3b8':'#b45309'};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:white;flex-shrink:0;">
+          ${gradoInfo.grado}°
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:800;color:#0f172a;">${gradoInfo.label}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px;">
+            ${sinGrupo
+              ? '⚠️ Sin grupo creado para este año'
+              : `Grupos: ${grupoNombres} · ${completadas}/${totalMats} materias asignadas`
+            }
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${todoCompleto
+            ? '<span style="background:#dcfce7;color:#15803d;font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;">✅ Completo</span>'
+            : sinGrupo
+              ? '<span style="background:#f1f5f9;color:#64748b;font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;">Sin grupo</span>'
+              : `<span style="background:#fef9c3;color:#a16207;font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;">⚠️ Faltan ${totalMats - completadas}</span>`
+          }
+          <span id="anio-${gi}-arrow" style="font-size:18px;color:#64748b;transition:.2s;">▸</span>
+        </div>
       </div>
-      <button class="adm-btn-sm adm-btn-danger" onclick="ADM.eliminarMateria('${m.id}','${m.nombre}')">✕</button>
-    </div>`).join('') || '<div class="adm-empty">Sin materias para este nivel. Crea la primera →</div>';
+
+      <!-- Campos formativos del año (ocultos por defecto) -->
+      <div id="anio-${gi}" style="display:none;background:#fafafa;">
+        ${camposDeGrado.map((campo, ci) => {
+          const asigCampo = asignaciones.filter(a => {
+            const grupoIds = gruposDeEsteGrado.map(g => g.id);
+            return grupoIds.includes(a.grupo_id) && campo.matsGrado.includes(a.materia);
+          });
+          const matsConDocCampo = new Set(asigCampo.map(a => a.materia));
+          const completadasCampo = campo.matsGrado.filter(m => matsConDocCampo.has(m)).length;
+
+          return `
+          <div style="border-top:1px solid #e2e8f0;">
+            <!-- Header campo formativo -->
+            <div onclick="admToggleCampo('campo-${gi}-${ci}')"
+              style="background:${campo.bg};padding:12px 20px 12px 32px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;">
+              <span style="font-size:16px;">${campo.emoji}</span>
+              <div style="flex:1;">
+                <div style="font-size:12px;font-weight:700;color:${campo.color};">${campo.nombre}</div>
+                <div style="font-size:10px;color:#64748b;">${completadasCampo}/${campo.matsGrado.length} materias con docente</div>
+              </div>
+              <span id="campo-${gi}-${ci}-arrow" style="font-size:14px;color:${campo.color};">▸</span>
+            </div>
+
+            <!-- Materias del campo (ocultas por defecto) -->
+            <div id="campo-${gi}-${ci}" style="display:none;background:white;">
+              ${campo.matsGrado.map(mat => {
+                const docs = asigGrado.filter(a => a.materia === mat);
+                const tieneDoc = docs.length > 0;
+                const horas = campo.horas[mat] || 3;
+
+                return `
+                <div style="padding:10px 20px 10px 48px;border-top:1px solid #f8fafc;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <div style="width:6px;height:6px;border-radius:50%;background:${tieneDoc?campo.color:'#e2e8f0'};flex-shrink:0;"></div>
+                  <div style="min-width:160px;flex:1;">
+                    <div style="font-size:12px;font-weight:700;color:#0f172a;">${mat}</div>
+                    <div style="font-size:10px;color:#94a3b8;">${horas}h/semana</div>
+                  </div>
+                  <div style="flex:2;min-width:180px;">
+                    ${tieneDoc
+                      ? docs.map(d => {
+                          const nomDoc = `${d.usuarios?.nombre||''} ${d.usuarios?.apellido_p||''}`.trim() || '—';
+                          const grupo  = d.grupos?.nombre || '—';
+                          return `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0fdf4;border:1px solid #86efac;color:#15803d;padding:2px 9px;border-radius:99px;font-size:10px;font-weight:600;margin:2px;">
+                            👩‍🏫 ${nomDoc} · ${grupo}
+                          </span>`;
+                        }).join('')
+                      : '<span style="font-size:10px;color:#94a3b8;font-style:italic;">Sin docente asignado</span>'
+                    }
+                  </div>
+                  <button onclick="admAbrirAsignarMateriaModal('${mat}','${campo.id}','${gradoInfo.grado}')"
+                    style="padding:4px 10px;background:${tieneDoc?'#f8fafc':'#f0fdf4'};border:1.5px solid ${tieneDoc?'#e2e8f0':'#86efac'};color:${tieneDoc?'#475569':'#15803d'};border-radius:6px;font-family:'Sora',sans-serif;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+                    ${tieneDoc ? '✏️ Editar' : '+ Asignar'}
+                  </button>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
 };
+
+function admToggleCampo(id) {
+  const el = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▸' : '▾';
+}
+window.admToggleCampo = admToggleCampo;
 
 ADM.abrirModalMateria = function() {
   const nivelEsc = ADM.escuelaNivel || window._admNivelActivo || 'primaria';
@@ -35271,5 +35479,116 @@ window.admActualizarTurno     = admActualizarTurno;
 window.admGuardarConfigTurno  = admGuardarConfigTurno;
 window.admHorarioCeldaCambio  = admHorarioCeldaCambio;
 window.admAgregarFilaHorario  = admAgregarFilaHorario;
+
+// ── Asignar materia con modal mejorado ────────────────────────────
+async function admAbrirAsignarMateriaModal(materia, campoId, grado) {
+  const docentes = ADM.docentes || [];
+  const grupos   = ADM.grupos   || [];
+
+  if (!docentes.length) {
+    hubToast('⚠️ Da de alta docentes primero en Personal', 'warn'); return;
+  }
+  if (!grupos.length) {
+    hubToast('⚠️ Crea grupos primero en Grupos', 'warn'); return;
+  }
+
+  // Filtrar docentes con rol docente/tutor
+  const docentesOpts = docentes
+    .filter(d => ['docente','tutor'].includes(d.rol))
+    .map(d => `<option value="${d.id}">${d.nombre} ${d.apellido_p||''}</option>`)
+    .join('');
+
+  // Filtrar grupos del grado correspondiente
+  const gruposFiltrados = grado
+    ? grupos.filter(g => String(g.grado||'').replace(/[°\s]/g,'').trim() === String(grado))
+    : grupos;
+
+  const gruposOpts = gruposFiltrados.length
+    ? gruposFiltrados.map(g => `<option value="${g.id}">${g.nombre || g.grado+'° '+(g.seccion||'A')}</option>`).join('')
+    : grupos.map(g => `<option value="${g.id}">${g.nombre || g.grado+'° '+(g.seccion||'A')}</option>`).join('');
+
+  // Ver asignaciones actuales para esta materia y grado
+  const grupoIdsDeGrado = gruposFiltrados.map(g => g.id);
+  const actuales = (window._admMateriasData||[]).filter(a =>
+    a.materia === materia && (!grado || grupoIdsDeGrado.includes(a.grupo_id))
+  );
+
+  const actualesHTML = actuales.length
+    ? `<div style="margin-bottom:14px;padding:10px 14px;background:#f0fdf4;border-radius:8px;font-size:12px;">
+        <div style="font-weight:700;color:#15803d;margin-bottom:6px;">Asignaciones actuales:</div>
+        ${actuales.map(a => {
+          const nom = `${a.usuarios?.nombre||''} ${a.usuarios?.apellido_p||''}`.trim();
+          const grp = a.grupos?.nombre || '—';
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+            <span>👩‍🏫 ${nom} · ${grp}</span>
+            <button onclick="admEliminarAsignacion('${a.id||''}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;">✕</button>
+          </div>`;
+        }).join('')}
+      </div>`
+    : '';
+
+  hubModal(`📚 Asignar docente — ${materia}${grado ? ' · '+grado+'° año' : ''}`,
+    `${actualesHTML}
+     <div style="margin-bottom:12px;">
+       <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Docente</label>
+       <select id="asig-docente-sel" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+         <option value="">Seleccionar docente…</option>
+         ${docentesOpts}
+       </select>
+     </div>
+     <div>
+       <label style="display:block;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:5px;">Grupo${grado ? ' ('+grado+'° año)':''}</label>
+       <select id="asig-grupo-sel" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-family:'Sora',sans-serif;font-size:13px;outline:none;">
+         <option value="">Todos los grupos del año…</option>
+         ${gruposOpts}
+       </select>
+     </div>`,
+    '✅ Guardar asignación',
+    async () => {
+      const docenteId = document.getElementById('asig-docente-sel')?.value;
+      const grupoId   = document.getElementById('asig-grupo-sel')?.value || null;
+      if (!docenteId) { hubToast('⚠️ Selecciona un docente', 'warn'); return; }
+
+      if (!window.sb) { hubToast('✅ Asignación guardada (demo)', 'ok'); return; }
+
+      try {
+        await window.sb.from('docente_grupos').upsert({
+          docente_id:  docenteId,
+          grupo_id:    grupoId,
+          materia,
+          ciclo:       window.CICLO_ACTIVO || '2025-2026',
+          activo:      true,
+          escuela_cct: window.currentPerfil?.escuela_cct,
+        }, { onConflict: 'docente_id,grupo_id,materia,ciclo' });
+
+        hubToast(`✅ ${materia} asignada correctamente`, 'ok');
+        await admCargarAsignaciones();
+        admAsigTab('catalogo');
+      } catch(e) {
+        hubToast('❌ Error: ' + e.message, 'err');
+      }
+    });
+}
+window.admAbrirAsignarMateriaModal = admAbrirAsignarMateriaModal;
+
+async function admEliminarAsignacion(id) {
+  if (!id || !window.sb) return;
+  if (!confirm('¿Eliminar esta asignación?')) return;
+  await window.sb.from('docente_grupos').update({ activo: false }).eq('id', id);
+  hubToast('✅ Asignación eliminada', 'ok');
+  await admCargarAsignaciones();
+  admAsigTab('catalogo');
+}
+window.admEliminarAsignacion = admEliminarAsignacion;
+
+// Patch: guardar asignaciones en _admMateriasData antes de renderizar catálogo
+const _admCargarAsignacionesOrig = window.admCargarAsignaciones;
+window.admCargarAsignaciones = async function() {
+  await _admCargarAsignacionesOrig?.();
+  // Después de cargar, re-render catálogo si está visible
+  if (ADM.paginaActual === 'asignaciones') {
+    ADM.renderMaterias();
+  }
+};
 
 </script>
