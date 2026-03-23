@@ -8059,7 +8059,7 @@ function cambiarNivel(nivel) {
 
   // Actualizar título de calificaciones con el grupo activo tras cambio de nivel
   const _gActNiv = (window._gruposDocente||[]).find(g=>g.id===window._grupoActivo);
-  const _gNomNiv = _gActNiv?.nombre || (_gActNiv ? `${_gActNiv.grado}° ${_gActNiv.letra}` : '—');
+  const _gNomNiv = _gActNiv?.nombre || (_gActNiv ? `${_gActNiv.grado}° ${_gActNiv.seccion||_gActNiv.grupo||'A'}` : '—');
   const calH2 = document.getElementById('cal-titulo-h2');
   if (calH2) calH2.textContent = `Calificaciones · ${_gNomNiv}`;
   if (document.getElementById('p-calificaciones')?.classList.contains('active')) {
@@ -9121,16 +9121,33 @@ async function calCargarCalificacionesDB(grupoId) {
 function calRenderMatTabs() {
   const wrap = document.getElementById('cal-mat-tabs');
   if (!wrap) return;
-  // Usar SOLO las materias asignadas al docente
-  const mats = (window._materiasDocente?.length)
-    ? window._materiasDocente
-    : (window._nivelActivo === 'secundaria'
-        ? (window.CAMPOS_NEM_SECUNDARIA?.flatMap(c=>c.contenidos) || MATERIAS_NEM)
-        : MATERIAS_NEM);
-  // Si calMatActual no está en la lista, resetear a la primera
+
+  // Prioridad de materias:
+  // 1. Materias asignadas al docente en docente_grupos (fuente de verdad)
+  // 2. Materias del grado activo según plan SEP (fallback inteligente)
+  let mats = [];
+  if (window._materiasDocente?.length) {
+    mats = window._materiasDocente;
+  } else {
+    // Fallback: materias del grado del grupo activo
+    const grupoActivo = (window._gruposDocente||[]).find(g => g.id === window._grupoActivo)
+                     || window._gruposDocente?.[0];
+    const nivel = grupoActivo?.nivel || window._nivelActivo || 'secundaria';
+    if (nivel === 'secundaria' && grupoActivo?.grado) {
+      const gr = String(grupoActivo.grado).replace(/[°\s]/g,'').trim();
+      mats = window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr]
+          || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1']
+          || getMateriasByNivel('secundaria');
+    } else {
+      mats = getMateriasByNivel(nivel);
+    }
+  }
+
+  if (!mats.length) mats = getMateriasByNivel(window._nivelActivo || 'secundaria');
   if (mats.length && !mats.includes(calMatActual)) calMatActual = mats[0];
+
   wrap.innerHTML = mats.map(m => `
-    <button onclick="calSetMateria('${m}')" 
+    <button onclick="calSetMateria('${m}')"
       style="padding:7px 14px;border-radius:99px;border:1.5px solid ${m===calMatActual?'var(--verde)':'var(--gris-20)'};
              background:${m===calMatActual?'var(--verde)':'white'};color:${m===calMatActual?'white':'var(--gris-80)'};
              font-family:'Sora',sans-serif;font-size:12px;font-weight:${m===calMatActual?'700':'500'};
@@ -34405,5 +34422,152 @@ document.addEventListener('siembra:datos-cargados', () => {
 });
 window.planObtenerContextoGrupo = planObtenerContextoGrupo;
 window.planMostrarBannerContexto = planMostrarBannerContexto;
+
+// ══════════════════════════════════════════════════════════════════
+// SELECTOR DE GRUPOS — Navegación entre grupos del docente
+// Se inyecta en el header de Calificaciones cuando hay >1 grupo
+// ══════════════════════════════════════════════════════════════════
+
+function calRenderSelectorGrupos() {
+  const gruposDocente = window._gruposDocente || [];
+  if (gruposDocente.length <= 1) return; // Sin selector si hay un solo grupo
+
+  const existing = document.getElementById('cal-selector-grupos');
+  if (existing) { existing.remove(); }
+
+  const h2 = document.getElementById('cal-titulo-h2');
+  if (!h2) return;
+
+  const wrapper = h2.closest('div') || h2.parentElement;
+  if (!wrapper) return;
+
+  const grupoActual = gruposDocente.find(g => g.id === window._grupoActivo) || gruposDocente[0];
+
+  const sel = document.createElement('div');
+  sel.id = 'cal-selector-grupos';
+  sel.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;';
+  sel.innerHTML = `
+    <span style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;">Grupo:</span>
+    ${gruposDocente.map(g => {
+      const nom = g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`;
+      const activo = g.id === window._grupoActivo;
+      return `<button onclick="calCambiarGrupo('${g.id}')"
+        style="padding:6px 14px;border-radius:99px;border:1.5px solid ${activo?'var(--verde)':'var(--gris-20)'};
+               background:${activo?'var(--verde)':'white'};color:${activo?'white':'var(--gris-80)'};
+               font-family:'Sora',sans-serif;font-size:12px;font-weight:${activo?'700':'500'};
+               cursor:pointer;transition:.15s;">
+        ${nom}
+        ${g.materias?.length ? `<span style="font-size:10px;opacity:.7;"> · ${g.materias.length} mat.</span>` : ''}
+      </button>`;
+    }).join('')}`;
+
+  // Insertar después del h2
+  h2.insertAdjacentElement('afterend', sel);
+}
+
+async function calCambiarGrupo(grupoId) {
+  if (grupoId === window._grupoActivo) return;
+  window._grupoActivo = grupoId;
+
+  const g = (window._gruposDocente||[]).find(x => x.id === grupoId);
+  if (!g) return;
+
+  // Actualizar título
+  const nom = g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`;
+  const calH2 = document.getElementById('cal-titulo-h2');
+  if (calH2) calH2.textContent = `Calificaciones · ${nom}`;
+
+  // Actualizar nivel si el grupo tiene nivel definido
+  if (g.nivel && g.nivel !== window._nivelActivo) {
+    window._nivelActivo = g.nivel;
+  }
+
+  // Actualizar grado activo para materias correctas
+  if (g.grado) window._gradoActivo = String(g.grado).replace(/[°\s]/g,'').trim();
+
+  // Actualizar materias del grupo
+  const asignadas = (window._docenteAsignaciones||[])
+    .filter(a => a.grupo_id === grupoId)
+    .map(a => a.materia).filter(Boolean);
+
+  if (asignadas.length) {
+    window._materiasDocente = [...new Set(asignadas)];
+  } else if (g.nivel === 'secundaria' && g.grado) {
+    const gr = String(g.grado).replace(/[°\s]/g,'').trim();
+    window._materiasDocente = window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr]
+                           || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1']
+                           || [];
+  }
+
+  // Cargar alumnos del nuevo grupo
+  hubToast('⏳ Cargando grupo ' + nom + '…', 'ok');
+  const alumnosDB = await calCargarAlumnosGrupo(grupoId);
+  if (alumnosDB.length) {
+    window._alumnosActivos = alumnosDB;
+    alumnos.length = 0;
+    alumnosDB.forEach(a => alumnos.push(a));
+  }
+
+  // Cargar calificaciones del nuevo grupo
+  await calCargarCalificacionesDB(grupoId);
+  await calCargarAspectos(grupoId);
+
+  // Re-render
+  calRenderSelectorGrupos();
+  calRenderMatTabs();
+  calRenderTabla();
+  calRenderStats();
+
+  // Actualizar topbar
+  const topNom = document.getElementById('topbar-grupo-nom');
+  if (topNom) topNom.textContent = nom;
+
+  hubToast('✅ Grupo ' + nom + ' cargado', 'ok');
+}
+
+// Parche: inyectar selector cuando se navega a calificaciones
+const _dNavOrig2 = window.dNav;
+window.dNav = function(page) {
+  _dNavOrig2?.(page);
+  if (page === 'calificaciones') {
+    setTimeout(() => {
+      calRenderSelectorGrupos();
+      // Fix título "undefined"
+      const g = (window._gruposDocente||[]).find(x => x.id === window._grupoActivo) || window._gruposDocente?.[0];
+      if (g) {
+        const nom = g.nombre || `${g.grado}° ${g.seccion||g.grupo||'A'}`;
+        const calH2 = document.getElementById('cal-titulo-h2');
+        if (calH2 && calH2.textContent.includes('undefined')) {
+          calH2.textContent = `Calificaciones · ${nom}`;
+        }
+        // Forzar materias correctas
+        if (!window._materiasDocente?.length && g.nivel === 'secundaria') {
+          const gr = String(g.grado||'1').replace(/[°\s]/g,'').trim();
+          window._materiasDocente = window.MATERIAS_SECUNDARIA_POR_GRADO?.[gr]
+                                 || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1']
+                                 || [];
+          calRenderMatTabs();
+        }
+      }
+    }, 300);
+  }
+};
+
+// También al cargar la app
+window.addEventListener('siembra:datos-cargados', () => {
+  setTimeout(() => {
+    if (window._gruposDocente?.length > 1) calRenderSelectorGrupos();
+    // Fix "undefined" en cualquier título
+    document.querySelectorAll('[id$="-titulo-h2"]').forEach(el => {
+      if (el.textContent.includes('undefined')) {
+        const g = window._gruposDocente?.[0];
+        if (g) el.textContent = el.textContent.replace('undefined', g.seccion||g.grupo||'A');
+      }
+    });
+  }, 1000);
+});
+
+window.calRenderSelectorGrupos = calRenderSelectorGrupos;
+window.calCambiarGrupo = calCambiarGrupo;
 
 </script>
