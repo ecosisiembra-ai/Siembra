@@ -35668,4 +35668,324 @@ window.dNav = function(page) {
   }
 };
 
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 1 — Sincronizar docAlumnos con alumnos reales de Supabase
+// Fuente de verdad: window._alumnosActivos
+// ══════════════════════════════════════════════════════════════════
+
+const COLORES_AVATAR_DOC = [
+  '#0d5c2f','#2563eb','#7c3aed','#dc2626','#0891b2',
+  '#d97706','#059669','#7c3aed','#b91c1c','#1d4ed8',
+  '#6d28d9','#0f766e','#7e22ce','#c2410c','#166534',
+];
+
+function sincronizarDocAlumnos() {
+  const activos = window._alumnosActivos || [];
+  if (!activos.length) return false; // Mantener demo si no hay datos reales
+
+  // Solo actualizar si son alumnos reales (no demo)
+  const sonReales = activos.some(a => !String(a.id||'').startsWith('demo-'));
+  if (!sonReales) return false;
+
+  docAlumnos = activos.map((a, i) => {
+    const nombreCompleto = a.n || `${a.nombre||''} ${a.apellido_p||''}`.trim();
+    const partes = nombreCompleto.split(' ');
+    const nombre  = partes[0] || '—';
+    const apellido = partes.slice(1).join(' ') || '';
+    // Conservar etiquetas existentes si el alumno ya estaba
+    const existing = docAlumnos.find(d => d.id === a.id);
+    return {
+      id:       a.id,
+      nombre,
+      apellido,
+      etiquetas: existing?.etiquetas || [],
+      color:    COLORES_AVATAR_DOC[i % COLORES_AVATAR_DOC.length],
+      curp:     a.curp || '',
+      num_lista: a.num_lista || (i + 1),
+    };
+  });
+
+  // Ordenar por apellido (igual que lista)
+  docAlumnos.sort((a, b) => (a.apellido||'').localeCompare(b.apellido||'', 'es-MX'));
+  return true;
+}
+
+// Parche: dNav → sincronizar al ir a etiquetas o acomodo
+const _dNavOrig4 = window.dNav;
+window.dNav = function(page) {
+  _dNavOrig4?.(page);
+  if (page === 'etiquetas' || page === 'acomodo' || page === 'alumnos') {
+    sincronizarDocAlumnos();
+    if (typeof renderAlumnosDoc === 'function') renderAlumnosDoc();
+    if (typeof renderUnassignedDoc === 'function') renderUnassignedDoc();
+  }
+};
+
+// Parche: calCambiarGrupo → sincronizar después de cargar alumnos del nuevo grupo
+const _calCambiarGrupoOrig = window.calCambiarGrupo;
+window.calCambiarGrupo = async function(grupoId) {
+  await _calCambiarGrupoOrig?.(grupoId);
+  // Sincronizar docAlumnos con el nuevo grupo
+  setTimeout(() => {
+    if (sincronizarDocAlumnos()) {
+      if (typeof renderAlumnosDoc === 'function') renderAlumnosDoc();
+    }
+  }, 500);
+};
+
+// Ejecutar al cargar datos iniciales
+window.addEventListener('siembra:datos-cargados', () => {
+  setTimeout(() => {
+    if (sincronizarDocAlumnos()) {
+      if (typeof renderAlumnosDoc === 'function') renderAlumnosDoc();
+    }
+  }, 1200);
+});
+
+window.sincronizarDocAlumnos = sincronizarDocAlumnos;
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 2 — Forzar nivel/grado correcto ANTES de renderizar tabs
+// Evita que MATERIAS_NEM retorne primaria cuando el grupo es secundaria
+// ══════════════════════════════════════════════════════════════════
+
+function forzarNivelDesdeGrupoActivo() {
+  const g = (window._gruposDocente||[]).find(x => x.id === window._grupoActivo)
+         || window._gruposDocente?.[0];
+  if (!g) return;
+
+  const nivel = g.nivel || 'secundaria';
+  const grado = String(g.grado||'1').replace(/[°\s]/g,'').trim();
+
+  // Solo actualizar si hay cambio real
+  if (window._nivelActivo !== nivel || window._gradoActivo !== grado) {
+    window._nivelActivo = nivel;
+    window._gradoActivo = grado;
+    try { localStorage.setItem('siembra_nivel', nivel); } catch(e) {}
+  }
+
+  // Si no hay materias asignadas aún, usar las del grado
+  if (!window._materiasDocente?.length || window._materiasDocente[0]?.includes('Materna')) {
+    // Las materias de primaria tienen nombres largos — detectar y reemplazar
+    const mats = nivel === 'secundaria'
+      ? (window.MATERIAS_SECUNDARIA_POR_GRADO?.[grado] || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1'] || [])
+      : getMateriasByNivel('primaria');
+    window._materiasDocente  = mats;
+    window._materiasFiltered = mats;
+  }
+}
+
+// Parche: calRenderMatTabs → forzar nivel antes de renderizar
+const _calRenderMatTabsOrig = window.calRenderMatTabs;
+window.calRenderMatTabs = function() {
+  forzarNivelDesdeGrupoActivo();
+  return _calRenderMatTabsOrig?.();
+};
+
+// Parche: calInit → forzar nivel antes de inicializar
+const _calInitOrig = window.calInit;
+window.calInit = async function() {
+  forzarNivelDesdeGrupoActivo();
+  return _calInitOrig?.();
+};
+
+// Ejecutar al cargar
+window.addEventListener('siembra:datos-cargados', () => {
+  setTimeout(() => {
+    forzarNivelDesdeGrupoActivo();
+    if (typeof calRenderMatTabs === 'function') calRenderMatTabs();
+  }, 800);
+});
+
+window.forzarNivelDesdeGrupoActivo = forzarNivelDesdeGrupoActivo;
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 3 — Cambio de grupo completamente limpio y atómico
+// Reemplaza calCambiarGrupo con versión que limpia todo correctamente
+// ══════════════════════════════════════════════════════════════════
+
+async function calCambiarGrupoCompleto(grupoId) {
+  if (!grupoId || grupoId === window._grupoActivo) return;
+
+  const g = (window._gruposDocente||[]).find(x => x.id === grupoId);
+  if (!g) { hubToast('⚠️ Grupo no encontrado', 'warn'); return; }
+
+  // ── FASE 1: Limpiar estado anterior completamente ──────────────
+  window._grupoActivo = grupoId;
+  window._alumnosActivos = [];
+  window._materiasDocente = [];
+  window._materiasFiltered = [];
+  window._docenteAsignaciones = null;
+  alumnos.length = 0;
+  CAL_DATA = {};
+  CAL_ASPECTOS = {};
+
+  // ── FASE 2: Actualizar nivel y grado del nuevo grupo ──────────
+  const nivel = g.nivel || 'secundaria';
+  const grado = String(g.grado||'1').replace(/[°\s]/g,'').trim();
+  window._nivelActivo = nivel;
+  window._gradoActivo = grado;
+  try { localStorage.setItem('siembra_nivel', nivel); } catch(e) {}
+
+  // Materias del grado como punto de partida
+  const matsGrado = nivel === 'secundaria'
+    ? (window.MATERIAS_SECUNDARIA_POR_GRADO?.[grado] || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1'] || [])
+    : getMateriasByNivel('primaria');
+  window._materiasDocente  = matsGrado;
+  window._materiasFiltered = matsGrado;
+
+  // Nombre del grupo
+  const nom = typeof resolverNombreGrupo==='function' ? resolverNombreGrupo(g) : (g.nombre||grado+'° A');
+
+  // ── FASE 3: Actualizar UI con estado vacío primero ─────────────
+  const calH2 = document.getElementById('cal-titulo-h2');
+  if (calH2) calH2.textContent = `Calificaciones · ${nom}`;
+
+  const topTitle = document.getElementById('page-title');
+  if (topTitle) topTitle.textContent = `Calificaciones · ${nom}`;
+
+  const roleEl = document.querySelector('#doc-portal .user-role');
+  if (roleEl) roleEl.textContent = `Docente · ${nom}`;
+
+  // Inicializar CAL_DATA con materias del grado
+  matsGrado.forEach(mat => {
+    CAL_ASPECTOS[mat] = ASPECTOS_DEFAULT.map(a => ({...a}));
+    CAL_DATA[mat] = { 1:{}, 2:{}, 3:{} };
+  });
+
+  hubToast(`⏳ Cargando ${nom}…`, 'ok');
+
+  // ── FASE 4: Cargar datos reales de Supabase ───────────────────
+  if (window.sb && window.currentPerfil) {
+    try {
+      // 4a. Alumnos del grupo
+      const alumnosDB = await calCargarAlumnosGrupo(grupoId);
+      window._alumnosActivos = alumnosDB;
+      alumnos.length = 0;
+      alumnosDB.forEach(a => alumnos.push(a));
+
+      // 4b. Materias asignadas al docente en este grupo
+      const { data: asigs } = await window.sb.from('docente_grupos')
+        .select('materia, grupo_id, grupos(id,nombre,grado,seccion,nivel)')
+        .eq('docente_id', window.currentPerfil.id)
+        .eq('grupo_id', grupoId)
+        .eq('activo', true)
+        .eq('ciclo', window.CICLO_ACTIVO || '2025-2026');
+
+      if (asigs?.length) {
+        const mats = [...new Set(asigs.map(r => r.materia).filter(Boolean))];
+        window._materiasDocente  = mats;
+        window._materiasFiltered = mats;
+        // Re-inicializar CAL_DATA con materias asignadas
+        mats.forEach(mat => {
+          if (!CAL_DATA[mat]) CAL_DATA[mat] = { 1:{}, 2:{}, 3:{} };
+          if (!CAL_ASPECTOS[mat]) CAL_ASPECTOS[mat] = ASPECTOS_DEFAULT.map(a => ({...a}));
+        });
+      }
+
+      window._docenteAsignaciones = asigs || [];
+
+      // 4c. Calificaciones y aspectos
+      await calCargarAspectos(grupoId);
+      await calCargarCalificacionesDB(grupoId);
+
+    } catch(e) {
+      console.warn('[calCambiarGrupoCompleto]', e.message);
+    }
+  }
+
+  // ── FASE 5: Re-render completo ────────────────────────────────
+  if (typeof cambiarNivel === 'function') cambiarNivel(nivel);
+  if (typeof calRenderSelectorGrupos === 'function') calRenderSelectorGrupos();
+  if (typeof calRenderMatTabs === 'function') calRenderMatTabs();
+  if (typeof calRenderTabla === 'function') calRenderTabla();
+  if (typeof calRenderStats === 'function') calRenderStats();
+  if (typeof dRenderDash === 'function') dRenderDash();
+
+  // Sincronizar alumnos y etiquetas
+  if (typeof sincronizarDocAlumnos === 'function') {
+    setTimeout(() => {
+      sincronizarDocAlumnos();
+      if (typeof renderAlumnosDoc === 'function') renderAlumnosDoc();
+    }, 300);
+  }
+
+  hubToast(`✅ ${nom} · ${window._alumnosActivos.length} alumnos · ${window._materiasDocente.length} materias`, 'ok');
+}
+
+// Reemplazar calCambiarGrupo con la versión completa
+window.calCambiarGrupo = calCambiarGrupoCompleto;
+window.calCambiarGrupoCompleto = calCambiarGrupoCompleto;
+
+// ══════════════════════════════════════════════════════════════════
+// AGENTE 4 — Monitor de consistencia de datos
+// Detecta cuando hay datos demo activos y los reemplaza con reales
+// ══════════════════════════════════════════════════════════════════
+
+async function monitorConsistencia() {
+  if (!window.sb || !window.currentPerfil) return;
+
+  const grupoActivo = window._grupoActivo;
+  if (!grupoActivo) return;
+
+  // Detectar si hay datos demo activos
+  const tieneDemo = (window._alumnosActivos||[]).some(a => String(a.id||'').startsWith('demo-'))
+                 || (alumnos||[]).some(a => String(a.id||'').startsWith('demo-'))
+                 || !(window._alumnosActivos?.length);
+
+  if (tieneDemo) {
+    console.log('[Monitor] Datos demo detectados, recargando desde Supabase…');
+    try {
+      const alumnosDB = await calCargarAlumnosGrupo(grupoActivo);
+      if (alumnosDB.length) {
+        window._alumnosActivos = alumnosDB;
+        alumnos.length = 0;
+        alumnosDB.forEach(a => alumnos.push(a));
+        if (typeof calRenderTabla === 'function') calRenderTabla();
+        if (typeof calRenderStats === 'function') calRenderStats();
+        if (typeof dRenderDash === 'function') dRenderDash();
+        if (typeof sincronizarDocAlumnos === 'function') {
+          sincronizarDocAlumnos();
+          if (typeof renderAlumnosDoc === 'function') renderAlumnosDoc();
+        }
+        console.log('[Monitor] ✅ Datos reales cargados:', alumnosDB.length, 'alumnos');
+      }
+    } catch(e) {
+      console.warn('[Monitor]', e.message);
+    }
+  }
+
+  // Detectar materias de primaria en grupo de secundaria
+  const g = (window._gruposDocente||[]).find(x => x.id === grupoActivo);
+  if (g?.nivel === 'secundaria' && window._materiasDocente?.some(m =>
+    m.includes('Materna') || m.includes('Conocimiento') || m.includes('Artística') || m.includes('Saludable')
+  )) {
+    console.log('[Monitor] Materias de primaria detectadas en grupo secundaria, corrigiendo…');
+    const grado = String(g.grado||'1').replace(/[°\s]/g,'').trim();
+    const mats = window.MATERIAS_SECUNDARIA_POR_GRADO?.[grado]
+              || window.MATERIAS_SECUNDARIA_POR_GRADO?.['1']
+              || [];
+    window._materiasDocente  = mats;
+    window._materiasFiltered = mats;
+    if (typeof calRenderMatTabs === 'function') calRenderMatTabs();
+    console.log('[Monitor] ✅ Materias corregidas a secundaria:', mats.join(', '));
+  }
+}
+
+// Ejecutar monitor al navegar a secciones clave
+const _dNavOrig5 = window.dNav;
+window.dNav = function(page) {
+  _dNavOrig5?.(page);
+  if (['calificaciones','dashboard','asistencia','etiquetas'].includes(page)) {
+    setTimeout(monitorConsistencia, 600);
+  }
+};
+
+// Ejecutar al cargar
+window.addEventListener('siembra:datos-cargados', () => {
+  setTimeout(monitorConsistencia, 1500);
+});
+
+window.monitorConsistencia = monitorConsistencia;
+
 </script>
