@@ -13,7 +13,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- ══ SUPABASE SDK ══ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="siembra-services.js"></script>
 <script>
 // ══════════════════════════════════════════
 // SUPABASE CONFIG — SIEMBRA
@@ -41,7 +40,10 @@ async function callAI({ feature, prompt, system, context }) {
   return data.text || '';
 }
 let sb = null;
-try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch(e) { console.warn('Supabase init error:', e); }
+try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); window.sb = sb; } catch(e) { console.warn('Supabase init error:', e); }
+</script>
+<script src="siembra-services.js"></script>
+<script>
 
 // Usuario actual en sesión
 let currentUser = null;
