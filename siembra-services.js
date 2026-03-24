@@ -82,10 +82,7 @@
         }
 
         // Actualizar último acceso
-        await sb().from('usuarios')
-          .update({ ultimo_acceso: new Date().toISOString() })
-          .eq('id', perfil.id)
-          .catch(() => {});
+        try { await sb().from('usuarios').update({ ultimo_acceso: new Date().toISOString() }).eq('id', perfil.id); } catch(_){} 
 
         sessionStorage.setItem('siembra_login_ts', Date.now().toString());
         sessionStorage.setItem('siembra_last_activity', Date.now().toString());
@@ -157,7 +154,22 @@
 
         // 2. Crear cuenta Auth
         const { data: authData, error: ae } = await sb().auth.signUp({ email, password });
-        if (ae) throw ae;
+        // Manejar email ya registrado (409 o mensaje de error)
+        if (ae) {
+          const alreadyExists = ae.status === 409 || 
+            (ae.message || '').toLowerCase().includes('already registered') ||
+            (ae.message || '').toLowerCase().includes('already exists') ||
+            (ae.message || '').toLowerCase().includes('user already');
+          if (alreadyExists) {
+            const { data: sData, error: sErr } = await sb().auth.signInWithPassword({ email, password });
+            if (sErr) throw new Error('El correo ya está registrado con otra contraseña. Usa la contraseña original o pide nueva invitación.');
+            const authUser = sData.user;
+            try { await sb().from('usuarios').update({ activo: true, escuela_cct: inv.escuela_cct||null }).eq('auth_id', authUser.id); } catch(_){}
+            await sb().from('invitaciones').update({ estado: 'usado', usado_at: new Date().toISOString() }).eq('token', token);
+            return _ok({ authUser, perfil: { rol: inv.rol } });
+          }
+          throw ae;
+        }
         const authUser = authData.user;
         if (!authUser) throw new Error('No se pudo crear la cuenta. Intenta de nuevo.');
 
@@ -518,9 +530,7 @@
           await grupoService.inscribirAlumno({ alumnoId: usr.id, grupoId });
 
           // 3. Crear perfil XP
-          await sb().from('perfil_alumno')
-            .insert({ alumno_id: usr.id, xp_total: 0, racha_dias: 0, nivel: 1, nivel_planta: 1 })
-            .catch(() => {});
+          try { await sb().from('perfil_alumno').insert({ alumno_id: usr.id, xp_total: 0, racha_dias: 0, nivel: 1, nivel_planta: 1 }); } catch(_){}
         }
 
         return _ok(usr);
@@ -852,9 +862,7 @@
           entregada: false,
         }));
 
-        await sb().from('tareas_entregas')
-          .upsert(rows, { onConflict: 'tarea_id,alumno_id' })
-          .catch(() => {});
+        try { await sb().from('tareas_entregas').upsert(rows, { onConflict: 'tarea_id,alumno_id' }); } catch(_){}
       } catch (e) {
         console.warn('[tareaService._crearEntregas]', e.message);
       }
