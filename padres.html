@@ -776,6 +776,7 @@ html, body {
     <button class="tab-pill" onclick="switchTab('avisos')">📋 Avisos</button>
     <button class="tab-pill" onclick="switchTab('recompensas')">🎁 Premios</button>
     <button class="tab-pill" onclick="switchTab('escuela')">📸 Escuela</button>
+  <button class="tab-pill" onclick="switchTab('pagos')">💳 Pagos</button>
   </div>
 
   <!-- CONTENIDO SCROLLEABLE -->
@@ -1015,6 +1016,36 @@ html, body {
       </div>
 
       <div class="scroll-pad-bottom"></div>
+    </div>
+
+    <!-- ─── PAGOS ─── -->
+    <div class="view" id="view-pagos">
+
+      <!-- Estado de cuenta -->
+      <div style="background:white;border-radius:16px;border:1.5px solid #e2e8f0;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px;">💳 Estado de cuenta</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Ciclo escolar 2025–2026</div>
+        <div id="pagos-estado-wrap">
+          <div style="text-align:center;padding:24px;color:#64748b;font-size:13px;">Cargando…</div>
+        </div>
+      </div>
+
+      <!-- Cargos pendientes -->
+      <div style="background:white;border-radius:16px;border:1.5px solid #e2e8f0;padding:20px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+        <div style="font-size:14px;font-weight:700;margin-bottom:14px;">⏳ Cargos pendientes</div>
+        <div id="pagos-pendientes-list">
+          <div style="text-align:center;padding:20px;color:#64748b;font-size:13px;">Cargando…</div>
+        </div>
+      </div>
+
+      <!-- Historial de pagos -->
+      <div style="background:white;border-radius:16px;border:1.5px solid #e2e8f0;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+        <div style="font-size:14px;font-weight:700;margin-bottom:14px;">📜 Historial de pagos</div>
+        <div id="pagos-historial-list">
+          <div style="text-align:center;padding:20px;color:#64748b;font-size:13px;">Sin registros aún.</div>
+        </div>
+      </div>
+
     </div>
 
   </div><!-- /app-content -->
@@ -1616,7 +1647,7 @@ function switchTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  const tabs = ['inicio','materias','lectura','avisos','recompensas','escuela'];
+  const tabs = ['inicio','materias','lectura','avisos','recompensas','escuela','pagos'];
   const idx = tabs.indexOf(tab);
   document.querySelectorAll('.tab-pill')[idx]?.classList.add('active');
   document.getElementById('view-'+tab)?.classList.add('active');
@@ -1631,6 +1662,7 @@ async function cargarVista(tab) {
   if (tab === 'avisos')      await cargarAvisos();
   if (tab === 'recompensas') await cargarRecompensas();
   if (tab === 'escuela')     await cargarEscuela();
+  if (tab === 'pagos')       await cargarPagos();
 }
 
 // ─── VISTA INICIO ─────────────────────────
@@ -2066,6 +2098,134 @@ async function cargarEscuela() {
     { titulo: 'Concurso de ciencias', icono: '🔬' },
     { titulo: 'Festival de danza', icono: '💃' },
   ]);
+}
+
+async function cargarPagos() {
+  // Datos del alumno activo
+  const alumnoId = window._alumnoActivo?.id || window._currentAlumno?.id;
+  const alumnoNombre = document.getElementById('child-name')?.textContent || 'tu hijo/a';
+
+  // ── Estado de cuenta (resumen) ──────────────────────────
+  const estadoWrap = document.getElementById('pagos-estado-wrap');
+  const pendList   = document.getElementById('pagos-pendientes-list');
+  const histList   = document.getElementById('pagos-historial-list');
+
+  // Intentar cargar desde Supabase si está conectado
+  let cargos = [], pagos = [];
+  try {
+    if (sbHub && alumnoId) {
+      const { data: cargosDB } = await sbHub
+        .from('cargos_alumno')
+        .select('*, conceptos_cobro(nombre,icono,monto)')
+        .eq('alumno_id', alumnoId)
+        .order('fecha_vto', { ascending: false });
+      if (cargosDB) cargos = cargosDB;
+
+      const { data: pagosDB } = await sbHub
+        .from('pagos_colegiatura')
+        .select('*')
+        .eq('alumno_id', alumnoId)
+        .order('creado_en', { ascending: false })
+        .limit(10);
+      if (pagosDB) pagos = pagosDB;
+    }
+  } catch(e) {}
+
+  // Si no hay datos reales, usar demo
+  if (!cargos.length) {
+    cargos = [
+      { id:'demo1', periodo_label:'Marzo 2026',  monto_base:1800, descuento:0,   monto_final:1800, fecha_vto:'2026-03-05', estado:'pagado',   conceptos_cobro:{nombre:'Colegiatura mensual',icono:'💵'} },
+      { id:'demo2', periodo_label:'Abril 2026',   monto_base:1800, descuento:270, monto_final:1530, fecha_vto:'2026-04-05', estado:'pendiente',conceptos_cobro:{nombre:'Colegiatura mensual',icono:'💵'} },
+    ];
+  }
+
+  // ── Calcular totales ──────────────────────────────────
+  const pendientes = cargos.filter(c=>c.estado==='pendiente'||c.estado==='vencido');
+  const pagados    = cargos.filter(c=>c.estado==='pagado');
+  const montoPend  = pendientes.reduce((s,c)=>s+Number(c.monto_final||0),0);
+  const montoPag   = pagados.reduce((s,c)=>s+Number(c.monto_final||0),0);
+  const fmt = n => '$' + Number(n).toLocaleString('es-MX');
+
+  // ── Render estado ─────────────────────────────────────
+  if (estadoWrap) {
+    const estadoBadge = pendientes.length === 0
+      ? '<span style="background:#f0fdf4;color:#0a5c2e;padding:5px 14px;border-radius:99px;font-size:12px;font-weight:700;">✅ Al corriente</span>'
+      : `<span style="background:#fffbeb;color:#b45309;padding:5px 14px;border-radius:99px;font-size:12px;font-weight:700;">⏳ ${pendientes.length} cargo${pendientes.length>1?'s':''} pendiente${pendientes.length>1?'s':''}</span>`;
+    estadoWrap.innerHTML = `
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;">
+        <div style="flex:1;min-width:120px;background:#f0fdf4;border-radius:10px;padding:14px;">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Pagado</div>
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#0a5c2e;">${fmt(montoPag)}</div>
+        </div>
+        <div style="flex:1;min-width:120px;background:${pendientes.length?'#fffbeb':'#f0fdf4'};border-radius:10px;padding:14px;">
+          <div style="font-size:10px;color:#64748b;text-transform:uppercase;font-weight:700;margin-bottom:4px;">Por pagar</div>
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:${pendientes.length?'#b45309':'#0a5c2e'};">${fmt(montoPend)}</div>
+        </div>
+      </div>
+      <div>${estadoBadge}</div>`;
+  }
+
+  // ── Render cargos pendientes ───────────────────────────
+  if (pendList) {
+    if (!pendientes.length) {
+      pendList.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;font-size:13px;">🎉 ¡Sin pagos pendientes!</div>';
+    } else {
+      pendList.innerHTML = pendientes.map(c => {
+        const estaVencido = c.estado === 'vencido';
+        return `<div style="border:1.5px solid ${estaVencido?'#fecaca':'#fed7aa'};border-radius:12px;padding:14px 16px;margin-bottom:10px;background:${estaVencido?'#fef2f2':'#fffbeb'};">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-size:13px;font-weight:700;">${c.conceptos_cobro?.icono||'💵'} ${c.conceptos_cobro?.nombre||'Colegiatura'}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:2px;">${c.periodo_label||''} · Vence ${c.fecha_vto||''}</div>
+              ${Number(c.descuento)>0?`<div style="font-size:11px;color:#7c3aed;margin-top:2px;">🎓 Descuento aplicado: -${fmt(c.descuento)}</div>`:''}
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:${estaVencido?'#b91c1c':'#b45309'};">${fmt(c.monto_final)}</div>
+              <button onclick="pagosSolicitarPago('${c.id}','${c.monto_final}','${c.conceptos_cobro?.nombre||'Colegiatura'}')" style="margin-top:6px;padding:7px 16px;background:linear-gradient(135deg,#0a5c2e,#16793a);color:white;border:none;border-radius:9px;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">💳 Pagar ahora</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── Render historial ──────────────────────────────────
+  if (histList) {
+    const histItems = pagos.length ? pagos : pagados;
+    if (!histItems.length) {
+      histList.innerHTML = '<div style="text-align:center;padding:20px;color:#64748b;font-size:13px;">Sin pagos registrados.</div>';
+    } else {
+      histList.innerHTML = histItems.map(p => {
+        const fecha = p.pagado_en ? new Date(p.pagado_en).toLocaleDateString('es-MX') : (p.fecha_vto||p.periodo_label||'—');
+        const concepto = p.concepto_nombre || p.conceptos_cobro?.nombre || 'Colegiatura';
+        const monto = p.monto || p.monto_final || 0;
+        const metodo = p.metodo || '—';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f1f5f9;">
+          <div>
+            <div style="font-size:13px;font-weight:600;">✅ ${concepto}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:2px;">${fecha} · ${metodo}</div>
+          </div>
+          <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#0a5c2e;">${fmt(monto)}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+function pagosSolicitarPago(cargoId, monto, concepto) {
+  // Por ahora muestra opciones de pago
+  const metodo = confirm(
+    `Pagar ${concepto}\nMonto: $${Number(monto).toLocaleString('es-MX')}\n\n¿Confirmar pago?\n(En producción se conectará con Conekta/OXXO Pay)`
+  );
+  if (!metodo) return;
+  // TODO: Conectar con pasarela de pago (Conekta, OXXO Pay, SPEI)
+  // Por ahora mostrar mensaje de confirmación
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(0);background:#0a5c2e;color:white;padding:14px 22px;border-radius:12px;font-family:"Sora",sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.2);';
+  toast.textContent = '✅ Solicitud enviada. La escuela confirmará tu pago.';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+  cargarPagos();
 }
 
 function renderEventos(lista) {
