@@ -8788,8 +8788,7 @@ async function initApp() {
           const { data: asignaciones } = await sb.from('docente_grupos')
             .select('materia, campo_formativo, grupo_id, grupos(id,nombre,grado,seccion,nivel)')
             .eq('docente_id', currentPerfil.id)
-            .eq('activo', true)
-            .eq('ciclo', window.CICLO_ACTIVO || '2025-2026');
+            .eq('activo', true);
 
           if (asignaciones?.length) {
             // Filtrar asignaciones del grupo activo primero
@@ -8831,8 +8830,9 @@ async function initApp() {
             });
 
             console.log('[Docente] Materias asignadas:', mats.length, '→', mats.join(', '));
-          } else {
+          } else if (!window._materiasDocente?.length) {
             // Sin asignaciones en docente_grupos — usar materias del grado del grupo activo
+            // Solo si _materiasDocente no fue ya cargada por calInit u otro proceso
             const grupoAct = (window._gruposDocente||[]).find(g=>g.id===window._grupoActivo) || window._gruposDocente?.[0];
             const grado = grupoAct?.grado || '1';
             const nivelAct = grupoAct?.nivel || window._nivelActivo || currentPerfil.nivel || 'secundaria';
@@ -8876,6 +8876,12 @@ async function initApp() {
           window._materiasDocente  = fromGrupos;
           window._materiasFiltered = fromGrupos;
         }
+
+        // ── Refrescar UI con materias correctas ya cargadas ──────────────
+        // Necesario porque cambiarNivel() a 100ms renderiza antes de que
+        // las materias de docente_grupos estén disponibles
+        if (typeof calRenderMatTabs === 'function') calRenderMatTabs();
+        if (typeof obsPoblarSelects  === 'function') obsPoblarSelects();
 
         // 6. Construir selector de grupos si hay más de uno
         if (gruposDB.length > 1) {
@@ -9657,7 +9663,9 @@ function calRenderMatButtons() {
 }
 
 function obsActualizarMaterias() {
-  const mats = getMateriasByNivel(window._nivelActivo);
+  const mats = window._materiasDocente?.length
+    ? window._materiasDocente
+    : getMateriasByNivel(window._nivelActivo);
   document.querySelectorAll('#obs-filtro-materia, #cal-mat-obs-sel, select[id*="materia"]').forEach(sel => {
     const cur = sel.value;
     sel.innerHTML = `<option value="">Todas las materias</option>` + 
